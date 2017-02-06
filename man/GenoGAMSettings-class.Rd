@@ -12,6 +12,9 @@ GenoGAMSettings(...)
 \item{...}{Any parameters corresponding to the slots and their possible
 values.}
 }
+\value{
+An object of class GenoGAMSettings
+}
 \description{
 This class is designed to store global settings for the computation of the
 GenoGAM package
@@ -55,6 +58,21 @@ See ?optim for a complete list.}
 complete list.}
 }}
 
+\examples{
+# Construct the class
+GenoGAMSettings()
+
+# Construct the class with custom parameters
+## specify chromosomes
+center <- FALSE
+chromosomeList <- c('chr1', 'chr2')
+GenoGAMSettings(center = center, chromosomeList = chromosomeList)
+
+## Specify ranges
+gr <- GRanges("chr1", IRanges(1, 10000))
+bamParams <- ScanBamParam(which = gr)
+GenoGAMSettings(bamParams = bamParams, center = TRUE)
+}
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}
 }

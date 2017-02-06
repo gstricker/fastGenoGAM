@@ -40,6 +40,20 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' case.
 #' @name GenoGAMSettings-class
 #' @rdname GenoGAMSettings-class
+#' @examples
+#' # Construct the class
+#' GenoGAMSettings()
+#' 
+#' # Construct the class with custom parameters
+#' ## specify chromosomes
+#' center <- FALSE
+#' chromosomeList <- c('chr1', 'chr2')
+#' GenoGAMSettings(center = center, chromosomeList = chromosomeList)
+#' 
+#' ## Specify ranges
+#' gr <- GRanges("chr1", IRanges(1, 10000))
+#' bamParams <- ScanBamParam(which = gr)
+#' GenoGAMSettings(bamParams = bamParams, center = TRUE)
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @exportClass GenoGAMSettings
 setClass("GenoGAMSettings",
@@ -91,6 +105,7 @@ setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
 #' The Constructor function for GenoGAMSettings is merely a wrapper for
 #' new("GenoGAMSettings", ...)
 #' 
+#' @return An object of class GenoGAMSettings
 #' @name GenoGAMSettings
 #' @rdname GenoGAMSettings-class
 #' @export
