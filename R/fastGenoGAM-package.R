@@ -1,6 +1,6 @@
-#' GenoGAM: A package providing a framework to analyse ChIP-Seq data
+#' fastGenoGAM: A package providing a framework to analyse ChIP-Seq data
 #' 
-#' @name GenoGAM
+#' @name fastGenoGAM
 #' @import S4Vectors
 #' @import BiocParallel
 #' @import Rsamtools
@@ -16,9 +16,7 @@
 #' @import GenomicRanges
 #' @import methods
 #' @import DESeq2
-#' @import mgcv
 #' @importFrom futile.logger flog.info
 #' @importFrom futile.logger flog.warn
 #' @importFrom futile.logger flog.error
-#' @importFrom reshape2 melt
 NULL

@@ -1,4 +1,4 @@
 library(testthat)
-library(GenoGAM)
+library(fastGenoGAM)
 
-test_check("GenoGAM")
+test_check("fastGenoGAM")
