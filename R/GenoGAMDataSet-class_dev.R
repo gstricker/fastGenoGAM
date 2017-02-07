@@ -1,7 +1,6 @@
 ## ====================
 ## GenoGAMDataset class
 ## ====================
-
 #' @include GenoGAMSettings-class.R
 NULL
 
@@ -22,6 +21,8 @@ NULL
 #' @slot index A GRanges object representing an index of the ranges defined 
 #' on the genome. Mostly used to store tiles.
 #' @details For all other slots see SummarizedExperiment.
+#' @name GenoGAMDataSet-class
+#' @rdname GenoGAMDataSet-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @exportClass GenoGAMDataSet
 setClass("GenoGAMDataSet",
@@ -106,19 +107,16 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @param settings A GenoGAMSettings object. Not needed by default, but might
 #' be of use if only specific regions should be read in
 #' See \code{\link{GenoGAMSettings}}.
-#' @param hdf5 Should the data be stored on HDD in HDF5 format. By default this
+#' @param hdf5 Should the data be stored on HDD in HDF5 format? By default this
 #' is disabled, as the Rle representation of count data already provides a
 #' decent compression of the data. However in case of large organisms, a complex
-#' experiment design or just limited memory this might further decrease the
-#' memory footprint. Note this only applies to the input data, results are
-#' usually stored in HDF5 format due to their space requirements of type double.
-
-
-# To write
+#' experiment design or just limited memory, this might further decrease the
+#' memory footprint. Note this only applies to the input count data, results are
+#' usually stored in HDF5 format due to their space requirements for type double.
 #' @param ... Further parameters, mostly for arguments of custom processing
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
-#' @return An object of class GenoGAMDataSet.
+#' @return An object of class \code{\link{GenoGAMDataSet}}.
 #' @details The experimentDesign file/data.frame must contain at least three
 #' columns with fixed names: 'ID', 'file' and 'paired'.The field 'ID' stores
 #' a unique identifier for each alignment file. It is recommended to use short
@@ -132,17 +130,16 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' then the input will be 0 and IP will be 1, since we are interested in the
 #' corrected IP. See examples.
 #'
-#' Design must be a mgcv-like formula. At the moment only the following is
+#' Design must be a formula. At the moment only the following is
 #' possible: Either '~ 1' for a constant. ~ s(x) for a smooth fit over the
 #' entire data. s(x, by = "myColumn"), where 'myColumn' is a column name
 #' in the experimentDesign. This type of formula will then only fit the
-#' samples annotated with 1 in this column.
-#' Or ~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
-#' The last formula lets you combine any number of columns, given they are
-#' binary with 0 and 1. For example the formula for correcting IP for
-#' input would look like this: ~ s(x) + s(x, by = "experiment"), where
-#' 'experiment' is a column with 0s and 1s, with the ip samples annotated
-#' with 1 and input samples with 0.
+#' samples annotated with 1 in this column. This can be combined to a more
+#' complex formula as needed:
+#' ~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
+#' For example the formula for correcting IP for input would look like this:
+#' ~ s(x) + s(x, by = "experiment"), where 'experiment' is a column with 0s
+#' and 1s, with the ip samples annotated with 1 and input samples with 0.
 #''
 #' In case of single-end data in might be usefull to specify a different
 #' method for fragment size estimation. The argument 'shiftMethod' can be
@@ -163,15 +160,21 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #'                   experiment = factor(c(0, 0, 1, 1)),
 #'                   stringsAsFactors = FALSE)
 #' 
-#' gtiles <- GenoGAMDataSet(myConfig, chunkSize = 2000,
-#' overhang = 250, design = ~ s(x) + s(x, by = "experiment")
-#' gtiles <- GenoGAMDataSet(myConfig2, chunkSize = 2000,
-#' overhang = 250, design = ~ s(x) + s(x, by = "experiment"))
+#' gdd <- GenoGAMDataSet(myConfig, chunkSize = 2000,
+#' overhangSize = 250, design = ~ s(x) + s(x, by = "experiment")
+#' ggd <- GenoGAMDataSet(myConfig2, chunkSize = 2000,
+#' overhangSize = 250, design = ~ s(x) + s(x, by = "experiment"))
 #' }
-#' ## make a test dataset
-#' ggd <- makeTestGenoGAMDataSet()
+#'
+#' ## build from SummarizedExperiment
+#' gr <- GPos(GRanges("chr1", IRanges(1, 100)))
+#' df <- DataFrame(colA = 1:100, colB = 101:200)
+#' se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
+#' ggd <- GenoGAMDataset(se, chunkSize = 2000, overhangSize = 250, 
+#'                       design = ~ s(x) + s(x, by = "experiment"))
 #' ggd
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @name GenoGAMDataSet
+#' @rdname GenoGAMDataSet-class
 #' @export
 GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
                            directory = ".", settings = NULL, hdf5 = FALSE, ...) {
@@ -220,6 +223,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     return(gt)
 }
 
+#' The underlying function to build a GenoGAMDataSet from a
+#' SummarizedExperiment
+#' 
+#' @noRd
 .GenoGAMDataSetFromSE <- function(se, chunkSize, overhangSize,
                                     design, settings, ...) {
 
@@ -256,8 +263,11 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
 #' A function to produce a GRanges index from a list of settings.
 #'
-#' @param l A list of settings.
-#' @return A |code{GRanges} object of the tiles.
+#' @param l A list of settings involving:
+#' chunkSize, chromosomes, tileSize and overhangSize
+#' @return A GRanges object of the tiles.
+#'
+#' @noRd
 .makeTiles <- function(l) {
 
     if(length(l) == 0) return(GenomicRanges::GRanges())
@@ -313,8 +323,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         return(tiles)
     }
 
+    ## run lambda function
     tileList <- BiocParallel::bplapply(l$chromosomes, lambdaFun, sl = l)
-    
+
+    ## concatenate results into one list
     tiles <- do.call("c", tileList)
     GenomeInfoDb::seqlengths(tiles) <- GenomeInfoDb::seqlengths(l$chromosomes)
     GenomeInfoDb::seqlevels(tiles, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(tiles)
@@ -331,7 +343,9 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 }
 
 
-## check a specified setting
+#' Check a specified setting of GenoGAMDataSet
+#'
+#' @noRd
 .checkSettings <- function(object, params = c("chunkSize", "tileSize",
                                        "equality", "tileRanges"
                                        "chromosomes", "numTiles")) {
