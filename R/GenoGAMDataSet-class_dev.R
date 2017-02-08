@@ -11,16 +11,17 @@ NULL
 #' It extends the RangedSummarizedExperiment class by adding an index
 #' that defines ranges on the entire genome, mostly for purposes of
 #' parallel evaluation. Furthermore adding a couple more slots to hold
-#' information such as experiment design. It also contains the GenoGAMSettings
-#' class that defines globals settings for the session.
+#' information such as experiment design. It also contains the
+#' \code{\link[fastGenoGAM]{GenoGAMSettings}} class that defines global
+#' settings for the session. For information on the slots inherited from
+#' SummarizedExperiment check the respective class.
 #' 
 #' @slot settings The global and local settings that will be used to compute the
 #' model.
-#' @slot design The formula describing how to evaluate the data.
-#' @slot sizeFactors The normalized values for each sample. 
+#' @slot design The formula describing how to evaluate the data. See details.
+#' @slot sizeFactors The normalized values for each sample. A named numeric vector.
 #' @slot index A GRanges object representing an index of the ranges defined 
 #' on the genome. Mostly used to store tiles.
-#' @details For all other slots see SummarizedExperiment.
 #' @name GenoGAMDataSet-class
 #' @rdname GenoGAMDataSet-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -117,31 +118,46 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
 #' @return An object of class \code{\link{GenoGAMDataSet}}.
-#' @details The experimentDesign file/data.frame must contain at least three
-#' columns with fixed names: 'ID', 'file' and 'paired'.The field 'ID' stores
-#' a unique identifier for each alignment file. It is recommended to use short
-#' and easy to understand identifiers because they are subsequently used for
-#' labelling data and plots. The field 'file' stores the BAM file name.
-#' The field 'paired', values TRUE for paired-end sequencing data, and FALSE for
-#' single-end sequencing data.  All other columns are stored in the colData
-#' slot of the GenoGAMDataSet object. Note that all columns which will be used for
-#' analysis must have at most two conditions, which are for now restricted
-#' to 0 and 1. For example, if the IP data schould be corrected for input,
-#' then the input will be 0 and IP will be 1, since we are interested in the
-#' corrected IP. See examples.
+#' @details
+#' Config:
+#' 
+#' The config file/data.frame contains the actual experiment design. It must
+#' contain at least three columns with fixed names: 'ID', 'file' and 'paired'.
 #'
+#' The field 'ID' stores a unique identifier for each alignment file.
+#' It is recommended to use short and easy to understand identifiers because
+#' they are subsequently used for labelling data and plots.
+#'
+#' The field 'file' stores the BAM file name.
+#'
+#' The field 'paired', values TRUE for paired-end sequencing data, and FALSE for
+#' single-end sequencing data.
+#'
+#' All other columns are stored in the colData slot of the GenoGAMDataSet
+#' object. Note that all columns which will be used for analysis must have at
+#' most two conditions, which are for now restricted to 0 and 1. For example,
+#' if the IP data schould be corrected for input, then the input will be 0
+#' and IP will be 1, since we are interested in the corrected IP. See examples.
+#'
+#' Design/Formula:
+#' 
 #' Design must be a formula. At the moment only the following is
-#' possible: Either '~ 1' for a constant. ~ s(x) for a smooth fit over the
-#' entire data. s(x, by = "myColumn"), where 'myColumn' is a column name
-#' in the experimentDesign. This type of formula will then only fit the
-#' samples annotated with 1 in this column. This can be combined to a more
-#' complex formula as needed:
+#' possible: Either ~ s(x) for a smooth fit over the entire data or
+#' s(x, by = "myColumn"), where 'myColumn' is a column name
+#' in the experimentDesign. Any combination of this is possible:
+#' 
 #' ~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
+#' 
 #' For example the formula for correcting IP for input would look like this:
-#' ~ s(x) + s(x, by = "experiment"), where 'experiment' is a column with 0s
-#' and 1s, with the ip samples annotated with 1 and input samples with 0.
+#' 
+#' ~ s(x) + s(x, by = "experiment")
+#'
+#' where 'experiment' is a column with 0s and 1s, with the ip samples annotated
+#' with 1 and input samples with 0.
 #''
-#' In case of single-end data in might be usefull to specify a different
+#' Further parameters:
+#' 
+#' In case of single-end data it might be usefull to specify a different
 #' method for fragment size estimation. The argument 'shiftMethod' can be
 #' supplied with the values 'coverage' (default), 'correlation' or 'SISSR'.
 #' See ?chipseq::estimate.mean.fraglen for explanation.
@@ -343,266 +359,11 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 }
 
 
-#' Check a specified setting of GenoGAMDataSet
-#'
-#' @noRd
-.checkSettings <- function(object, params = c("chunkSize", "tileSize",
-                                       "equality", "tileRanges"
-                                       "chromosomes", "numTiles")) {
-    param <- match.arg(params)
-    switch(param,
-           chunkSize = .checkChunkSize(object),
-           tileSize = .checkTileSize(object),
-           equality = .checkEqualityOfTiles(object),
-           chromosomes = .checkChromosomes(object),
-           numTiles = .checkNumberOfTiles(object),
-           tileRanges = .checkTileRanges(object))
-}
-
-## check the chunk size and return a logical value
-.checkChunkSize <- function(object) {
-    widths <- IRanges::width(getIndex(object))
-    diffs <- (widths - 2*getOverhangSize(object)) - getChunkSize(object)
-    res <- all.equal(widths, rep(0, length(diffs)), tolerance = 0)
-    return(res)
-}
-
-## check the tile size and return a logical value
-.checkTileSize <- function(object) {
-    widths <- IRanges::width(getIndex(object))
-    diffs <- widths - getTileSize(object)
-    res <- all.equal(diffs, rep(0, length(diffs)), tolerance = 1)
-    return(res)
-}
-
-## check the overhang size and return a logical value
-.checkEqualityOfTiles <- function(object) {
-    widths <- width(getIndex(object))
-    res <- all.equal(min(widths), max(widths))
-    return(res)
-}
-
-## check the chromosome list and return a logical value
-.checkChromosomes <- function(object) {
-    objChroms <- sort(GenomeInfoDb::seqlengths(object))
-    indexChroms <- sort(GenomeInfoDb::seqlengths(getIndex(object)))
-    validChroms <- sort(GenomeInfoDb::seqlengths(getChromosomes(object)))
-    res1 <- all.equal(indexChroms, validChroms, objChroms)
-    res2 <- all.equal(names(indexChroms), names(validChroms), names(objChroms))
-    return(res1 & res2)
-}
-
-## check the number of tiles and return a logical value
-.checkNumberOfTiles <- function(object) {
-    tiles <- length(getIndex(object))
-    validTiles <- getTileNumber(object)
-    res <- tiles == validTiles
-    return(res)
-}
-
-## check ranges
-.checkTileRanges <- function(object) {
-    tileRanges <- dataRange(object)
-    dataRanges <- rowRanges(object)
-    res <- all.equal(tileRanges, dataRanges)
-    return(res)
-}
-
-
-.checkGenoGAMDataSet <- function(object) {
-    futile.logger::flog.trace("Check if tile settings match the data.")
-
-    params = c("chunkSize", "tileSize", "tileRanges",
-               "equality", "chromosomes", "numTiles")
-
-    settings <- tileSettings(object)
-    
-    if(is.null(settings$check)) {
-        futile.logger::flog.warn("Checks dismissed due to empty object or forgotten setting")
-        return(FALSE)
-    }
-    if(!settings$check) {
-        futile.logger::flog.warn("Settings checking deactivated. Modeling on these tiles might yield wrong results.")
-        return(FALSE)
-    }
-    res <- sapply(params, .checkSettings, object = object)
-    if(all(res)) {
-        futile.logger::flog.trace("All checks passed.")
-        return(TRUE)
-    }
-    else {
-        futile.logger::flog.error(paste("Checks failed in",
-                         paste(params[!res], collapse = ", ")))
-        return(FALSE)
-    }
-}
-
-#' @rdname checkSettings
-#' @export
-setGeneric("checkObject", function(object) standardGeneric("checkObject")) 
-
-
-#' Check data compliance with tile settings
-#'
-#' Check if the indices were build correctly, according to the
-#' specified parameters
-#'
-#' @rdname checkSettings
-#' @param object A /code{GenomicTiles} object.
-#' @return A logical value
-#' @examples 
-#' gt <- makeTestGenomicTiles()
-#' checkSettings(gt)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-#' @export
-setMethod("checkObject", "GenoGAMDataSet", function(object) {
-    .checkGenoGAMDataSet(object)
-})
-
-
-#' @rdname getIndex
-#' @export
-setGeneric("getIndex", function(object, ...) standardGeneric("getIndex"))
-
-#' Accessor to the 'index' slot
-#'
-#' The index holds the Granges object that splits the entire dataset in
-#' tiles.
-#'
-#' @rdname getIndex
-#' @param object A /code{GenomicTiles} object.
-#' @param id A vector if tile ids. By default the complete index is returned.
-#' @param ... Additional arguments
-#' @return A \code{GRanges} object representing the index
-#' @examples 
-#' gt <- makeTestGenomicTiles()
-#' getIndex(gt)
-#' getIndex(gt, 1:3)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-#' @export
-setMethod("getIndex", signature(object = "GenoGAMDataSet"), function(object, id = NULL) {
-    idx <- slot(object, "index")
-    if(!is.null(id)) {
-        idx <- idx[mcols(idx)$id %in% id]
-    }
-    return(idx)
-})
-
-
-#' @rdname tileSettings
-#' @export
-setGeneric("tileSettings", function(object) standardGeneric("tileSettings"))
-
-#' Return tile settings
-#'
-#' Returns a list settings used to generate the tile index
-#'
-#' @rdname tileSettings
-#' @param object A /code{GenomicTiles} object.
-#' @return A list of tile settings
-#' @examples 
-#' gt <- makeTestGenomicTiles()
-#' tileSettings(gt)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-#' @export
-setMethod("tileSettings", "GenoGAMDataSet", function(object) {
-    metadata(getIndex(object))
-})
-
-#' @rdname dataRange
-#' @export
-setGeneric("dataRange", function(object) standardGeneric("dataRange")) 
-
-#' The /code{GRanges} of the underlying data
-#'
-#' Just like the /code{coordinates} slot but returns the genomic ranges
-#' of the underlying data.
-#'
-#' @rdname dataRange
-#' @param object A /code{GenomicTiles} object.
-#' @return A /code{GRanges} object of genomic ranges of
-#' the underlying data
-#' @examples 
-#' gt <- makeTestGenomicTiles()
-#' dataRange(gt)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-#' @export
-setMethod("dataRange", "GenoGAMDataSet", function(object) {
-    rowRanges(object)@pos_runs
-})
-
-
-#' @rdname tileSettings-elements
-#' @export
-setGeneric("getChromosomes", function(object) standardGeneric("getChromosomes")) 
-
-#' The single entries of the tile settings
-#'
-#' Returns the single elements of the tile settings
-#'
-#' @rdname tileSettings-elements
-#' @param object A /code{GenomicTiles} object.
-#' @param ... Additional arguments
-#' @return An integer value, or in case of /code{getChromosomes}
-#' a /code{GRanges} object
-#' @examples 
-#' gt <- makeTestGenomicTiles()
-#' getChromosomes(gt)
-#' getTileSize(gt)
-#' getChunkSize(gt)
-#' getOverhangSize(gt)
-#' getTileNumber(gt)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-#' @export
-setMethod("getChromosomes", "GenoGAMDataSet", function(object) {
-    tileSettings(object)$chromosomes
-})
-
-#' @rdname tileSettings-elements
-#' @export
-setGeneric("getTileSize", function(object) standardGeneric("getTileSize")) 
-
-#' @rdname tileSettings-elements
-#' @export
-setMethod("getTileSize", "GenoGAMDataSet", function(object) {
-    tileSettings(object)$tileSize
-})
-
-#' @rdname tileSettings-elements
-#' @export
-setGeneric("getChunkSize", function(object) standardGeneric("getChunkSize")) 
-
-#' @rdname tileSettings-elements
-#' @export
-setMethod("getChunkSize", "GenoGAMDataSet", function(object) {
-    tileSettings(object)$chunkSize
-})
-
-#' @rdname tileSettings-elements
-#' @export
-setGeneric("getOverhangSize", function(object) standardGeneric("getOverhangSize")) 
-
-#' @rdname tileSettings-elements
-#' @export
-setMethod("getOverhangSize", "GenoGAMDataSet", function(object) {
-    tileSettings(object)$overhangSize
-})
-
-#' @rdname tileSettings-elements
-#' @export
-setGeneric("getTileNumber", function(object) standardGeneric("getTileNumber")) 
-
-#' @rdname tileSettings-elements
-#' @export
-setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
-    tileSettings(object)$numTiles
-})
-
 #' Convert the config columns to the right type.
 #'
 #' @param config A data.frame with pre-specified columns.
+#' @param directory The directory of the files
 #' @return The same data.frame with the columns of the right type.
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 .normalizeConfig <- function(config, directory) {
     
     if(class(config) == "character") {
@@ -709,6 +470,233 @@ setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
 ## #' @examples
 ## #' test <- makeTestGenoGAMDataSet()
 ## #' @export
+
+## Check functions
+## ===============
+
+#' Check a specified setting of GenoGAMDataSet
+#'
+#' @noRd
+.checkSettings <- function(object, params = c("chunkSize", "tileSize",
+                                       "equality", "tileRanges",
+                                       "chromosomes", "numTiles")) {
+    param <- match.arg(params)
+    switch(param,
+           chunkSize = .checkChunkSize(object),
+           tileSize = .checkTileSize(object),
+           equality = .checkEqualityOfTiles(object),
+           chromosomes = .checkChromosomes(object),
+           numTiles = .checkNumberOfTiles(object),
+           tileRanges = .checkTileRanges(object))
+}
+
+## check the chunk size and return a logical value
+.checkChunkSize <- function(object) {
+    widths <- IRanges::width(getIndex(object))
+    diffs <- (widths - 2*getOverhangSize(object)) - getChunkSize(object)
+    res <- all.equal(widths, rep(0, length(diffs)), tolerance = 0)
+    return(res)
+}
+
+## check the tile size and return a logical value
+.checkTileSize <- function(object) {
+    widths <- IRanges::width(getIndex(object))
+    diffs <- widths - getTileSize(object)
+    res <- all.equal(diffs, rep(0, length(diffs)), tolerance = 1)
+    return(res)
+}
+
+## check the overhang size and return a logical value
+.checkEqualityOfTiles <- function(object) {
+    widths <- width(getIndex(object))
+    res <- all.equal(min(widths), max(widths))
+    return(res)
+}
+
+## check the chromosome list and return a logical value
+.checkChromosomes <- function(object) {
+    objChroms <- sort(GenomeInfoDb::seqlengths(object))
+    indexChroms <- sort(GenomeInfoDb::seqlengths(getIndex(object)))
+    validChroms <- sort(GenomeInfoDb::seqlengths(getChromosomes(object)))
+    res1 <- all.equal(indexChroms, validChroms, objChroms)
+    res2 <- all.equal(names(indexChroms), names(validChroms), names(objChroms))
+    return(res1 & res2)
+}
+
+## check the number of tiles and return a logical value
+.checkNumberOfTiles <- function(object) {
+    tiles <- length(getIndex(object))
+    validTiles <- getTileNumber(object)
+    res <- tiles == validTiles
+    return(res)
+}
+
+## check ranges
+.checkTileRanges <- function(object) {
+    tileRanges <- dataRange(object)
+    dataRanges <- rowRanges(object)
+    res <- all.equal(tileRanges, dataRanges)
+    return(res)
+}
+
+##' Function to check the GenoGAMDataSet object
+##'
+##' @noRd
+.checkGenoGAMDataSet <- function(object) {
+    futile.logger::flog.trace("Check if tile settings match the data.")
+
+    params = c("chunkSize", "tileSize", "tileRanges",
+               "equality", "chromosomes", "numTiles")
+
+    settings <- tileSettings(object)
+    
+    if(is.null(settings$check)) {
+        futile.logger::flog.warn("Checks dismissed due to empty object or forgotten setting")
+        return(FALSE)
+    }
+    if(!settings$check) {
+        futile.logger::flog.warn("Settings checking deactivated. Modeling on these tiles might yield wrong results.")
+        return(FALSE)
+    }
+    res <- sapply(params, .checkSettings, object = object)
+    if(all(res)) {
+        futile.logger::flog.trace("All checks passed.")
+        return(TRUE)
+    }
+    else {
+        futile.logger::flog.error(paste("Checks failed in",
+                         paste(params[!res], collapse = ", ")))
+        return(FALSE)
+    }
+}
+
+#' @noRd
+setGeneric("checkObject", function(object) standardGeneric("checkObject")) 
+
+
+#' Check data compliance with tile settings
+#'
+#' Check if the indices were build correctly, according to the
+#' specified parameters
+#'
+#' @rdname checkObject
+#' @param object A /code{GenomicTiles} object.
+#' @return A logical value
+#' @examples 
+#' gt <- makeTestGenomicTiles()
+#' checkSettings(gt)
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @noRd
+setMethod("checkObject", "GenoGAMDataSet", function(object) {
+    .checkGenoGAMDataSet(object)
+})
+
+
+## Accessors
+## =========
+
+##' @export
+setGeneric("getIndex", function(object) standardGeneric("getIndex"))
+
+
+##' @describeIn GenoGAMDataSet An accessor to the index slot
+setMethod("getIndex", signature(object = "GenoGAMDataSet"), function(object) {
+    return(slot(object, "index"))
+})
+
+
+##' @export
+setGeneric("tileSettings", function(object) standardGeneric("tileSettings"))
+
+##' @describeIn GenoGAMDataSet The accessor to the list of settings,
+##' that were used to generate the tiles.
+setMethod("tileSettings", "GenoGAMDataSet", function(object) {
+    metadata(getIndex(object))
+})
+
+##' @export
+setGeneric("dataRange", function(object) standardGeneric("dataRange")) 
+
+##' @describeIn GenoGAMDataSet The actual underlying GRanges showing
+##' the range of the data.
+setMethod("dataRange", "GenoGAMDataSet", function(object) {
+    rowRanges(object)@pos_runs
+})
+
+##' @export 
+setGeneric("getChromosomes", function(object) standardGeneric("getChromosomes")) 
+
+##' @describeIn GenoGAMDataSet A GRanges object representing the chromosomes
+##' or chromosome regions on which the model will be computed
+setMethod("getChromosomes", "GenoGAMDataSet", function(object) {
+    tileSettings(object)$chromosomes
+})
+
+##' @export 
+setGeneric("getTileSize", function(object) standardGeneric("getTileSize")) 
+
+##' @describeIn GenoGAMDataSet The size of the tiles
+setMethod("getTileSize", "GenoGAMDataSet", function(object) {
+    tileSettings(object)$tileSize
+})
+
+##' @export 
+setGeneric("getChunkSize", function(object) standardGeneric("getChunkSize")) 
+
+##' @describeIn GenoGAMDataSet The size of the chunks
+setMethod("getChunkSize", "GenoGAMDataSet", function(object) {
+    tileSettings(object)$chunkSize
+})
+
+##' @export 
+setGeneric("getOverhangSize", function(object) standardGeneric("getOverhangSize")) 
+
+##' @describeIn GenoGAMDataSet The size of the overhang (on one side)
+setMethod("getOverhangSize", "GenoGAMDataSet", function(object) {
+    tileSettings(object)$overhangSize
+})
+
+##' @export 
+setGeneric("getTileNumber", function(object) standardGeneric("getTileNumber")) 
+
+##' @describeIn GenoGAMDataSet The total number of tiles
+setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
+    tileSettings(object)$numTiles
+})
+
+##' @describeIn GenoGAMDataSet Access to the design slot.
+setMethod("design", "GenoGAMDataSet", function(object) {
+    slot(object, "design")
+})
+
+##' @describeIn GenoGAMDataSet Replace method of the design slot.
+setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
+    slot(object, "design") <- value
+    return(object)
+})
+
+##' @describeIn GenoGAMDataSet Access to the sizeFactors slot
+setMethod("sizeFactors", "GenoGAMDataSet", function(object) {
+    slot(object, "sizeFactors")
+})
+
+##' @describeIn GenoGAMDataSet Replace method of the sizeFactors slot
+setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
+    slot(object, "sizeFactors") <- value
+    return(object)
+})
+
+
+
+
+
+
+
+
+
+
+
+
 ## makeTestGenoGAMDataSet <- function() {
 ##     gp <- GenomicRanges::GPos(GenomicRanges::GRanges(c("chrI", "chrII"), IRanges(c(1,1), c(50,50))))
 ##     df <- DataFrame(a = Rle(1:100), b = Rle(101:200))
@@ -716,73 +704,6 @@ setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
 ##     ggd <- GenoGAMDataSet(se, chunkSize = 15, overhangSize = 3,
 ##                           design = ~s(x))
 ## }
-
-
-
-
-
-
-
-
-
-
-
-
-
-## ## Accessors
-## ## =========
-
-## #' Access the \code{design} slot
-## #'
-## #' The \code{design} slot contains the \code{formula}
-## #' object which is used to fit the model
-## #'
-## #' @param object A GenoGAMDataSet object.
-## #' @param value A \code{formula} object
-## #' @return A \code{formula} object
-## #' @examples
-## #' ggd <- makeTestGenoGAMDataSet()
-## #' design(ggd)
-## #' design(ggd) <- ~1
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @export
-## #' @rdname design
-## setMethod("design", "GenoGAMDataSet", function(object) {
-##     slot(object, "design")
-## })
-
-## #' @export
-## #' @rdname design
-## setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
-##     slot(object, "design") <- value
-##     return(object)
-## })
-
-## #' Access the \code{sizeFactor} slot
-## #'
-## #' The \code{sizeFactor} slot contains the vector of
-## #' normalization values for each sample
-## #'
-## #' @param object A GenoGAMDataSet object.
-## #' @param value A named numeric vector
-## #' @return A named numeric vector
-## #' @examples
-## #' ggd <- makeTestGenoGAMDataSet()
-## #' sizeFactors(ggd)
-## #' sizeFactors(ggd) <- c(a = 5, b = 1/5)
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @export
-## #' @rdname sizeFactors
-## setMethod("sizeFactors", "GenoGAMDataSet", function(object) {
-##     slot(object, "sizeFactors")
-## })
-
-## #' @export
-## #' @rdname sizeFactors
-## setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
-##     slot(object, "sizeFactors") <- value
-##     return(object)
-## })
 
 ## ## Coercion
 ## ## ========
