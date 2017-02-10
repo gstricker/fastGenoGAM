@@ -107,7 +107,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @param directory The directory from which to read the data. By default
 #' the current working directory is taken.
 #' @param settings A GenoGAMSettings object. Not needed by default, but might
-#' be of use if only specific regions should be read in
+#' be of use if only specific regions should be read in.
 #' See \code{\link{GenoGAMSettings}}.
 #' @param hdf5 Should the data be stored on HDD in HDF5 format? By default this
 #' is disabled, as the Rle representation of count data already provides a
@@ -115,6 +115,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' experiment design or just limited memory, this might further decrease the
 #' memory footprint. Note this only applies to the input count data, results are
 #' usually stored in HDF5 format due to their space requirements for type double.
+#' Exceptions are small organisms like yeast.
 #' @param ... Further parameters, mostly for arguments of custom processing
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
@@ -164,27 +165,42 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' supplied with the values 'coverage' (default), 'correlation' or 'SISSR'.
 #' See ?chipseq::estimate.mean.fraglen for explanation.
 #' @examples
-#' \dontrun{
-#' myConfig <- data.frame(ID = c("input","ip"),
-#'                   file = c("myInput.bam", "myIP.bam"),
-#'                   paired = c(FALSE, FALSE),
-#'                   experiment = factor(c(0,1)),
-#'                   stringsAsFactors = FALSE) 
-#' myConfig2 <- data.frame(ID = c("wildtype1","wildtype2",
-#'                               "mutant1", "mutant2"),
-#'                   file = c("myWT1.bam", "myWT2.bam"
-#'                            "myMutant1.bam", "myMutant2.bam"),
-#'                   paired = c(FALSE, FALSE, FALSE, FALSE),
-#'                   experiment = factor(c(0, 0, 1, 1)),
-#'                   stringsAsFactors = FALSE)
+#' # Build from config file
 #' 
-#' gdd <- GenoGAMDataSet(myConfig, chunkSize = 2000,
-#' overhangSize = 250, design = ~ s(x) + s(x, by = "experiment")
-#' ggd <- GenoGAMDataSet(myConfig2, chunkSize = 2000,
-#' overhangSize = 250, design = ~ s(x) + s(x, by = "experiment"))
-#' }
+#' config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
+#' dir <- system.file("extdata/Set1", package = "fastGenoGAM")
 #'
-#' ## build from SummarizedExperiment
+#' ## For all data
+#' df <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir)
+#' df
+#' 
+#' ## Read data of a particular chromosome
+#' settings <- GenoGAMSettings(chromosomeList = "chrXIV")
+#' df <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     settings = settings)
+#' df
+#' 
+#' ## Read data of particular range
+#' region = GRanges("chrXIV", IRanges(305000, 308000))
+#' params <- Rsamtools::ScanBamParam(which = region)
+#' settings <- GenoGAMSettings(bamParams = params)
+#' df <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     settings = settings)
+#' df
+#'
+#' # Build from data.frame config
+#' 
+#' df <- read.table(config, header = TRUE, sep = '\t')
+#' df <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
+#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     settings = settings)
+#' df
+#'
+#' # Build from SummarizedExperiment
+#' 
 #' gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
 #' seqlengths(gr) <- 1e6
 #' df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
@@ -212,9 +228,9 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
                     "  Design: ", design, "\n",
                     "  Directory: ", directory, "\n",
                     "  Settings: ", settings, "\n",
-                    "  HDF5: ", hdf5, "\n",
-                    "  Further parameters: ", list(...), "\n")
+                    "  HDF5: ", hdf5, "\n")
     futile.logger::flog.debug(input)
+    futile.logger::flog.debug(show(list(...)))
 
     if(is.null(settings)) {
         settings <- GenoGAMSettings()
@@ -222,7 +238,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
     if(class(experimentDesign) == "RangedSummarizedExperiment") {
         futile.logger::flog.trace("Building GenoGAMDataSet from SummarizedExperiment object")
-        gt <- .GenoGAMDataSetFromSE(se = experimentDesign,
+        ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
                                     chunkSize = chunkSize,
                                     overhangSize = overhangSize,
                                     design = design,
@@ -230,7 +246,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     }
     else {
         futile.logger::flog.trace(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
-        gt <- .GenoGAMDataSetFromConfig(config = experimentDesign,
+        ggd <- .GenoGAMDataSetFromConfig(config = experimentDesign,
                                         chunkSize = chunkSize,
                                         overhangSize = overhangSize,
                                         design = design,
@@ -238,7 +254,8 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
                                         settings = settings, 
                                         hdf5 = hdf5, ...)
     }
-    
+
+    futile.logger::flog.info("GenoGAMDataSet created")
     return(gt)
 }
 
@@ -249,7 +266,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .GenoGAMDataSetFromSE <- function(se, chunkSize, overhangSize,
                                     design, settings, ...) {
 
-    ## make tiles
     gr <- rowRanges(se)@pos_runs
 
     ## check for overlapping ranges
@@ -261,6 +277,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         stop("Sequence lengths missing in the Seqinfo object of SummarizedExperiment")
     }
 
+    ## make tiles
     l <- list(chromosomes = gr,
               chunkSize = chunkSize,
               overhangSize = overhangSize)
@@ -281,7 +298,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
     ## check if everything was set fine
     correct <- checkObject(ggd)
-    if(!correct) stop()
     
     return(ggd)   
 }
@@ -310,10 +326,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     futile.logger::flog.trace(paste0("GenoGAMDataSet: Tile size computed to be ", l$tileSize))
 
     ## deal with overlapping ranges to reduce complexity and redundancy
-    l$chromosomes <- reduce(l$chromosomes)
+    l$chromosomes <- GenomicRange::reduce(l$chromosomes)
     lambdaFun <- function(y, sl) {
 
-        ## change to GenoGAM as soon as ready
+        ## load package for SnowParam or BatchJobs backend
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         ## generate break points for chunks
@@ -391,110 +407,107 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 #' @noRd
 .normalizeConfig <- function(config, directory) {
     
-    if(class(config) == "character") {
+    if(is(config, "character")) {
         config <- fread(config, header = TRUE, data.table = FALSE)
     }
 
     config$ID <- as.factor(config$ID)
     config$file <- file.path(directory, as.character(config$file))
     config$paired <- as.logical(config$paired)
+
+    futile.logger::flog.debug("Using the following config file:")
+    futile.logger::flog.debug(show(config))
    
     return(config)
 }
 
-## #' Construct GenomicTiles from a config file or a config data.frame
-## #'
-## #' See GenomicTiles in GenomicTiles-class.R for description.
-## #' @return A GenomicTiles object.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize,
-##                                     design, directory, settings, hdf5, ...) {
+#' The underlying function to build a GenoGAMDataSet from a
+#' config file or a data.frame
+#'
+#' @noRd
+.GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize,
+                                    design, directory, settings, hdf5, ...) {
 
-##     ## initialize some variables
-##     args <- list()
+    ## initialize some variables
+    args <- list()
+    split <- FALSE
         
-##     ## normalize config object
-##     config <- .normalizeConfig(config, directory)
+    ## normalize config object
+    config <- .normalizeConfig(config, directory)
 
-##     center <- slot(settings, "center")
-##     if(!is.null(center)) {
-##         settings <- slot(settings, "processFunction") <- .processCountChunks
-##     }
+    center <- slot(settings, "center")
+    if(!is.null(center)) {
+        settings <- slot(settings, "processFunction") <- .processCountChunks
+    }
 
-##     ## get chromosomeLengths
-##     header <- Rsamtools::scanBamHeader(config$file[1])
-##     chroms <- header[[1]]$targets
-##     chromosomeLengths <- GenomicRanges::GRanges(names(chroms), IRanges(start = rep(1, length(chroms)),
-##                                                         end = chroms))
-##     GenomeInfoDb::seqlengths(chromosomeLengths) <- chroms
-##     chromosomeList <- getDefaults(settings, "chromosomeList")
-##     if(!is.null(chromosomeList)) {
-##         GenomeInfoDb::seqlevels(chromosomeLengths, force = TRUE) <- chromosomeList
-##         chroms <- chroms[names(chroms) %in% chromosomeList]
-##     }
+    ## get chromosomeLengths to check if a split of data along the chromosomes is necessary
+    header <- Rsamtools::scanBamHeader(config$file[1])
+    chroms <- header[[1]]$targets
+    totalLength <- sum(chroms)
 
-##     ## read in data
-##     futile.logger::flog.info("Reading in data.")
-##     rawData <- lapply(1:nrow(config), function(ii) {
-##         if(!is.null(center)) {
-##             args <- list(paired = config$paired[ii],
-##                          center = center)
-##         }
-##         unlist(do.call(.readData,
-##                       c(list(path = config$file[ii],
-##                              processFUN =
-##                              getDefaults(settings, "processFunction"),
-##                              chromosomeList = chromosomeList,
-##                              params = getDefaults(settings, "bamParams"),
-##                              asMates = config$paired[ii]),
-##                         args, list(...))), use.names = FALSE)
-##     })
+    ## split if data vectors are to big
+    if(totalLength > 2^31 | hdf5) {
+        split <- TRUE
+    }
 
-##     names(rawData) <- config$ID
-##     assays <- DataFrame(rawData)
+    ## generate rowRanges
+    bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
+    if(length(bamParamsWhich) != 0) {
+        gr <- GenomicRanges::GRanges(bamParamsWhich)
+        gp <- GenomicRanges::GPos(gr)
+        lengths <- chroms[GenomeInfoDb::seqlevels(GRanges(bamParamsWhich))]
+        GenomeInfoDb::seqlengths(gp) <- lengths
+    }
+    else {
+        starts <- rep(1, length(chroms))
+        ends <- chroms
+        chromLengths <- GenomicRanges::GRanges(names(chroms),
+                                               IRanges::IRanges(starts, ends))
+        gp <- GenomicRanges::GPos(chroms)
+        GenomeInfoDb::seqlengths(gp) <- chroms
+    }
+    futile.logger::flog.debug("Following row ranges created:")
+    futile.logger::flog.debug(show(gp@pos_runs))
 
-##     ## generate rowRanges
-##     bamParamsWhich <- Rsamtools::bamWhich(getDefaults(settings, "bamParams"))
-##     if(length(bamParamsWhich) != 0) {
-##         gp <- GenomicRanges::GPos(GenomicRanges::GRanges(bamParamsWhich))
-##         GenomeInfoDb::seqlengths(gp) <- chroms[GenomeInfoDb::seqlevels(GRanges(bamParamsWhich))]
-##     }
-##     else {
-##         gp <- GenomicRanges::GPos(chromosomeLengths)
-##         GenomeInfoDb::seqlengths(gp) <- chroms
-##     }
+    ## make tiles
+    l <- list(chromosomes = gp@pos_runs,
+              chunkSize = chunkSize,
+              overhangSize = overhangSize)
+    tiles <- .makeTiles(l)
+
+    ## read data
+    countData <- .readData(config, hdf5 = hdf5, split = split, settings = settings, ...)
     
-##     gt <- GenomicTiles(assays, rowRanges = gp, chunkSize = chunkSize,
-##                        overhangSize = overhangSize)
-##     metadata(slot(gt, "index"))$check <- TRUE
+    ## make colData
+    colData <- DataFrame(config)[,-c(1:3), drop = FALSE]
+    rownames(colData) <- config$ID
 
-##     ## make colData
-##     colData <- DataFrame(config)[,-c(1:3), drop = FALSE]
-##     rownames(colData) <- config$ID
-##     colData(gt) <- colData
-##     ## initiate size factors
-##     sf <- rep(0, ncol(gt))
-##     names(sf) <- colnames(gt)
-
-##     settings <- setDefaults(settings, chromosomeList = GenomeInfoDb::seqlevels(tileSettings(gt)$chromosomes))
-
-##     gtd <- new("GenoGAMDataSet", gt, settings = settings,
-##                design = design, sizeFactors = sf)
-
-##     ## check if everything was set fine
-##     correct <- checkSettings(gtd)
-##     if(!correct) break
     
-##     futile.logger::flog.info("DONE")
-##     return(gtd)
-## }
+    ## initiate size factors
+    sf <- rep(0, ncol(colData))
+    names(sf) <- config$ID
+    
+    ## update chromosome list
+    if(is.null(slot(settings, "chromosomeList"))) {
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gp)
+    }
 
-## #' Make an example /code{GenoGAMDataSet}
-## #'
-## #' @return A /code{GenoGAMDataSet} object
-## #' @examples
-## #' test <- makeTestGenoGAMDataSet()
-## #' @export
+    if(split) {
+        ## do something with a list of GenoGAMDataSets
+    }
+    else {
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = gp,
+                                                         assays = countData,
+                                                         colData = colData)
+        ggd <- new("GenoGAMDataSet", se, settings = settings,
+                   design = design, sizeFactors = sf, index = tiles)
+
+        ## check if everything was set fine
+        correct <- checkObject(ggd)
+    }
+    
+    return(ggd)
+}
 
 ## Check functions
 ## ===============
@@ -595,8 +608,8 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     res <- sapply(params, .checkSettings, object = object)
     if(is(res, "character")) {
         errorIndx <- which(res != "TRUE")
-        futile.logger::flog.error("Checks failed. Following settings display errors:\n")
-        print(res[errorIndx])
+        futile.logger::flog.error("Checks failed. Following settings display errors:")
+        futile.logger::flog.error(show(res[errorIndx]))
         return(FALSE)
     }
     
@@ -730,6 +743,13 @@ setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
 
 
 
+
+## #' Make an example /code{GenoGAMDataSet}
+## #'
+## #' @return A /code{GenoGAMDataSet} object
+## #' @examples
+## #' test <- makeTestGenoGAMDataSet()
+## #' @export
 
 ## makeTestGenoGAMDataSet <- function() {
 ##     gp <- GenomicRanges::GPos(GenomicRanges::GRanges(c("chrI", "chrII"), IRanges(c(1,1), c(50,50))))

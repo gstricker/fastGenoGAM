@@ -1,489 +1,478 @@
-## ### ====================
-## ### read data functions
-## ### ====================
+### ====================
+### read data functions
+### ====================
 
-## ## Reading in files
-## ## ================
+## higher level read functions
+## ===========================
 
-## #' A function to read BAM files.
-## #'
-## #' The functions reads in BAM files and processes them according to a given
-## #' process function. It returns an RleList with the chromosome RLEs as
-## #' elements.
-## #'
-## #' @param path A character object indicating the path to the BAM file.
-## #' @param indexFile A character object indicating the path to the BAM Index
-## #' file. By default it is assumed to be in the same directory as the BAM
-## #' file.
-## #' @param processFUN A function specifying how to process the raw data.
-## #' @param chromosomeList A character vector of chromosome names. If NULL the
-## #' list is taken from the header of the BAM file.
-## #' @param params A 'ScanBamParam' object defining the parameters to be used.
-## #' If NULL 'what' is defined as the columns 'pos' and 'qwidth'. 'Which' is
-## #' set according to the chunkSize parameter, but at most covers the entire
-## #' chromosome.
-## #' @param asMates A logical value indicating if mates are present in the BAM
-## #' file (paired-end) or not (single-end mostly).
-## #' @param chunkSize To safe memory the BAM file can be processes in chunks
-## #' of this size. Default is 3e07.
-## #' @param ... Further parameters that are passed to the process functions.
-## #' @return An RleList of coverages.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .readBAM <- function(path, indexFile = path, processFUN,
-##                      chromosomeList = NULL, params = NULL,
-##                      asMates, ...){
+#' Read Data function
+#'
+#' This is the core function to read and parse raw data from a config file.
+#' At the moment only the BAM format is supported. It is not intended to be
+#' used by the user directly, as it is called internally by the GenoGAMDataSet
+#' constructor. However it is exported if people wish to separately assemble
+#' their data and construct the GenoGAMDataSet from SummarizedExperiment
+#' afterwards. It also offers the possibility to use the HDF5 backend.
+#'
+#' @param config A data.frame containing the experiment design of the model
+#' to be computed with the first three columns fixed. See the 'experimentDesign'
+#' parameter in \code{\link{GenoGAMDataSet}} or details here.
+#' @param hdf5 Should the data be stored on HDD in HDF5 format? By default this
+#' is disabled, as the Rle representation of count data already provides a
+#' decent compression of the data. However in case of large organisms, a complex
+#' experiment design or just limited memory, this might further decrease the
+#' memory footprint.
+#' @param split If TRUE the data will be stored as a list of DataFrames by
+#' chromosome instead of one big DataFrame. This is only necessary if organisms
+#' with a genome size bigger than 2^31 (approx. 2.14Gbp) are analyzed,
+#' in which case Rs lack of long integers prevents having a well compressed Rle
+#' of sufficient size.
+#' @param settings A GenoGAMSettings object. Not needed by default, but might
+#' be of use if only specific regions should be read in.
+#' See \code{\link{GenoGAMSettings}}.
+#' @param ... Further parameters that can be passed to low-level functions.
+#' Mostly to pass arguments to custom process functions. In case the default
+#' process functions are used, i.e. the default settings paramenter,
+#' the most interesting parameters might be fragment length estimator method
+#' from ?chipseq::estimate.mean.fraglen for single-end data.
+#' @return A DataFrame of counts for each sample and position.
+#' Or if split = TRUE, a list of DataFrames by chromosomes
+#' @details
+#' The config data.frame contains the actual experiment design. It must
+#' contain at least three columns with fixed names: 'ID', 'file' and 'paired'.
+#'
+#' The field 'ID' stores a unique identifier for each alignment file.
+#' It is recommended to use short and easy to understand identifiers because
+#' they are subsequently used for labelling data and plots.
+#'
+#' The field 'file' stores the complete path to the BAM file.
+#'
+#' The field 'paired', values TRUE for paired-end sequencing data, and FALSE for
+#' single-end sequencing data.
+#'
+#' Other columns will be ignored by this function.
+#' @examples
+#' # Read data
+#' 
+#' ## Change config file paths accordingly
+#' config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
+#' config <- read.table(config, header = TRUE, sep = '\t')
+#' for(ii in 1:nrow(config)) {
+#'     absPath <- system.file("extdata/Set1", config$file[ii], package = "fastGenoGAM")
+#'     config$file[ii] <- absPath
+#' }
+#'
+#' ## Read all data
+#' df <- readData(config)
+#' df
+#'
+#' ## Read data of a particular chromosome
+#' settings <- GenoGAMSettings(chromosomeList = "chrXIV")
+#' df <- readData(config, settings = settings)
+#' df
+#' 
+#' ## Read data of particular range
+#' region = GRanges("chrXIV", IRanges(305000, 308000))
+#' params <- Rsamtools::ScanBamParam(which = region)
+#' settings <- GenoGAMSettings(bamParams = params)
+#' df <- readData(config, settings = settings)
+#' df
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @export
+readData <- function(config, hdf5 = FALSE, split = FALSE,
+                     settings = GenoGAMSettings(), ...) {
 
-##     ## stop if package for shifting in case of single-end data is not installed
-##     if(!asMates) {
-##         if(!requireNamespace("chipseq", quietly = TRUE)) {
-##             stop("The 'chipseq' package is required to estimate the fragment length of single-end data. Please install it from Bioconductor or use asMates = TRUE for paired-end data", call. = FALSE)
-##         }
-##     }
-
-##     args <- list(...)
-
-##     ## get chromosome List from BAM header and if a chromosome list is provided, filter for them
-##     header <- Rsamtools::scanBamHeader(path)
-##     chromosomeLengths <- header[[1]]$targets
-##     if(!is.null(chromosomeList)) {
-##         chromosomeLengths <- chromosomeLengths[names(chromosomeLengths) %in% chromosomeList]
-##     }
+    futile.logger::flog.info("Reading in data")
     
-##     if(is.null(params)) {
-##         params <- Rsamtools::ScanBamParam(what = c("pos", "qwidth"))
-##     }
+    fixedInput <- paste0("Using the following parameters:\n",
+                    "  Split: ", split, "\n",
+                    "  HDF5: ", hdf5, "\n")
+    futile.logger::flog.debug(fixedInput)
+    futile.logger::flog.debug(show(list(...)))
+    futile.logger::flog.debug(show(settings))
+
+    args <- list(...)
+    ## For the HDF5 directory
+    if(is.null(args$dir)) {
+        dir <- "./h5data"
+    }
+    else {
+        dir <- args$dir
+        args$dir <- NULL
+    }
+
+    ## read settings parameters
+    ## get chromosomeLengths and check again chromosomeList
+    header <- Rsamtools::scanBamHeader(config$file[1])
+    chromosomeLengths <- header[[1]]$targets
+    chromosomeList <- slot(settings, "chromosomeList")
+    if(!is.null(chromosomeList)) {
+        chromosomeLengths <- chromosomeLengths[names(chromosomeLengths) %in% chromosomeList]
+    }
+    futile.logger::flog.trace("The following chromosomes will be read in:")
+    futile.logger::flog.trace(show(chromosomeLengths))
+    ## get other parameters
+    center <- slot(settings, "center")
+    processFun <- slot(settings, "processFunction")
+    params <- slot(settings, "bamParams")
+
+    ## read data
+    rawData <- lapply(1:nrow(config), function(ii) {
+        if(!is.null(center)) {
+            args <- c(args, center = center)
+        }
+        futile.logger::flog.trace(paste("Reading in", config$ID[ii]))
+        futile.logger::flog.debug(paste(config$ID[ii], "is located at", config$file[ii],
+                                        "and is paired end =", config$paired[ii]))
+        res <- .readRawData(path = config$file[ii], processFUN = processFun,
+                            asMates = config$paired[ii], params = params,
+                            chromosomeLengths = chromosomeLengths, args)
+        return(res)
+    })
+    names(rawData) <- config$ID
+
+    if(split) {
+        ## rearrange samples by chromosome
+        ans <- lapply(names(chromosomeLengths), function(chrom) {
+            temp <- lapply(rawData, function(elem) {
+                elem[[chrom]]
+            })
+            names(temp) <- names(rawData)
+            temp <- DataFrame(temp)
+            return(temp)
+        })
+        names(ans) <- names(chromosomeLengths)
+
+        ## write to HDF5 if TRUE
+        if(hdf5) {
+            futile.logger::flog.trace(paste("HDF5 directory for the data set to:", dir))
+            ans <- .writeToHDF5(ans, dir = dir)
+        }
+    }
     
-##     ## convert which params to GRanges
-##     if(length(Rsamtools::bamWhich(params)) != 0) {
-##         regions <- GenomicRanges::GRanges(Rsamtools::bamWhich(params))
-##         suppressWarnings(GenomeInfoDb::seqlengths(regions) <- chromosomeLengths[GenomeInfoDb::seqlevels(regions)])
-##         regions <- GenomicRanges::trim(regions)
-##     }
-##     else {
-##         starts <- rep(1, length(chromosomeLengths))
-##         ends <- chromosomeLengths
-##         regions <- GenomicRanges::GRanges(names(chromosomeLengths), IRanges::IRanges(starts, ends))
-##     }
+    else {
+        ans <- lapply(rawData, unlist)
+        names(ans) <- names(rawData)
+        ans <- DataFrame(rawData)
+    }
+
+    futile.logger::flog.info("Finished reading in data")
+    return(ans)
+}
+
+
+##' Function to write data.frame list to HDF5
+##' @noRd
+.writeToHDF5 <- function(dflist, dir = "./h5data") {
+    if(!dir.exists(dir)) {
+        futile.logger::flog.trace(paste("HDF5 directory created at:", dir))
+        dir.create(dir)
+    }
+
+    futile.logger::flog.trace("Writing to HDF5")
+    h5list <- BiocParallel::bplapply(names(dflist), function(df) {
+        h5file <- file.path(dir, df)
+        h5 <- HDF5Array::HDF5Array(HDF5Array::DelayedArray(dflist[[df]]))
+        return(h5)
+    })
+    futile.logger::flog.trace("Writing to HDF5 finished")
+    return(h5list)
+}
+
+##' The intermediate function calling the correct
+##' function to read in data based on the suffix and
+##' computing the coverage from the GRanges output.
+##' Returns a list of coverage Rles per chromosome
+.readRawData <- function(path, ...) {
+
+    elements <- strsplit(path,"\\.")[[1]]
+    suffix <- elements[length(elements)]
+    res <- NULL
     
-##     lambdaFun <- function(chromName, chromosomeCoords, asMates, path, indexFile, params, processFUN, args) {
-##         ## read data
-##         ##suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
-##         Rsamtools::bamWhich(params) <- chromosomeCoords[GenomeInfoDb::seqnames(regions) == chromName,]
-##         if (asMates) reads <- GenomicAlignments::readGAlignmentPairs(path, index = indexFile, param = params)
-##         else reads <- GenomicAlignments::readGAlignments(path, index = indexFile, param = params)
+    if (suffix == "bam") {
+        futile.logger::flog.debug(paste(path, "identified as BAM file"))
+        res <- .readBAM(path = path, ...)
+    }
+    ## for the time being throw error if no BAM file
+    else {
+        stop("The input file doesn't seem to be in BAM format. At the moment only BAM format is supported")
+    }
+
+    grl <- GenomicRanges::GRangesList(res)
+    GenomeInfoDb::seqlevels(grl) <- GenomeInfoDb::seqlevelsInUse(grl)
+    coverageRle <- IRanges::coverage(grl)
+    GenomeInfoDb::seqlengths(coverageRle) <- GenomeInfoDb::seqlengths(grl)
+
+    return(coverageRle)
+}
+
+
+## Low level read in functions
+## ===========================
+
+#' A function to read BAM files.
+#'
+#' The functions reads in BAM files and processes them according to a given
+#' process function. It returns a list of GRanges, one element per chromosome.
+#'
+#' @param path A character object indicating the path to the BAM file.
+#' @param indexFile A character object indicating the path to the BAM Index
+#' file. By default it is assumed to be in the same directory as the BAM
+#' file.
+#' @param processFUN A function specifying how to process the raw data.
+#' @param chromosomeLengths A named numeric vector of chromosome lengths.
+#' @param params A 'ScanBamParam' object defining the parameters to be used.
+#' If NULL 'what' is defined as the columns 'pos' and 'qwidth'. 'Which' is
+#' set according to the chunkSize parameter, but at most covers the entire
+#' chromosome.
+#' @param asMates A logical value indicating if mates are present in the BAM
+#' file (paired-end) or not (single-end mostly).
+#' @param ... Further parameters that are passed to the process functions.
+#' @return A GRanges list of intervals
+#' @noRd
+.readBAM <- function(path, indexFile = path, processFUN, asMates,
+                     chromosomeLengths, params = NULL, ...){
+
+    ## stop if package for shifting in case of single-end data is not installed
+    if(!asMates) {
+        if(!requireNamespace("chipseq", quietly = TRUE)) {
+            stop("The 'chipseq' package is required to estimate the fragment
+length of single-end data. Please install it from Bioconductor or use
+asMates = TRUE for paired-end data", call. = FALSE)
+        }
+    }
+
+    args <- list(...)
+    
+    if(is.null(params)) {
+        params <- Rsamtools::ScanBamParam(what = c("pos", "qwidth"))
+    }
+    
+    ## convert which params to GRanges
+    if(length(Rsamtools::bamWhich(params)) != 0) {
+        regions <- GenomicRanges::GRanges(Rsamtools::bamWhich(params))
+        lengths <- chromosomeLengths[GenomeInfoDb::seqlevels(regions)]
+        suppressWarnings(GenomeInfoDb::seqlengths(regions) <- lengths)
+        regions <- GenomicRanges::trim(regions)
+        regions <- GenomicRange::reduce(regions)
+    }
+    else {
+        starts <- rep(1, length(chromosomeLengths))
+        ends <- chromosomeLengths
+        regions <- GenomicRanges::GRanges(names(chromosomeLengths),
+                                          IRanges::IRanges(starts, ends))
+    }
+
+    futile.logger::debug("The following regions will be read in:")
+    futile.logger::debug(show(regions))
+    
+    lambdaFun <- function(chromName, chromosomeCoords, asMates, path, indexFile,
+                          params, processFUN, args) {
+        ## load package for SnowParam or BatchJobs backend
+        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
+
+        ## read data
+        coords <- chromosomeCoords[GenomeInfoDb::seqnames(regions) == chromName,]
+        Rsamtools::bamWhich(params) <- coords
         
-##         if(length(reads) == 0L) return(NULL)
+        if (asMates) {
+            reads <- GenomicAlignments::readGAlignmentPairs(path, index = indexFile,
+                                                            param = params)
+        }
+        else {
+            reads <- GenomicAlignments::readGAlignments(path, index = indexFile,
+                                                        param = params)
+        }
+        
+        if(length(reads) == 0L) return(GRanges())
       
-##         ## ensure sequence levels are correct
-##         GenomeInfoDb::seqlevels(reads, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(reads)
+        ## ensure sequence levels are correct
+        GenomeInfoDb::seqlevels(reads, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(reads)
         
-##         ans <- do.call(processFUN, c(list(reads), args))
-##         return(ans)
-##     }
-##     ## run BAM reading in parallel. Check backend by bpparam().
-##     ## res <- BiocParallel::bplapply(names(chromosomeLengths), lambdaFun, chromosomeCoords = regions, asMates = asMates, 
-##     res <- lapply(names(chromosomeLengths), lambdaFun, chromosomeCoords = regions, asMates = asMates, 
-##                     path = path, indexFile = indexFile, params = params, 
-##                     processFUN = processFUN, args = args)
-##     ## necessary to identify null entries in list, e.g. if only a subset of 
-##     ## chromosomes was specified. Depending on the order of null and 
-##     ## non-null elements in the list the combine method will produce different
-##     ## results.
-##     idx <- !sapply(res, is.null)
-##     res <- res[idx]
-##     return(res)
-## }
-
-## #' A function to read in BED files.
-## #' 
-## #' The functions reads in BED files.
-## #'
-## #' @param path A character object indicating the path to the BED file.
-## #' @return A RleList of coverages.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .readBED <- function(path){}
-
-## ## Process functions for chunks of data
-## ## ====================================
-
-## #' Processing raw data and convert to integer.
-## #'
-## #' This function processes the raw data from BAM files and converts them to
-## #' integer type.
-## #' @param chunk An object of type GAlignments
-## #' @param paired A logical value, indicating if data is single or paired end.
-## #' @param chromLengths A named integer vector of chromosome lengths. 
-## #' @return An Rle object of integer values giving the counts for each
-## #' position.
-## #' @param center Logical value indicating if the fragments should be centered
-## #' or not. If centered, the fragment is reduced to only one data point,
-## #' which is the center of the fragment. If center = FALSE, then the complete
-## #' fragment is taken to compute the coverage. In single-end cases the
-## #' fragment size is estimated by one of the three methods: coverage,
-## #' correlation or SISSR. See ?chipseq::estimate.mean.fraglen.
-## #' @author Georg Stricker \email{stricker@@genzentrum.lmu.de}
-## .processCountChunks <- function(chunk, center, ...) {
-##     paired <- switch(class(chunk),
-##                      GAlignmentPairs = TRUE,
-##                      GAlignments = FALSE)
-##     coords <- GenomicRanges::GRanges(GenomeInfoDb::seqlevels(chunk), IRanges::IRanges(1, GenomeInfoDb::seqlengths(chunk)))
-
-##     ## correct for unspecified reads and chunks containing only those
-##     if(!paired) {
-##         chunk <- chunk[IRanges::width(chunk) <= 2*median(IRanges::width(chunk))]
-##         strands <- droplevels(GenomicRanges::strand(chunk))
-##         if(!all(c("+", "-") %in% levels(strands))) {
-##             return(NULL)
-##         }
-##     }
-
-##     if(center) {
-##         fragments <- .centerFragments(chunk, asMates = paired, ...)
-##     }
-##     else {
-##         fragments <- .countFragments(chunk, asMates = paired, ...)
-##     }
-##     validFragments <- fragments[IRanges::start(fragments) >= IRanges::start(coords) &
-##                                 IRanges::end(fragments) <= IRanges::end(coords)]
-
-##     return(fragments)
-## }
-
-## #' A function to center fragments.
-## #'
-## #' This functions centers fragments with regard to the strand and returns a
-## #' GRanges object with centered ranges, that is ranges of width one.
-## #'
-## #' @param reads A GAlignment object as returned by the 'readGAlignments'
-## #' functions.
-## #' @param asMates A logical value indicating if mates are present in the BAM
-## #' file (paired-end) or not (single-end mostly).
-## #' @param shiftMethods The method to be used when estimating the fragment
-## #' length for single-end reads (see ?chipseq::estimate.mean.fraglen).
-## #' Other methods are 'SISSR' and 'correlation'.
-## #' @param ... Further parameters that can be passed on to
-## #' chipseq::estimate.mean.fraglen.
-## #' @return A GRanges object of centered fragments.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .centerFragments <- function(reads, asMates, shiftMethod = c("coverage", "correlation", "SISSR"), ...) {
-##     if(is.null(reads)) return(NULL)
-
-##     plusStrand <- reads[GenomicRanges::strand(reads) == "+",]
-##     negStrand <- reads[GenomicRanges::strand(reads) == "-",]
+        ans <- do.call(processFUN, c(list(reads), args))
+        return(ans)
+    }
     
-##     if (asMates) {
-##         plusMidpoints <- .getPairedCenters(plusStrand)
-##         negMidpoints <- .getPairedCenters(negStrand)
-##     }
-##     else {
+    ## run BAM reading in parallel. 
+    res <- BiocParallel::bplapply(names(chromosomeLengths), lambdaFun,
+                                  chromosomeCoords = regions, asMates = asMates, 
+                                  path = path, indexFile = indexFile, params = params,
+                                  processFUN = processFUN, args = args)
+    
+    return(res)
+}
 
-##         ## estimate fragment length for shift
-##         granges_reads <- GenomicRanges::granges(reads)
-##         fraglen <- chipseq::estimate.mean.fraglen(granges_reads, method =
-##                                                   match.arg(shiftMethod),
-##                                                   ...)
-##         plusMidpoints <- GenomicRanges::granges(plusStrand)
-##         IRanges::start(plusMidpoints) <- IRanges::end(plusMidpoints) <- IRanges::start(plusMidpoints) + fraglen/2
+## Process functions for chunks of data
+## ====================================
+
+#' Processing raw data and convert to GRanges of intervals
+#'
+#' @param chunk An object of type GAlignments or GAlignmentPairs
+#' @param center Logical value indicating if the fragments should be centered
+#' or not. If centered, the fragment is reduced to only one data point,
+#' which is the center of the fragment. If center = FALSE, then the complete
+#' fragment is taken to compute the coverage. In single-end cases the
+#' fragment size is estimated by one of the three methods: coverage,
+#' correlation or SISSR. See ?chipseq::estimate.mean.fraglen.
+#' @return A GRanges object of intervals.
+#' @noRd
+.processCountChunks <- function(chunk, center, ...) {
+    paired <- switch(class(chunk),
+                     GAlignmentPairs = TRUE,
+                     GAlignments = FALSE)
+    coords <- GenomicRanges::GRanges(GenomeInfoDb::seqlevels(chunk), IRanges::IRanges(1, GenomeInfoDb::seqlengths(chunk)))
+
+    ## correct for unspecified reads and chunks containing only those
+    if(!paired) {
+        chunk <- chunk[IRanges::width(chunk) <= 2*median(IRanges::width(chunk))]
+        strands <- droplevels(GenomicRanges::strand(chunk))
+        if(!all(c("+", "-") %in% levels(strands))) {
+            return(NULL)
+        }
+    }
+
+    if(center) {
+        fragments <- .centerFragments(chunk, asMates = paired, ...)
+    }
+    else {
+        fragments <- .countFragments(chunk, asMates = paired, ...)
+    }
+    validFragments <- fragments[IRanges::start(fragments) >= IRanges::start(coords) &
+                                IRanges::end(fragments) <= IRanges::end(coords)]
+
+    return(fragments)
+}
+
+#' A function to center fragments.
+#'
+#' This functions centers fragments with regard to the strand and returns a
+#' GRanges object with centered ranges, that is ranges of width one.
+#'
+#' @param reads A GAlignment object as returned by the 'readGAlignments'
+#' functions.
+#' @param asMates A logical value indicating if mates are present in the BAM
+#' file (paired-end) or not (single-end mostly).
+#' @param shiftMethods The method to be used when estimating the fragment
+#' length for single-end reads (see ?chipseq::estimate.mean.fraglen).
+#' Other methods are 'SISSR' and 'correlation'.
+#' @param ... Further parameters that can be passed on to
+#' chipseq::estimate.mean.fraglen.
+#' @return A GRanges object of centered fragments.
+#' @noRd
+.centerFragments <- function(reads, asMates, shiftMethod = c("coverage", "correlation", "SISSR"), ...) {
+    if(is.null(reads)) return(NULL)
+
+    plusStrand <- reads[GenomicRanges::strand(reads) == "+",]
+    negStrand <- reads[GenomicRanges::strand(reads) == "-",]
+    
+    if (asMates) {
+        plusMidpoints <- .getPairedCenters(plusStrand)
+        negMidpoints <- .getPairedCenters(negStrand)
+    }
+    else {
+
+        ## estimate fragment length for shift
+        granges_reads <- GenomicRanges::granges(reads)
+        fraglen <- chipseq::estimate.mean.fraglen(granges_reads, method =
+                                                  match.arg(shiftMethod),
+                                                  ...)
+        plusMidpoints <- GenomicRanges::granges(plusStrand)
+        IRanges::start(plusMidpoints) <- IRanges::end(plusMidpoints) <- IRanges::start(plusMidpoints) + fraglen/2
         
-##         negMidpoints <- GenomicRanges::granges(negStrand)
-##         IRanges::end(negMidpoints) <- IRanges::start(negMidpoints) <- IRanges::end(negMidpoints) - fraglen/2
-##     }
+        negMidpoints <- GenomicRanges::granges(negStrand)
+        IRanges::end(negMidpoints) <- IRanges::start(negMidpoints) <- IRanges::end(negMidpoints) - fraglen/2
+    }
 
-##     midpoints <- sort(c(plusMidpoints,negMidpoints))
-##     return(midpoints)
-## }
+    midpoints <- sort(c(plusMidpoints,negMidpoints))
+    return(midpoints)
+}
 
-## #' A function to get the fragment centers
-## #'
-## #' @param chunk A GAligmnents or GAlignmentPairs object.
-## #' @return A GRanges object of centered fragments, that is of lenght one
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .getPairedCenters <- function(chunk) {
-##     if(length(chunk) == 0) return(GenomicRanges::GRanges())
-##     gr <- GenomicRanges::GRanges(chunk)
+#' A function to get the fragment centers
+#'
+#' @param chunk A GAligmnents or GAlignmentPairs object.
+#' @return A GRanges object of centered fragments, that is of lenght one
+#' @noRd
+.getPairedCenters <- function(chunk) {
+    if(length(chunk) == 0) return(GenomicRanges::GRanges())
+    gr <- GenomicRanges::GRanges(chunk)
 
-##     fragmentSize <- IRanges::width(gr)
-##     midpoints <- (IRanges::start(gr) + IRanges::end(gr))/2
+    fragmentSize <- IRanges::width(gr)
+    midpoints <- (IRanges::start(gr) + IRanges::end(gr))/2
   
-##     IRanges::start(gr) <- IRanges::end(gr) <- midpoints
+    IRanges::start(gr) <- IRanges::end(gr) <- midpoints
 
-##     ## filter for artefacts because of wrongly mapped reads
-##     maxAllowedFragSize <- 2*median(fragmentSize)
-##     falseFragments <- which(fragmentSize > maxAllowedFragSize)
+    ## filter for artefacts because of wrongly mapped reads
+    maxAllowedFragSize <- 2*median(fragmentSize)
+    falseFragments <- which(fragmentSize > maxAllowedFragSize)
     
-##     if (length(falseFragments) > 0) {
-##         gr <- gr[-falseFragments]
-##     }
-##     return(gr)
-## }
-
-## #' Extracting fragments given reads from a BAM file.
-## #'
-## #' This functions extracts the fragments from a GAligment or GAligmentPairs
-## #' object
-## #'
-## #' @param reads A GAligments or GAlignmenPairs object as returned by the 
-## #' 'readGAlignments' functions.
-## #' @param asMates A logical value indicating if mates are present in the BAM
-## #' file (paired-end) or not (single-end mostly)
-## #' @param shiftMethod The method to be used when estimating the fragment
-## #' length for single-end reads (see ?chipseq::estimate.mean.fraglen). Other
-## #' methods are 'SISSR' and 'correlation'.
-## #' @param ... Further parameters that can be passed on to.
-## #' chipseq::estimate.mean.fraglen.
-## #' @return A GRanges object of full fragments
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .countFragments <- function(reads, asMates, shiftMethod =
-##                             c("coverage", "correlation", "SISSR"), ...) {
-##     if(is.null(reads)) return(NULL)
+    futile.logger::flog.debug(paste(length(falseFragments), "dropped due to maximum allowed fragment size of:",
+                                    maxAllowedFragSize, "on the following GRange:"))
+    futile.logger::flog.debug(show(gr))
     
-##     plusStrand <- reads[GenomicRanges::strand(reads) == "+",]
-##     negStrand <- reads[GenomicRanges::strand(reads) == "-",]
+    if (length(falseFragments) > 0) {
+        gr <- gr[-falseFragments]
+    }
+    return(gr)
+}
 
-##     if (asMates) {
-##         plusFragments <- .getFragments(plusStrand)   
-##         negFragments <- .getFragments(negStrand)
-##     }
-##     else {
-##         granges_reads <- GenomicRanges::granges(reads)
-##         fraglen <- chipseq::estimate.mean.fraglen(granges_reads, method =
-##                                                   match.arg(shiftMethod),
-##                                                   ...)
-##         plusFragments <- GenomicRanges::granges(plusStrand)
-##         IRanges::end(plusFragments) <- IRanges::start(plusFragments) + fraglen
+#' Extracting fragments given reads from a BAM file.
+#'
+#' @param reads A GAligments or GAlignmenPairs object as returned by the 
+#' 'readGAlignments' functions.
+#' @param asMates A logical value indicating if mates are present in the BAM
+#' file (paired-end) or not (single-end mostly)
+#' @param shiftMethod The method to be used when estimating the fragment
+#' length for single-end reads (see ?chipseq::estimate.mean.fraglen). Other
+#' methods are 'SISSR' and 'correlation'.
+#' @param ... Further parameters that can be passed on to.
+#' chipseq::estimate.mean.fraglen.
+#' @return A GRanges object of full fragments
+#' @noRd
+.countFragments <- function(reads, asMates, shiftMethod =
+                            c("coverage", "correlation", "SISSR"), ...) {
+    if(is.null(reads)) return(NULL)
+    
+    plusStrand <- reads[GenomicRanges::strand(reads) == "+",]
+    negStrand <- reads[GenomicRanges::strand(reads) == "-",]
+
+    if (asMates) {
+        plusFragments <- .getFragments(plusStrand)   
+        negFragments <- .getFragments(negStrand)
+    }
+    else {
+        granges_reads <- GenomicRanges::granges(reads)
+        fraglen <- chipseq::estimate.mean.fraglen(granges_reads, method =
+                                                  match.arg(shiftMethod),
+                                                  ...)
+        plusFragments <- GenomicRanges::granges(plusStrand)
+        IRanges::end(plusFragments) <- IRanges::start(plusFragments) + fraglen
         
-##         negFragments <- GenomicRanges::granges(negStrand)
-##         IRanges::start(negFragments) <- IRanges::end(negFragments) - fraglen
-##     }
+        negFragments <- GenomicRanges::granges(negStrand)
+        IRanges::start(negFragments) <- IRanges::end(negFragments) - fraglen
+    }
 
-##     allFragments <- sort(c(plusFragments,negFragments))
-##     return(allFragments)
-## }
+    allFragments <- sort(c(plusFragments,negFragments))
+    return(allFragments)
+}
 
-## #' A function to get the fragments
-## #'
-## #' @param chunk A GAligmnents or GAlignmentPairs object.
-## #' @return A GRanges object of fragments
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .getFragments <- function(chunk){
-##     if(length(chunk) == 0) return(GenomicRanges::GRanges())
-##     gr <- GenomicRanges::GRanges(chunk)
+#' A function to get the fragments
+#'
+#' @param chunk A GAligmnents or GAlignmentPairs object.
+#' @return A GRanges object of fragments
+#' @noRd
+.getFragments <- function(chunk){
+    if(length(chunk) == 0) return(GenomicRanges::GRanges())
+    gr <- GenomicRanges::GRanges(chunk)
 
-##     maxAllowedFragSize <- 2*median(IRanges::width(gr))
-##     falseFragments <- which(IRanges::width(gr) > maxAllowedFragSize)
-##     if (length(falseFragments) > 0) {
-##         gr <- gr[-falseFragments]
-##     }
-##     return(gr)
-## }
+    maxAllowedFragSize <- 2*median(IRanges::width(gr))
+    falseFragments <- which(IRanges::width(gr) > maxAllowedFragSize)
 
-## ## Read functions
-## ## ==============
-
-## #' Read in raw data.
-## #'
-## #' A wrapper function to read in raw data of multiple formats (so far only
-## #' BAM is supported). Each list object is one chromosome.
-## #'
-## #' @param path  A character object indicating the path to the data file.
-## #' @param ... Further arguments to be passed to the low-level read functions.
-## #' @return An RleList of coverages.
-## #' @author Georg Stricker \email{stricker@@genzentrum.lmu.de}
-## .readRawData <- function(path, ...) {
-##     elements <- strsplit(path,"\\.")[[1]]
-##     suffix <- elements[length(elements)]
-##     res <- NULL
-##     if (suffix == "bam") {
-##         res <- .readBAM(path = path, ...)
-##     }
-##     if (suffix == "bed") {
-##         res <- .readBED()
-##     }
-##     grl <- GenomicRanges::GRangesList(res)
-##     GenomeInfoDb::seqlevels(grl) <- GenomeInfoDb::seqlevelsInUse(grl)
-##     coverageRle <- IRanges::coverage(grl)
-##     GenomeInfoDb::seqlengths(coverageRle) <- GenomeInfoDb::seqlengths(grl)
-##     return(coverageRle)
-## }
+    futile.logger::flog.debug(paste(length(falseFragments), "dropped due to maximum allowed fragment size of:",
+                                    maxAllowedFragSize, "on the following GRange:"))
+    futile.logger::flog.debug(show(gr))
     
-## #' Read and process raw data
-## #'
-## #' This is a convenience function for reading and parsing raw data from
-## #' multiple formats (at the moment only BAM is supported) and process to
-## #' GenomicTiles object for further analysis.
-## #'
-## #' @param path A character object indicating the path to the source file
-## #' @param chromosomeList A character vector of chromosomes.
-## #' @param asMates Is the data paired end?
-## #' @param processFUN A function specifying how to process raw data. There
-## #' are three restriction. First, the first argument of the function must take
-## #' a GAligments object, as this is the output of readGAligments(Pairs).
-## #' Second, the output must be an Rle vector of sorted positions, e.g.
-## #' 345, 345, 347, 349, ... Third, each processed Rle vector, must contain
-## #' a metadata list with the elements 'start', 'end' and 'chrom', specifying
-## #' at which position the vector starts and ends and on which chromosome it
-## #' lies. 
-## #' @param ... Further parameters that can be passed to low-level functions.
-## #' Mostly to pass arguments to custom process functions. In case the default
-## #' process functions are used the most interesting parameters might be
-## #' from ?chipseq::estimate.mean.fraglen for single-end data.
-## #' @return An RleList of coverages per chromosome.
-## #' @examples
-## #' \dontrun{
-## #' path <- "path/to/file.bam"
-## #' gt <- readData(path)
-## #' header <- Rsamtools::scanBamHeader(pathSingle)
-## #' chromosomeList <- header[[1]]$targets
-## #' gt <- readData(path,chromosomeList)
-## #' }
-## #' @author Georg Stricker \email{stricker@@genzentrum.lmu.de}
-## .readData <- function(path, chromosomeList = NULL, asMates = TRUE, processFUN = NULL, hdf5 = FALSE, ...) {
-
-##     data <- do.call(.readRawData,
-##                     c(list(path = path, chromosomeList = chromosomeList,
-##                            processFUN = processFUN, asMates = asMates),
-##                       list(...)))
-##     lengths <- GenomeInfoDb::seqlengths(data)
-##     if(hdf5 | sum(as.numeric(lengths)) > 2^31) {
-##         res <- writeToHDF5(data)
-##     }
-
-##     start <- proc.time()
-##     res <- useHDF5(data)
-##     proc.time() - start
-
-##     return(res)
-## }
-
-## useHDF5 <- function(input) {
-##     total <- 0
-##     da <- HDF5Array::DelayedArray(S4Vectors::DataFrame(X1 = as.numeric(input[[1]])))
-##     start <- proc.time()
-##     h5 <- HDF5Array::HDF5Array(da)
-##     cat("Initiation: \n")
-##     passed <- proc.time() - start
-##     total <- total + passed["elapsed"]
-##     print(passed)
-##     rm(da)
-##     gc()
-##     for(ii in 2:length(input)) {
-##         da <- HDF5Array::DelayedArray(S4Vectors::DataFrame(X1 = as.numeric(input[[ii]])))
-##         start <- proc.time()
-##         temp <- HDF5Array::HDF5Array(da)
-##         cat("Write ", names(input)[ii],  " to HDF5: \n")
-##         passed <- proc.time() - start
-##         total <- total + passed["elapsed"]
-##         print(passed)
-##         start <- proc.time()
-##         h5 <- rbind(h5, temp)
-##         cat("Combine: \n")
-##         passed <- proc.time() - start
-##         total <- total + passed["elapsed"]
-##         print(passed)
-##         rm(list = c("da", "temp"))
-##         gc()
-##     }
-##     cat("Total time spend in minutes: ", total/60 "\n")
-##     ## lengths <- GenomeInfoDb::seqlengths(input)
-##     ## cumLengths <- cumsum(as.numeric(lengths))
-##     ## cutPoint <- which(cumLengths < 2^31)
-##     ## pre <- unlist(input[cutPoint])
-##     ## post <- unlist(input[-cutPoint])
-##     ## preda <- HDF5Array::DelayedArray(S4Vectors::DataFrame(X1 = pre))
-##     ## postda <- HDF5Array::DelayedArray(S4Vectors::DataFrame(X1 = post))
-##     ## h5 <- HDF5Array::HDF5Array(preda)
-##     ## rest <- HDF5Array::HDF5Array(postda)
-##     ## h5 <- rbind(h5, rest)
-##     return(h5)
-## }
-
-## ################## Tests
-## # ======================
-
-## library(SummarizedExperiment)
-## library(HDF5Array)
-## FOLDER <- "/s/project/coreProm/Michi/thornton/align_STAR"
-## CONFIG <- "~/workspace/analysis/diffBinding/config.txt"
-## config <- data.table::fread(CONFIG)
-## rhdf5::H5close()
-
-## BiocParallel::register(BiocParallel::SnowParam(workers=4))
-## ## first approach: load all data in memory and then write to HDF5
-## ## might be memory consuming, especially for human data
-## # ======================
-
-## fullRead <- function(config, folder) {
-##     header <- Rsamtools::scanBamHeader(file.path(folder, config$file[1]))
-##     chromosomeLengths <- header[[1]]$targets
-##     len <- sum(chromosomeLengths)
-##     sampleList <- vector("list", nrow(config))
-
-##     for(ii in 1:nrow(config)) {
-##         path <- file.path(folder, config$file[ii])
-##         reads <- GenomicAlignments::readGAlignments(path)
-##         counts <- coverage(reads)
-##         counts <- unlist(counts)
-##         zeros <- len - length(counts)
-##         sampleList[[ii]] <- c(counts, rep(0, zeros))
-##     }
-##     names(sampleList) <- config$ID
-##     h5 <- HDF5Array(DelayedArray(DataFrame(sampleList)))
-    
-##     se <- SummarizedExperiment(h5)
-##     rowRanges(se) <- GPos(GRanges(names(chromosomeLengths), IRanges(rep(1, length(chromosomeLengths)), chromosomeLengths)))
-##     return(se)
-## }
-
-## ## second approach: load only one sample to memory, wrire to HDF5 and then cbind all other samples
-## # =========================
-
-## partialRead <- function(config, folder) {
-##     h5 <- NULL
-##     header <- Rsamtools::scanBamHeader(file.path(folder, config$file[1]))
-##     chromosomeLengths <- header[[1]]$targets
-##     len <- sum(as.numeric(chromosomeLengths))
-    
-##     for(ii in 1:nrow(config)) {
-##         path <- file.path(folder, config$file[ii])
-##         reads <- GenomicAlignments::readGAlignments(path)
-##         counts <- coverage(reads)
-##         counts <- unlist(counts)
-##         zeros <- len - length(counts)
-##         counts <- c(counts, rep(0, zeros))
-##         df <- DataFrame(sample1 = counts)
-##         names(df) <- config$ID[ii]
-##         da <- DelayedArray(df)
-##         if(ii == 1) {
-##             h5 <- HDF5Array(da)
-##         }
-##         else {
-##             temp <- HDF5Array(da)
-##             h5 <- cbind(h5, temp)
-##         }
-##     }
-##     se <- SummarizedExperiment(h5)
-##     rowRanges(se) <- GPos(GRanges(names(chromosomeLengths), IRanges(rep(1, length(chromosomeLengths)), chromosomeLengths)))
-##     return(se)
-## }
-
-## ## Comparison
-## library(profvis)
-
-## profvis({
-##     df <- partialRead(config, FOLDER)
-##     df <- fullRead(config, FOLDER)
-## })
-
-## ## no real difference on yeast. A little less memory usage for partial, but a little bit slower than full.
-
-## ## Comparison for human
-## # =====================
-## ## For human the comparison is between partial (chromosome wise) and full (whole sample).
-## ## Reading first the entire data frame and writing then is not memory efficient
-## ## One entire genome of human is around 24GB = not efficient to read and write it entirely
-## FOLDER <- "/s/project/coreProm/data/hg38"
-## CONFIG <- "~/workspace/analysis/peakcalls/config_cebpb.txt"
-## config <- data.table::fread(CONFIG)
-## rhdf5::H5close()
-
-## df <- partialRead(config, FOLDER)
+    if (length(falseFragments) > 0) {
+        gr <- gr[-falseFragments]
+    }
+    return(gr)
+}
