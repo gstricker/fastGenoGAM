@@ -4,4 +4,4 @@ document("~/workspace/fastGenoGAM")
 test("~/workspace/fastGenoGAM")
 check("~/workspace/fastGenoGAM")
 BiocCheck("~/workspace/fastGenoGAM")
-
+install("~/workspace/fastGenoGAM")

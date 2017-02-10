@@ -93,6 +93,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #'
 #' GenoGAMDataSet is the constructor function for the GenoGAMDataSet-class. 
 #'
+#' @aliases getIndex tileSettings dataRange getChromosomes getTileSize getChunkSize getOverhangSize getTileNumber design sizeFactors
 #' @param experimentDesign Either a character object specifying the path to a
 #' delimited text file (the delimiter will be determined automatically),
 #' a data.frame specifying the experiment design or a RangedSummarizedExperiment
@@ -117,9 +118,10 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @param ... Further parameters, mostly for arguments of custom processing
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
-#' @return An object of class \code{\link{GenoGAMDataSet}}.
-#' @details
-#' Config:
+#' @param object For use of S4 methods. The GenoGAMDataSet object.
+#' @param value For use of S4 methods. The value to be assigned to the slot.
+#' @return An object of class \code{\link{GenoGAMDataSet}} or the respective slot.
+#' @section Config:
 #' 
 #' The config file/data.frame contains the actual experiment design. It must
 #' contain at least three columns with fixed names: 'ID', 'file' and 'paired'.
@@ -139,7 +141,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' if the IP data schould be corrected for input, then the input will be 0
 #' and IP will be 1, since we are interested in the corrected IP. See examples.
 #'
-#' Design/Formula:
+#' @section Design/Formula:
 #' 
 #' Design must be a formula. At the moment only the following is
 #' possible: Either ~ s(x) for a smooth fit over the entire data or
@@ -155,7 +157,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' where 'experiment' is a column with 0s and 1s, with the ip samples annotated
 #' with 1 and input samples with 0.
 #''
-#' Further parameters:
+#' @section Further parameters:
 #' 
 #' In case of single-end data it might be usefull to specify a different
 #' method for fragment size estimation. The argument 'shiftMethod' can be
@@ -183,10 +185,11 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' }
 #'
 #' ## build from SummarizedExperiment
-#' gr <- GPos(GRanges("chr1", IRanges(1, 100)))
-#' df <- DataFrame(colA = 1:100, colB = 101:200)
+#' gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
+#' seqlengths(gr) <- 1e6
+#' df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
 #' se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
-#' ggd <- GenoGAMDataset(se, chunkSize = 2000, overhangSize = 250, 
+#' ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
 #'                       design = ~ s(x) + s(x, by = "experiment"))
 #' ggd
 #' @name GenoGAMDataSet
@@ -203,7 +206,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     }
 
     input <- paste0("Building GenoGAMDataSet with the following parameters:\n",
-                    "  Class of experimentDesign: ", class(experimentDesing), "\n",
+                    "  Class of experimentDesign: ", class(experimentDesign), "\n",
                     "  Chunk size: ", chunkSize, "\n",
                     "  Overhang size: ", overhangSize, "\n",
                     "  Design: ", design, "\n",
@@ -249,11 +252,17 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     ## make tiles
     gr <- rowRanges(se)@pos_runs
 
-    tileSize <- chunkSize + 2*overhangSize
-    futile.logger::flog.trace(paste0("GenoGAMDataSet: Tile size computed to be ", tileSize))
+    ## check for overlapping ranges
+    if(sum(countOverlaps(gr)) > length(gr)) {
+        stop("Overlapping regions encountered. Please reduce ranges and data first.")
+    }
+
+    if(any(is.na(seqlengths(se)))) {
+        stop("Sequence lengths missing in the Seqinfo object of SummarizedExperiment")
+    }
+
     l <- list(chromosomes = gr,
               chunkSize = chunkSize,
-              tileSize = tileSize,
               overhangSize = overhangSize)
     tiles <- .makeTiles(l)
 
@@ -271,10 +280,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
 
     ## check if everything was set fine
-    correct <- checkSettings(gtd)
-    if(!correct) break
+    correct <- checkObject(ggd)
+    if(!correct) stop()
     
-    return(gtd)   
+    return(ggd)   
 }
 
 #' A function to produce a GRanges index from a list of settings.
@@ -287,15 +296,21 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .makeTiles <- function(l) {
 
     if(length(l) == 0) return(GenomicRanges::GRanges())
+    if(l$overhangSize < 0) stop("Overhang size must be equal or greater than 0")
+    if(l$chunkSize < 1000) stop("Chunk size must be equal or greater than 1000")
+    if(length(l$chromosomes) == 0) stop("Chromosome list should contain at least one entry")
 
     input <- paste0("Building Tiles with the following parameters:\n",
                     "  Chunk size: ", l$chunkSize, "\n",
                     "  Overhang size: ", l$overhangSize, "\n",
-                    "  TileSize: ", l$tileSize, "\n",
                     "  Chromosomes: ", l$chromosomes, "\n")
     futile.logger::flog.debug(input)
 
-    
+    l$tileSize <- l$chunkSize + 2*l$overhangSize
+    futile.logger::flog.trace(paste0("GenoGAMDataSet: Tile size computed to be ", l$tileSize))
+
+    ## deal with overlapping ranges to reduce complexity and redundancy
+    l$chromosomes <- reduce(l$chromosomes)
     lambdaFun <- function(y, sl) {
 
         ## change to GenoGAM as soon as ready
@@ -310,6 +325,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         ends <- c(IRanges::start(y) + endSeq, IRanges::end(y))
         ir <- IRanges::IRanges(starts, ends)
         chunks <- GenomicRanges::GRanges(seqnames = seqnames(y), ir)
+        seqinfo(chunks) <- seqinfo(y)
 
         ## flank to tiles
         if(sl$tileSize == sl$chunkSize) {
@@ -318,10 +334,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         else {
             ov <- round(IRanges::width(chunks)/2)
             centeredChunks <- suppressWarnings(IRanges::shift(chunks, ov))
-            ir <- IRanges::flank(centeredChunks, round(sl$tileSize/2), both = TRUE)
+            ir <- suppressWarnings(IRanges::flank(centeredChunks, round(sl$tileSize/2), both = TRUE))
             tiles <- suppressWarnings(IRanges::trim(ir))
         }
-        
+
         ## adjust first tile
         startsToResize <- which(IRanges::start(tiles) < IRanges::start(y))
         trimmedEnd <- IRanges::end(tiles[startsToResize]) + IRanges::start(y) - IRanges::start(tiles[startsToResize])
@@ -333,6 +349,8 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         trimmedStarts <- IRanges::start(tiles[endsToResize]) - IRanges::end(tiles[endsToResize]) + IRanges::end(y)
         IRanges::start(tiles[endsToResize]) <- max(trimmedStarts, IRanges::start(y))
         IRanges::end(tiles[endsToResize]) <- IRanges::end(y)
+
+        
 
         ## remove duplicate tiles if present
         tiles <- unique(tiles)
@@ -346,6 +364,12 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     tiles <- do.call("c", tileList)
     GenomeInfoDb::seqlengths(tiles) <- GenomeInfoDb::seqlengths(l$chromosomes)
     GenomeInfoDb::seqlevels(tiles, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(tiles)
+
+    ## resize start and end tiles till correct tile size is reached
+    startsToResize <- which(width(tiles) < l$tileSize & start(tiles) == 1)
+    tiles[startsToResize] <- resize(tiles[startsToResize], width = l$tileSize)
+    endsToResize <- which(width(tiles) < l$tileSize)
+    tiles[endsToResize] <- resize(tiles[endsToResize], width = l$tileSize, fix = "end")
     
     ## add 'id' column, check element and put settings in metadata
     S4Vectors::mcols(tiles)$id <- 1:length(tiles)
@@ -364,6 +388,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 #' @param config A data.frame with pre-specified columns.
 #' @param directory The directory of the files
 #' @return The same data.frame with the columns of the right type.
+#' @noRd
 .normalizeConfig <- function(config, directory) {
     
     if(class(config) == "character") {
@@ -494,7 +519,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .checkChunkSize <- function(object) {
     widths <- IRanges::width(getIndex(object))
     diffs <- (widths - 2*getOverhangSize(object)) - getChunkSize(object)
-    res <- all.equal(widths, rep(0, length(diffs)), tolerance = 0)
+    res <- all.equal(diffs, rep(0, length(diffs)), tolerance = 0)
     return(res)
 }
 
@@ -502,7 +527,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .checkTileSize <- function(object) {
     widths <- IRanges::width(getIndex(object))
     diffs <- widths - getTileSize(object)
-    res <- all.equal(diffs, rep(0, length(diffs)), tolerance = 1)
+    res <- all.equal(diffs, rep(0, length(diffs)), tolerance = 0)
     return(res)
 }
 
@@ -515,11 +540,20 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
 ## check the chromosome list and return a logical value
 .checkChromosomes <- function(object) {
-    objChroms <- sort(GenomeInfoDb::seqlengths(object))
-    indexChroms <- sort(GenomeInfoDb::seqlengths(getIndex(object)))
-    validChroms <- sort(GenomeInfoDb::seqlengths(getChromosomes(object)))
+    objChroms <- GenomeInfoDb::seqlengths(object)
+    indexChroms <- GenomeInfoDb::seqlengths(getIndex(object))
+    validChroms <- GenomeInfoDb::seqlengths(getChromosomes(object))
+    
+    objChroms <- objChroms[order(names(objChroms))]
+    indexChroms <- indexChroms[order(names(indexChroms))]
+    validChroms <- validChroms[order(names(validChroms))]
+    
     res1 <- all.equal(indexChroms, validChroms, objChroms)
     res2 <- all.equal(names(indexChroms), names(validChroms), names(objChroms))
+    if(is(res1, "character") | is(res2, "character")) {
+        ans <- paste("Chromosome Lengths:", res1, "\n", "Chromosome Names:", res2, "\n")
+        return(ans)
+    }
     return(res1 & res2)
 }
 
@@ -527,14 +561,14 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .checkNumberOfTiles <- function(object) {
     tiles <- length(getIndex(object))
     validTiles <- getTileNumber(object)
-    res <- tiles == validTiles
+    res <- all.equal(tiles, validTiles)
     return(res)
 }
 
 ## check ranges
 .checkTileRanges <- function(object) {
-    tileRanges <- dataRange(object)
-    dataRanges <- rowRanges(object)
+    tileRanges <- tileSettings(object)$chromosomes
+    dataRanges <- dataRange(object)
     res <- all.equal(tileRanges, dataRanges)
     return(res)
 }
@@ -559,15 +593,15 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         return(FALSE)
     }
     res <- sapply(params, .checkSettings, object = object)
-    if(all(res)) {
-        futile.logger::flog.trace("All checks passed.")
-        return(TRUE)
-    }
-    else {
-        futile.logger::flog.error(paste("Checks failed in",
-                         paste(params[!res], collapse = ", ")))
+    if(is(res, "character")) {
+        errorIndx <- which(res != "TRUE")
+        futile.logger::flog.error("Checks failed. Following settings display errors:\n")
+        print(res[errorIndx])
         return(FALSE)
     }
+    
+    futile.logger::flog.trace("All checks passed.")
+    return(TRUE)
 }
 
 #' @noRd

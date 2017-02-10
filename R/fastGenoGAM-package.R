@@ -19,4 +19,6 @@
 #' @importFrom futile.logger flog.info
 #' @importFrom futile.logger flog.warn
 #' @importFrom futile.logger flog.error
-NULL
+#' @importFrom futile.logger flog.trace
+#' @importFrom futile.logger flog.debug
+"_PACKAGE"

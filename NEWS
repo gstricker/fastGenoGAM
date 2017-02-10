@@ -5,4 +5,6 @@ Describe the new package and the improvements made and why it was necessary to m
 
 NEW FEATURES IN VERSION 2.0
 -----------------------------
-	o start here
+	o Simplified underlying infrastructure and thus less overhead
+	o GenoGAMDataSet can now be efficiently created from SummarizedExperiment objects
+	o Access to the GenoGAMSettings class, to modify global settings for computation of the model

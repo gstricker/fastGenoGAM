@@ -4,6 +4,16 @@
 \name{GenoGAMDataSet-class}
 \alias{GenoGAMDataSet-class}
 \alias{GenoGAMDataSet}
+\alias{getIndex}
+\alias{tileSettings}
+\alias{dataRange}
+\alias{getChromosomes}
+\alias{getTileSize}
+\alias{getChunkSize}
+\alias{getOverhangSize}
+\alias{getTileNumber}
+\alias{design}
+\alias{sizeFactors}
 \alias{getIndex,GenoGAMDataSet-method}
 \alias{tileSettings,GenoGAMDataSet-method}
 \alias{dataRange,GenoGAMDataSet-method}
@@ -77,9 +87,13 @@ usually stored in HDF5 format due to their space requirements for type double.}
 \item{...}{Further parameters, mostly for arguments of custom processing
 functions or to specify a different method for fragment size estimation.
 See details for further information.}
+
+\item{object}{For use of S4 methods. The GenoGAMDataSet object.}
+
+\item{value}{For use of S4 methods. The value to be assigned to the slot.}
 }
 \value{
-An object of class \code{\link{GenoGAMDataSet}}.
+An object of class \code{\link{GenoGAMDataSet}} or the respective slot.
 }
 \description{
 The GenoGAMDataSet class contains the pre-processed raw data and
@@ -93,50 +107,6 @@ settings for the session. For information on the slots inherited from
 SummarizedExperiment check the respective class.
 
 GenoGAMDataSet is the constructor function for the GenoGAMDataSet-class.
-}
-\details{
-Config:
-
-The config file/data.frame contains the actual experiment design. It must
-contain at least three columns with fixed names: 'ID', 'file' and 'paired'.
-
-The field 'ID' stores a unique identifier for each alignment file.
-It is recommended to use short and easy to understand identifiers because
-they are subsequently used for labelling data and plots.
-
-The field 'file' stores the BAM file name.
-
-The field 'paired', values TRUE for paired-end sequencing data, and FALSE for
-single-end sequencing data.
-
-All other columns are stored in the colData slot of the GenoGAMDataSet
-object. Note that all columns which will be used for analysis must have at
-most two conditions, which are for now restricted to 0 and 1. For example,
-if the IP data schould be corrected for input, then the input will be 0
-and IP will be 1, since we are interested in the corrected IP. See examples.
-
-Design/Formula:
-
-Design must be a formula. At the moment only the following is
-possible: Either ~ s(x) for a smooth fit over the entire data or
-s(x, by = "myColumn"), where 'myColumn' is a column name
-in the experimentDesign. Any combination of this is possible:
-
-~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
-
-For example the formula for correcting IP for input would look like this:
-
-~ s(x) + s(x, by = "experiment")
-
-where 'experiment' is a column with 0s and 1s, with the ip samples annotated
-with 1 and input samples with 0.
-'
-Further parameters:
-
-In case of single-end data it might be usefull to specify a different
-method for fragment size estimation. The argument 'shiftMethod' can be
-supplied with the values 'coverage' (default), 'correlation' or 'SISSR'.
-See ?chipseq::estimate.mean.fraglen for explanation.
 }
 \section{Methods (by generic)}{
 \itemize{
@@ -161,11 +131,11 @@ or chromosome regions on which the model will be computed
 
 \item \code{design}: Access to the design slot.
 
-\item \code{design<-}: Access to the design slot.
+\item \code{design<-}: Replace method of the design slot.
 
 \item \code{sizeFactors}: Access to the sizeFactors slot
 
-\item \code{sizeFactors<-}: Access to the sizeFactors slot
+\item \code{sizeFactors<-}: Replace method of the sizeFactors slot
 }}
 
 \section{Slots}{
@@ -174,13 +144,63 @@ or chromosome regions on which the model will be computed
 \item{\code{settings}}{The global and local settings that will be used to compute the
 model.}
 
-\item{\code{design}}{The formula describing how to evaluate the data.}
+\item{\code{design}}{The formula describing how to evaluate the data. See details.}
 
-\item{\code{sizeFactors}}{The normalized values for each sample.}
+\item{\code{sizeFactors}}{The normalized values for each sample. A named numeric vector.}
 
 \item{\code{index}}{A GRanges object representing an index of the ranges defined 
 on the genome. Mostly used to store tiles.}
 }}
+
+\section{Config}{
+
+
+The config file/data.frame contains the actual experiment design. It must
+contain at least three columns with fixed names: 'ID', 'file' and 'paired'.
+
+The field 'ID' stores a unique identifier for each alignment file.
+It is recommended to use short and easy to understand identifiers because
+they are subsequently used for labelling data and plots.
+
+The field 'file' stores the BAM file name.
+
+The field 'paired', values TRUE for paired-end sequencing data, and FALSE for
+single-end sequencing data.
+
+All other columns are stored in the colData slot of the GenoGAMDataSet
+object. Note that all columns which will be used for analysis must have at
+most two conditions, which are for now restricted to 0 and 1. For example,
+if the IP data schould be corrected for input, then the input will be 0
+and IP will be 1, since we are interested in the corrected IP. See examples.
+}
+
+\section{Design/Formula}{
+
+
+Design must be a formula. At the moment only the following is
+possible: Either ~ s(x) for a smooth fit over the entire data or
+s(x, by = "myColumn"), where 'myColumn' is a column name
+in the experimentDesign. Any combination of this is possible:
+
+~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
+
+For example the formula for correcting IP for input would look like this:
+
+~ s(x) + s(x, by = "experiment")
+
+where 'experiment' is a column with 0s and 1s, with the ip samples annotated
+with 1 and input samples with 0.
+'
+}
+
+\section{Further parameters}{
+
+
+In case of single-end data it might be usefull to specify a different
+method for fragment size estimation. The argument 'shiftMethod' can be
+supplied with the values 'coverage' (default), 'correlation' or 'SISSR'.
+See ?chipseq::estimate.mean.fraglen for explanation.
+}
 
 \examples{
 \dontrun{
@@ -204,10 +224,11 @@ overhangSize = 250, design = ~ s(x) + s(x, by = "experiment"))
 }
 
 ## build from SummarizedExperiment
-gr <- GPos(GRanges("chr1", IRanges(1, 100)))
-df <- DataFrame(colA = 1:100, colB = 101:200)
+gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
+seqlengths(gr) <- 1e6
+df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
 se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
-ggd <- GenoGAMDataset(se, chunkSize = 2000, overhangSize = 250, 
+ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
                       design = ~ s(x) + s(x, by = "experiment"))
 ggd
 }
