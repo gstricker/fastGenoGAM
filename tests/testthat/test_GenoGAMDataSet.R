@@ -8,6 +8,14 @@ se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
 ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
                       design = ~ s(x) + s(x, by = "experiment"))
 
+test_that("The constructor works generally correctly", {
+    df <- GenoGAMDataSet()
+    expect_identical(new("GenoGAMDataSet"), df)
+
+    expect_error(GenoGAMDataSet(10))
+    expect_error(GenoGAMDataSet(se))
+})
+
 test_that("The constructor works correctly for SummarizedExperiment", {
     test_ggd <- ggd
     expect_identical(assay(test_ggd), assay(se))
@@ -30,9 +38,47 @@ test_that("The constructor works correctly for SummarizedExperiment", {
                  "Overlapping regions encountered. Please reduce ranges and data first.")
 })
 
-## test_that("The constructor works correctly for config files and data.frames", {
+test_that("The constructor works correctly for config files and data.frames", {
+    config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
+    dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+
+    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    params <- Rsamtools::ScanBamParam(which = region)
+    settings <- GenoGAMSettings(bamParams = params)
+    ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         settings = settings)
+    expect_true(checkObject(ds))
+    expect_equal(getTileNumber(ds), 3)
+    expect_true(all(sapply(assay(ds), sum) > 0))
     
-## })
+
+    df <- read.table(config, header = TRUE, sep = '\t')
+    ds <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
+                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         settings = settings)
+    expect_true(checkObject(ds))
+    expect_equal(getTileNumber(ds), 3)
+    expect_true(all(sapply(assay(ds), sum) > 0))
+
+    region = GRanges("chrV", IRanges(105000, 108000))
+    params <- Rsamtools::ScanBamParam(which = region)
+    settings <- GenoGAMSettings(bamParams = params)
+    ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         settings = settings)
+    expect_false(checkObject(ds))
+    expect_true(is.null(getTileNumber(ds)))
+    expect_true(length(assays(ds)) == 0)
+
+    settings <- GenoGAMSettings(chromosomeList = c("chrV"))
+    ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         settings = settings)
+    expect_false(checkObject(ds))
+    expect_true(is.null(getTileNumber(ds)))
+    expect_true(length(assays(ds)) == 0)
+})
 
 test_that("Tiling works correctly under full chromosome conditions", {
     chromosomes <- GRanges(c("chr1", "chr2"), IRanges(c(1,1), c(10000, 10000)))
@@ -126,6 +172,32 @@ test_that("Accessors return the right slots", {
     expect_identical(getTileNumber(test_ggd), metadata(slot(test_ggd, "index"))$numTiles)
     expect_identical(design(test_ggd), slot(test_ggd, "design"))
     expect_identical(sizeFactors(test_ggd), slot(test_ggd, "sizeFactors"))
+})
+
+test_that("The read-in functions work correctly", {
+    config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
+    config <- read.table(config, header = TRUE, sep = '\t', stringsAsFactors = FALSE)
+    for(ii in 1:nrow(config)) {
+        absPath <- system.file("extdata/Set1", config$file[ii], package = "fastGenoGAM")
+        config$file[ii] <- absPath
+    }
+    expect_true(is(readData(config), "DataFrame"))
+
+    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    params <- Rsamtools::ScanBamParam(which = region)
+    reads <- GenomicAlignments::readGAlignments(config$file[1], param = params)
+
+    gr <- .processCountChunks(reads, center = TRUE)
+    expect_true(length(gr) > 0)
+
+    
+    gr <- .centerFragments(reads, asMates = FALSE)
+    expect_true(length(gr) > 0)
+    expect_true(median(width(gr)) == 1)
+
+    gr <- .countFragments(reads, asMates = FALSE)
+    expect_true(length(gr) > 0)
+    expect_true(median(width(gr)) > 1)
 })
 
 

@@ -35,7 +35,8 @@ Imports:
     GenomicAlignments (>= 1.7.17),
     IRanges (>= 2.5.30),
     S4Vectors (>= 0.9.34),
-    Biostrings (>= 2.39.14)
+    Biostrings (>= 2.39.14),
+    HDF5Array (>= 1.2.0)
 Suggests:
     BiocStyle,
     chipseq (>= 1.21.2),

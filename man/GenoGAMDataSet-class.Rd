@@ -74,7 +74,7 @@ should be provided.}
 the current working directory is taken.}
 
 \item{settings}{A GenoGAMSettings object. Not needed by default, but might
-be of use if only specific regions should be read in
+be of use if only specific regions should be read in.
 See \code{\link{GenoGAMSettings}}.}
 
 \item{hdf5}{Should the data be stored on HDD in HDF5 format? By default this
@@ -82,7 +82,8 @@ is disabled, as the Rle representation of count data already provides a
 decent compression of the data. However in case of large organisms, a complex
 experiment design or just limited memory, this might further decrease the
 memory footprint. Note this only applies to the input count data, results are
-usually stored in HDF5 format due to their space requirements for type double.}
+usually stored in HDF5 format due to their space requirements for type double.
+Exceptions are small organisms like yeast.}
 
 \item{...}{Further parameters, mostly for arguments of custom processing
 functions or to specify a different method for fragment size estimation.
@@ -203,27 +204,42 @@ See ?chipseq::estimate.mean.fraglen for explanation.
 }
 
 \examples{
-\dontrun{
-myConfig <- data.frame(ID = c("input","ip"),
-                  file = c("myInput.bam", "myIP.bam"),
-                  paired = c(FALSE, FALSE),
-                  experiment = factor(c(0,1)),
-                  stringsAsFactors = FALSE) 
-myConfig2 <- data.frame(ID = c("wildtype1","wildtype2",
-                              "mutant1", "mutant2"),
-                  file = c("myWT1.bam", "myWT2.bam"
-                           "myMutant1.bam", "myMutant2.bam"),
-                  paired = c(FALSE, FALSE, FALSE, FALSE),
-                  experiment = factor(c(0, 0, 1, 1)),
-                  stringsAsFactors = FALSE)
+# Build from config file
 
-gdd <- GenoGAMDataSet(myConfig, chunkSize = 2000,
-overhangSize = 250, design = ~ s(x) + s(x, by = "experiment")
-ggd <- GenoGAMDataSet(myConfig2, chunkSize = 2000,
-overhangSize = 250, design = ~ s(x) + s(x, by = "experiment"))
-}
+config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
+dir <- system.file("extdata/Set1", package = "fastGenoGAM")
 
-## build from SummarizedExperiment
+## For all data
+ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+    design = ~ s(x) + s(x, by = "genotype"), directory = dir)
+ggd
+
+## Read data of a particular chromosome
+settings <- GenoGAMSettings(chromosomeList = "chrXIV")
+ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    settings = settings)
+ggd
+
+## Read data of particular range
+region <- GRanges("chrXIV", IRanges(305000, 308000))
+params <- Rsamtools::ScanBamParam(which = region)
+settings <- GenoGAMSettings(bamParams = params)
+ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    settings = settings)
+ggd
+
+# Build from data.frame config
+
+df <- read.table(config, header = TRUE, sep = '\\t')
+ggd <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
+    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    settings = settings)
+ggd
+
+# Build from SummarizedExperiment
+
 gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
 seqlengths(gr) <- 1e6
 df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
