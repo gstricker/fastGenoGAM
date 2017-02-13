@@ -26,6 +26,10 @@
 \alias{design<-,GenoGAMDataSet,ANY-method}
 \alias{sizeFactors,GenoGAMDataSet-method}
 \alias{sizeFactors<-,GenoGAMDataSet,ANY-method}
+\alias{getChunkSize<-,GenoGAMDataSet-method}
+\alias{getTileSize<-,GenoGAMDataSet-method}
+\alias{getOverhangSize<-,GenoGAMDataSet-method}
+\alias{getTileNumber<-,GenoGAMDataSet-method}
 \title{GenoGAMDataSet}
 \usage{
 GenoGAMDataSet(experimentDesign, chunkSize, overhangSize, design,
@@ -54,6 +58,14 @@ GenoGAMDataSet(experimentDesign, chunkSize, overhangSize, design,
 \S4method{sizeFactors}{GenoGAMDataSet}(object)
 
 \S4method{sizeFactors}{GenoGAMDataSet,ANY}(object) <- value
+
+\S4method{getChunkSize}{GenoGAMDataSet}(object) <- value
+
+\S4method{getTileSize}{GenoGAMDataSet}(object) <- value
+
+\S4method{getOverhangSize}{GenoGAMDataSet}(object) <- value
+
+\S4method{getTileNumber}{GenoGAMDataSet}(object) <- value
 }
 \arguments{
 \item{experimentDesign}{Either a character object specifying the path to a
@@ -137,6 +149,18 @@ or chromosome regions on which the model will be computed
 \item \code{sizeFactors}: Access to the sizeFactors slot
 
 \item \code{sizeFactors<-}: Replace method of the sizeFactors slot
+
+\item \code{getChunkSize<-}: Replace method of the chunkSize parameter,
+that triggers a new computation of the tiles based on the new chunk size.
+
+\item \code{getTileSize<-}: Replace method of the tileSize parameter,
+that triggers a new computation of the tiles based on the new tile size.
+
+\item \code{getOverhangSize<-}: Replace method of the overhangSize parameter,
+that triggers a new computation of the tiles based on the new overhang size.
+
+\item \code{getTileNumber<-}: Replace method of the tileNumber parameter,
+that triggers a new computation of the tiles based on the new number of tiles.
 }}
 
 \section{Slots}{

@@ -172,6 +172,15 @@ test_that("Accessors return the right slots", {
     expect_identical(getTileNumber(test_ggd), metadata(slot(test_ggd, "index"))$numTiles)
     expect_identical(design(test_ggd), slot(test_ggd, "design"))
     expect_identical(sizeFactors(test_ggd), slot(test_ggd, "sizeFactors"))
+
+    getChunkSize(test_ggd) <- 2500
+    expect_equal(getTileNumber(test_ggd), 4)
+    getTileSize(test_ggd) <- 2500
+    expect_equal(getTileNumber(test_ggd), 5)
+    getOverhangSize(test_ggd) <- 500
+    expect_equal(median(width(getIndex(test_ggd))), 3000)
+    getTileNumber(test_ggd) <- 2
+    expect_equal(getChunkSize(test_ggd), 5000)
 })
 
 test_that("The read-in functions work correctly", {

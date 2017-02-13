@@ -59,7 +59,7 @@ Collate:
     'devel.R'
     'fastGenoGAM-package.R'
     'helper.R'
-    'readData_dev.R'
+    'readData.R'
 URL: https://github.com/gstricker/GenoGAM
 BugReports: https://github.com/gstricker/GenoGAM/issues
 Author: Georg Stricker [aut, cre], Alexander Engelhardt [aut], Julien
