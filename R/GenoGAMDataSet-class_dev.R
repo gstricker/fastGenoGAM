@@ -845,81 +845,27 @@ setReplaceMethod("getTileNumber", "GenoGAMDataSet", function(object, value) {
     return(object)
 })
 
-## WORK IN PROGRESS
-
 ## Subsetting
 ## ==========
-#' Subset method for GenoGAMDataSet
+#' Subset methods for GenoGAMDataSet
 #'
-#' Subsetting the GenoGAMDataSet by a logical statement
+#' @details
+#' Those are various methods to subset the GenoGAMDataSet object.
+#' By logical statement or GRanges overlap. The '[' subsetter is
+#' just a short version of 'subsetByOverlaps'. The double brackets '[['
+#' offer a subset based on tiles.
 #'
-#' @param x A \code{GenoGAMDataSet} object.
-#' @param ... Further arguments. Mostly a logical statement.
-#' Note that the columnnames for chromosomes and positions
-#' are: seqnames and pos.
-#' @return A subsetted \code{GenomicTiles} object.
-#' @examples
-#' ggd <- makeTestGenoGAMDataSet()
-#' res <- subset(ggd, seqnames == "chrI" & pos <= 50)
-#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-setMethod("subset", "GenoGAMDataSet", function(x, ...) {
-    if(all(dim(x) == c(0, 0))) return(x)
-    
-    settings <- slot(x, "settings")
-    design <- design(x)
-    sf <- sizeFactors(x)
-    se <- subset(SummarizedExperiment(assays = assays(x),
-                                      rowRanges = rowRanges(x),
-                                      colData = colData(x)), ...)
-    GenomeInfoDb::seqlevels(rowRanges(se), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
-    slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se)
-    indeces <- .subsetIndeces(se, getIndex(x))
-
-    ggd <- new("GenoGAMDataSet", se, settings = settings,
-               design = design, sizeFactors = sf, index = index)
-    return(ggd)
-})
-
-#' Method to subset the indeces of GenomicTiles.
-#'
-#' Subsetting the indeces of GenomicTiles based on a SummarizedExperiment.
-#'
-#' @param x A SummarizedExperiment object.
-#' @param index The index of a GenomicTiles to be subsetted.
-#' @return A list of two GRanges objects: the subsetted index and the
-#' subsetted coordinates.
-.subsetIndeces <- function(se, index) {
-    gpCoords <- rowRanges(se)@pos_runs
-    l <- S4Vectors::metadata(index)
-    l$chromosomes <- gpCoords
-    indx <- .makeTiles(l)
-    GenomeInfoDb::seqinfo(indx) <- GenomeInfoDb::seqinfo(gpCoords)
-    
-    return(indx)
-}
-
-## WORK IN PROGRESS
-
-
-
-
-
-
-
-#' Subset by overlaps method for \code{GenoGAMDataSet}
-#'
-#' Subsetting the \code{GenoGAMDataSet} by a \code{GRanges} object
-#'
-#' @param query A \code{GenoGAMDataSet} object.
-#' @param subject A \code{GRanges} object
-#' @param maxgap,minoverlap Intervals with a separation of \code{maxgap} or
-#' less and a minimum of \code{minoverlap} overlapping positions, allowing for
-#' \code{maxgap}, are considered to be overlapping.  \code{maxgap} should
-#' be a scalar, non-negative, integer. \code{minoverlap} should be a scalar,
+#' @aliases subsetByOverlaps '[' '[['
+#' @param x,query A GenoGAMDataSet object.
+#' @param subject A GRanges object
+#' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
+#' less and a minimum of 'minoverlap' overlapping positions, allowing for
+#' 'maxgap', are considered to be overlapping. 'maxgap' should
+#' be a scalar, non-negative, integer. 'minoverlap' should be a scalar,
 #' positive integer.
-#' @param type By default, any overlap is accepted. By specifying the \code{type}
+#' @param type By default, any overlap is accepted. By specifying the 'type'
 #' parameter, one can select for specific types of overlap. The types correspond
-#' to operations in Allen's Interval Algebra (see references). If \code{type}
+#' to operations in Allen's Interval Algebra (see references in). If \code{type}
 #' is \code{start} or \code{end}, the intervals are required to have matching
 #' starts or ends, respectively. While this operation seems trivial, the naive
 #' implementation using \code{outer} would be much less efficient. Specifying
@@ -933,46 +879,103 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 #' the maximum difference in the starts, ends or both, respectively. For
 #' \code{within}, it is the maximum amount by which the query may be wider
 #' than the subject.
-#' @param ... Additional parameters
-#' @return A subsetted \code{GenoGAMDataSet} object.
+#' @param ... Further arguments. Mostly a logical statement
+#' in case of the 'subset' function. Note that the columnnames
+#' for chromosomes and positions are: 'seqnames' and 'pos'.
 #' @examples
+#' 
+#' # subset by overlaps
 #' ggd <- makeTestGenoGAMDataSet()
-#' gr <- GRanges("chrI", IRanges(1,50))
+#' rowRanges(ggd)
+#' gr <- GRanges("chrXIV", IRanges(306500,307500))
 #' res <- subsetByOverlaps(ggd, gr)
+#' rowRanges(res)
+#'
+#' # Subset by logical statement
+#' ggd <- makeTestGenoGAMDataSet()
+#' rowRanges(ggd)
+#' res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
+#' rowRanges(res)
+#' @references
+#' Allen's Interval Algebra: James F. Allen: Maintaining knowledge
+#' about temporal intervals. In: Communications of the ACM.
+#' 26/11/1983. ACM Press. S. 832-843, ISSN 0001-0782
+#' @return A subsetted GenoGAMDataSet object.
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
-          function(query, subject, maxgap=0L, minoverlap=1L,
-                      type=c("any", "start", "end", "within", "equal"),...) {
-              settings <- getSettings(query)
-              design <- design(query)
-              sf <- sizeFactors(query)
-              subgt <- .subsetByOverlaps(query, subject, maxgap=maxgap,
-                                         minoverlap=minoverlap,
-                                         type=type,...)
-              settings <- setDefaults(settings, chromosomeList = GenomeInfoDb::seqlevels(subgt))
-              
-              gtd <- new("GenoGAMDataSet", subgt, settings = settings,
-                         design = design, sizeFactors = sf)
-              return(gtd)
-          })
-
-#' Subsetting by GRanges
-#'
-#' Providing subsetting by GRanges through the single-bracket operator
-#'
-#' @param x A \code{GenoGAMDataSet} object
-#' @param i A \code{GRanges} object
-#' @return A subsetted \code{GenoGAMDataSet} object
-#' @rdname GenoGAMDataSet-brackets
-setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
-    settings <- getSettings(x)
+#' @rdname GenoGAMDataSet-subsetting
+setMethod("subset", "GenoGAMDataSet", function(x, ...) {
+    if(all(dim(x) == c(0, 0))) return(x)
+    
+    settings <- slot(x, "settings")
     design <- design(x)
     sf <- sizeFactors(x)
-    subgt <- .exactSubsetByOverlaps(x, i)
-    settings <- setDefaults(settings, chromosomeList = GenomeInfoDb::seqlevels(subgt))
-              
-    gtd <- new("GenoGAMDataSet", subgt, settings = settings,
-               design = design, sizeFactors = sf)
-    return(gtd)
+    se <- subset(SummarizedExperiment(assays = assays(x),
+                                      rowRanges = rowRanges(x),
+                                      colData = colData(x)), ...)
+    GenomeInfoDb::seqlevels(rowRanges(se), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
+    slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se)
+    index <- .subsetIndex(se, getIndex(x))
+
+    ggd <- new("GenoGAMDataSet", se, settings = settings,
+               design = design, sizeFactors = sf, index = index)
+    return(ggd)
 })
+
+#' Method to subset the index of GenoGAMDataSet
+#'
+#' Subsetting the indeces of GenomicTiles based on a SummarizedExperiment.
+#'
+#' @param x A SummarizedExperiment object.
+#' @param index The index of the GenoGAMDataSet object to be subsetted.
+#' @return A GRanges object representing the index
+#' @noRd
+.subsetIndex <- function(se, index) {
+    gpCoords <- rowRanges(se)@pos_runs
+    l <- S4Vectors::metadata(index)
+    l$chromosomes <- gpCoords
+    indx <- .makeTiles(l)
+    GenomeInfoDb::seqinfo(indx) <- GenomeInfoDb::seqinfo(gpCoords)
+    
+    return(indx)
+}
+
+#' @rdname GenoGAMDataSet-subsetting
+setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
+          function(query, subject, maxgap = 0L, minoverlap = 1L,
+                      type = c("any", "start", "end", "within", "equal"),...) {
+              settings <- slot(query, "settings")
+              design <- design(query)
+              sf <- sizeFactors(query)
+              se <- SummarizedExperiment(assays = assays(query),
+                                      rowRanges = rowRanges(query),
+                                      colData = colData(query))
+              subse <- subsetByOverlaps(se, subject, maxgap = maxgap,
+                                         minoverlap = minoverlap,
+                                         type=type, ...)
+              slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(subse)
+              index <- .subsetIndex(subse, getIndex(query))
+              
+              ggd <- new("GenoGAMDataSet", subse, settings = settings,
+                         design = design, sizeFactors = sf, index = index)
+              return(ggd)
+          })
+
+#' @rdname GenoGAMDataSet-subsetting
+setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
+    ggd <- subsetByOverlaps(x, i)
+    return(ggd)
+})
+
+#' @rdname GenoGAMDataSet-subsetting
+setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
+    gr <- getIndex(x)[i]
+    ggd <- subsetByOverlaps(x,gr)
+    return(ggd)
+})
+
+
+
+
+
+
 

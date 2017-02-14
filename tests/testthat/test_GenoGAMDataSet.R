@@ -209,4 +209,26 @@ test_that("The read-in functions work correctly", {
     expect_true(median(width(gr)) > 1)
 })
 
+test_that("The subsetting methods work correct", {
+    ggd <- makeTestGenoGAMDataSet()
+    gr <- GRanges("chrXIV", IRanges(306501,307500))
+    seqlengths(gr) <- seqlengths(ggd)
+    res <- subsetByOverlaps(ggd, gr)
+    expect_identical(gr, rowRanges(res)@pos_runs)
+    expect_equal(getTileNumber(res), 1)
+
+    test_gr <- GRanges("chrXIV", IRanges(305000,307000))
+    seqlengths(test_gr) <- seqlengths(ggd)
+    res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
+    expect_identical(test_gr, rowRanges(res)@pos_runs)
+    expect_equal(getTileNumber(res), 2)
+
+    res <- ggd[gr]
+    expect_identical(gr, rowRanges(res)@pos_runs)
+    expect_equal(getTileNumber(res), 1)
+
+    res <- ggd[[1]]
+    expect_identical(granges(getIndex(ggd)[1]), rowRanges(res)@pos_runs)
+    expect_equal(getTileNumber(res), 1)
+})
 
