@@ -506,9 +506,9 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         ## do something with a list of GenoGAMDataSets
     }
     else {
-        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = gp,
-                                                         assays = list(countData),
-                                                         colData = colData)
+        se <- SummarizedExperiment(rowRanges = gp,
+                                   assays = list(countData),
+                                   colData = colData)
         ggd <- new("GenoGAMDataSet", se, settings = settings,
                    design = design, sizeFactors = sf, index = tiles)
 
@@ -912,9 +912,14 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     se <- subset(SummarizedExperiment(assays = assays(x),
                                       rowRanges = rowRanges(x),
                                       colData = colData(x)), ...)
-    GenomeInfoDb::seqlevels(rowRanges(se), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
-    slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se)
-    index <- .subsetIndex(se, getIndex(x))
+    if(any(dim(se) == 0)) {
+        index <- GenomicRanges::GRanges()
+    }
+    else {
+        GenomeInfoDb::seqlevels(rowRanges(se), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se)
+        index <- .subsetIndex(se, getIndex(x))
+    }
 
     ggd <- new("GenoGAMDataSet", se, settings = settings,
                design = design, sizeFactors = sf, index = index)
@@ -942,23 +947,29 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
           function(query, subject, maxgap = 0L, minoverlap = 1L,
-                      type = c("any", "start", "end", "within", "equal"),...) {
-              settings <- slot(query, "settings")
-              design <- design(query)
-              sf <- sizeFactors(query)
-              se <- SummarizedExperiment(assays = assays(query),
-                                      rowRanges = rowRanges(query),
-                                      colData = colData(query))
-              subse <- subsetByOverlaps(se, subject, maxgap = maxgap,
-                                         minoverlap = minoverlap,
-                                         type=type, ...)
-              slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(subse)
-              index <- .subsetIndex(subse, getIndex(query))
-              
-              ggd <- new("GenoGAMDataSet", subse, settings = settings,
-                         design = design, sizeFactors = sf, index = index)
-              return(ggd)
-          })
+                   type = c("any", "start", "end", "within", "equal"),...) {
+    settings <- slot(query, "settings")
+    design <- design(query)
+    sf <- sizeFactors(query)
+    se <- SummarizedExperiment(assays = assays(query),
+                               rowRanges = rowRanges(query),
+                               colData = colData(query))
+    subse <- subsetByOverlaps(se, subject, maxgap = maxgap,
+                              minoverlap = minoverlap,
+                              type=type, ...)
+    if(any(dim(subse) == 0)) {
+        index <- GenomicRanges::GRanges()
+    }
+    else {
+        GenomeInfoDb::seqlevels(rowRanges(subse), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(subse))
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(subse)
+        index <- .subsetIndex(subse, getIndex(query))
+    }
+    
+    ggd <- new("GenoGAMDataSet", subse, settings = settings,
+               design = design, sizeFactors = sf, index = index)
+    return(ggd)
+})
 
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
@@ -972,6 +983,106 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
     ggd <- subsetByOverlaps(x,gr)
     return(ggd)
 })
+
+
+## Tile computation
+## ================
+
+#' Function to retrieve the row coordinates as a list
+#' @param x The GenoGAMDataSet object
+#' @return An integerList with the row numbers for each tile
+.getCoordinates <- function(x) {
+    
+    ov <- findOverlaps(rowRanges(x), getIndex(x))
+    sh <- subjectHits(ov)
+    qh <- queryHits(ov)
+    l <- splitAsList(qh, sh)
+    return(l)
+}
+
+#' compute metrics for each tile
+#' @param x The GenoGAMDataSet object
+#' @param what A character naming the metric
+#' @param na.rm Should NAs be ignored
+#' @return The metric value
+.MetricsFun <- function(x, what, na.rm = FALSE) {
+    l <- .getCoordinates(x)
+        
+    res <- sapply(colnames(x), function(y) {
+        rle <- extractList(assay(x)[[y]], l)
+        eval(call(what, rle, na.rm = na.rm))
+    })
+
+    names(res) <- colnames(x)
+    return(res)
+}
+
+#' Computing metrics
+#'
+#' Computing metrics on each tile of the GenoGAMDataSet object.
+#' All metrics from the Summary generics group, as well as
+#' mean, var, sd, median, mad and IQR are supported.
+#'
+#' @param x A GenoGAMDataSet object
+#' @param ... Additional arguments
+#' @param na.rm Should NAs be dropped. Otherwise the result is NA
+#' @return A matrix with the specified metric computed per tile per column
+#' of the assay data.
+#' @examples
+#' ggd <- makeTestGenoGAMDataSet()
+#' sum(ggd)
+#' min(ggd)
+#' max(ggd)
+#' mean(ggd)
+#' var(ggd)
+#' sd(ggd)
+#' median(ggd)
+#' mad(ggd)
+#' IQR(ggd)
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @rdname GenoGAMDataSet-metrics
+setMethod("Summary", "GenoGAMDataSet", function(x, ..., na.rm = FALSE) {
+    l <- .getCoordinates(x)
+        
+    res <- sapply(colnames(x), function(y) {
+        rle <- extractList(assay(x)[[y]], l)
+        eval(call(what, rle, na.rm = na.rm))
+    })
+
+    names(res) <- colnames(x)
+    return(res)
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("mean", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "mean")
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("var", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "var")
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("sd", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "sd")
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("median", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "median")
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("mad", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "mad")
+})
+
+#' @rdname GenoGAMDataSet-metrics
+setMethod("IQR", "GenoGAMDataSet", function(x) {
+    .MetricsFun(x, "IQR")
+})
+
 
 
 

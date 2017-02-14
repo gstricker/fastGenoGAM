@@ -213,6 +213,7 @@ test_that("The subsetting methods work correct", {
     ggd <- makeTestGenoGAMDataSet()
     gr <- GRanges("chrXIV", IRanges(306501,307500))
     seqlengths(gr) <- seqlengths(ggd)
+    
     res <- subsetByOverlaps(ggd, gr)
     expect_identical(gr, rowRanges(res)@pos_runs)
     expect_equal(getTileNumber(res), 1)
@@ -230,5 +231,20 @@ test_that("The subsetting methods work correct", {
     res <- ggd[[1]]
     expect_identical(granges(getIndex(ggd)[1]), rowRanges(res)@pos_runs)
     expect_equal(getTileNumber(res), 1)
+
+    gr <- GRanges("chrXIV", IRanges(300501,301500))
+    res <- subsetByOverlaps(ggd, gr)
+    expect_true(all(dim(res) == c(0,4)))
+    expect_true(all(colnames(res) == colnames(ggd)))
+
+    res <- subset(ggd, seqnames == "chrXIV" & pos <= 302000)
+    expect_true(all(dim(res) == c(0,4)))
+    expect_true(all(colnames(res) == colnames(ggd)))
 })
+
+## test_that("Metric computation works correct", {
+##     ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    
+    
+## })
 
