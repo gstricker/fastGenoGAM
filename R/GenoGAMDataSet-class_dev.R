@@ -94,6 +94,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' GenoGAMDataSet is the constructor function for the GenoGAMDataSet-class. 
 #'
 #' @aliases getIndex tileSettings dataRange getChromosomes getTileSize getChunkSize getOverhangSize getTileNumber design sizeFactors
+#' getChunkSize<- getTileSize<- getOverhangSize<- getTileNumber<-
 #' @param experimentDesign Either a character object specifying the path to a
 #' delimited text file (the delimiter will be determined automatically),
 #' a data.frame specifying the experiment design or a RangedSummarizedExperiment
@@ -535,13 +536,13 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
         ip <- rnbinom(k, size = 2, mu = sinCurve/max(sinCurve))
         sinCurve <- c(sin(seq(-7, -1, length.out = k/2)) + 1, runif(k/2, 0, 0.2))
         background <- rnbinom(k, size = 2, mu = sinCurve/max(sinCurve)/2)
-        gr <- GPos(GRanges("chrXYZ", IRanges(1, k)))
-        seqlengths(gr) <- 1e6
-        df <- DataFrame(input = background, IP = ip)
+        gr <- GenomicRanges::GPos(GenomicRanges::GRanges("chrXYZ", IRanges::IRanges(1, k)))
+        GenomeInfoDb::seqlengths(gr) <- 1e6
+        df <- S4Vectors::DataFrame(input = background, IP = ip)
         se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
         ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
                               design = ~ s(x) + s(x, by = "experiment"))
-        coldf <- DataFrame(experiment = c(0, 1))
+        coldf <- S4Vectors::DataFrame(experiment = c(0, 1))
         rownames(coldf) <- c("input", "IP")
         colData(ggd) <- coldf
     }
@@ -789,11 +790,12 @@ setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
 ## ===============
 
 ##' @export 
-setGeneric("getChunkSize<-", function(object, ...) standardGeneric("getChunkSize<-"))
+setGeneric("getChunkSize<-", function(object, value) standardGeneric("getChunkSize<-"))
 
 ##' @describeIn GenoGAMDataSet Replace method of the chunkSize parameter,
 ##' that triggers a new computation of the tiles based on the new chunk size.
-setReplaceMethod("getChunkSize", "GenoGAMDataSet", function(object, value) {
+setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSet", "numeric"),
+                 function(object, value) {
     settings <- tileSettings(object)
     settings$chunkSize <- value
     settings$tileSize <- value + 2*settings$overhangSize
@@ -803,11 +805,12 @@ setReplaceMethod("getChunkSize", "GenoGAMDataSet", function(object, value) {
 })
 
 ##' @export 
-setGeneric("getTileSize<-", function(object, ...) standardGeneric("getTileSize<-"))
+setGeneric("getTileSize<-", function(object, value) standardGeneric("getTileSize<-"))
 
 ##' @describeIn GenoGAMDataSet Replace method of the tileSize parameter,
 ##' that triggers a new computation of the tiles based on the new tile size.
-setReplaceMethod("getTileSize", "GenoGAMDataSet", function(object, value) {
+setReplaceMethod("getTileSize", signature = c("GenoGAMDataSet", "numeric"),
+                 function(object, value) {
     settings <- tileSettings(object)
     settings$tileSize <- value
     settings$chunkSize <- value - 2*settings$overhangSize
@@ -817,11 +820,12 @@ setReplaceMethod("getTileSize", "GenoGAMDataSet", function(object, value) {
 })
 
 ##' @export 
-setGeneric("getOverhangSize<-", function(object, ...) standardGeneric("getOverhangSize<-"))
+setGeneric("getOverhangSize<-", function(object, value) standardGeneric("getOverhangSize<-"))
 
 ##' @describeIn GenoGAMDataSet Replace method of the overhangSize parameter,
 ##' that triggers a new computation of the tiles based on the new overhang size.
-setReplaceMethod("getOverhangSize", "GenoGAMDataSet", function(object, value) {
+setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSet", "numeric"),
+                 function(object, value) {
     settings <- tileSettings(object)
     settings$overhangSize <- value
     settings$tileSize <- settings$chunkSize + 2*value
@@ -831,11 +835,12 @@ setReplaceMethod("getOverhangSize", "GenoGAMDataSet", function(object, value) {
 })
 
 ##' @export 
-setGeneric("getTileNumber<-", function(object, ...) standardGeneric("getTileNumber<-"))
+setGeneric("getTileNumber<-", function(object, value) standardGeneric("getTileNumber<-"))
 
 ##' @describeIn GenoGAMDataSet Replace method of the tileNumber parameter,
 ##' that triggers a new computation of the tiles based on the new number of tiles.
-setReplaceMethod("getTileNumber", "GenoGAMDataSet", function(object, value) {
+setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
+                 function(object, value) {
     settings <- tileSettings(object)
     size <- settings$chunkSize*settings$numTiles
     settings$chunkSize <- round(size/value)
@@ -857,7 +862,8 @@ setReplaceMethod("getTileNumber", "GenoGAMDataSet", function(object, value) {
 #'
 #' @aliases subsetByOverlaps '[' '[['
 #' @param x,query A GenoGAMDataSet object.
-#' @param subject A GRanges object
+#' @param subject,i A GRanges object. In case of subsetting by double brackets
+#' 'i' is the index of the tile.
 #' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
 #' less and a minimum of 'minoverlap' overlapping positions, allowing for
 #' 'maxgap', are considered to be overlapping. 'maxgap' should
@@ -879,6 +885,8 @@ setReplaceMethod("getTileNumber", "GenoGAMDataSet", function(object, value) {
 #' the maximum difference in the starts, ends or both, respectively. For
 #' \code{within}, it is the maximum amount by which the query may be wider
 #' than the subject.
+#' @param invert If TRUE, keep only the query ranges that do _not_ overlap
+#' the subject.
 #' @param ... Further arguments. Mostly a logical statement
 #' in case of the 'subset' function. Note that the columnnames
 #' for chromosomes and positions are: 'seqnames' and 'pos'.
@@ -947,7 +955,8 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
           function(query, subject, maxgap = 0L, minoverlap = 1L,
-                   type = c("any", "start", "end", "within", "equal"),...) {
+                   type = c("any", "start", "end", "within", "equal"),
+                   invert = FALSE, ...) {
     settings <- slot(query, "settings")
     design <- design(query)
     sf <- sizeFactors(query)
@@ -956,7 +965,7 @@ setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
                                colData = colData(query))
     subse <- subsetByOverlaps(se, subject, maxgap = maxgap,
                               minoverlap = minoverlap,
-                              type=type, ...)
+                              type=type, invert = invert, ...)
     if(any(dim(subse) == 0)) {
         index <- GenomicRanges::GRanges()
     }
@@ -993,10 +1002,10 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 #' @return An integerList with the row numbers for each tile
 .getCoordinates <- function(x) {
     
-    ov <- findOverlaps(rowRanges(x), getIndex(x))
-    sh <- subjectHits(ov)
-    qh <- queryHits(ov)
-    l <- splitAsList(qh, sh)
+    ov <- IRanges::findOverlaps(rowRanges(x), getIndex(x))
+    sh <- S4Vectors::subjectHits(ov)
+    qh <- S4Vectors::queryHits(ov)
+    l <- IRanges::splitAsList(qh, sh)
     return(l)
 }
 
@@ -1006,14 +1015,25 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
 .MetricsFun <- function(x, what, na.rm = FALSE) {
+
     l <- .getCoordinates(x)
-        
+
     res <- sapply(colnames(x), function(y) {
-        rle <- extractList(assay(x)[[y]], l)
+        rle <- IRanges::extractList(assay(x)[[y]], l)
         eval(call(what, rle, na.rm = na.rm))
     })
+    
+    if(!is(res, "matrix")) {
+        if(is(res, "list") & is.null(dim(res))) {
+            res <- matrix()
+        }
+        else {
+            res <- t(matrix(res))
+        }
+    }
 
-    names(res) <- colnames(x)
+    colnames(res) <- colnames(x)
+    rownames(res) <- getIndex(x)$id
     return(res)
 }
 
@@ -1045,11 +1065,21 @@ setMethod("Summary", "GenoGAMDataSet", function(x, ..., na.rm = FALSE) {
     l <- .getCoordinates(x)
         
     res <- sapply(colnames(x), function(y) {
-        rle <- extractList(assay(x)[[y]], l)
-        eval(call(what, rle, na.rm = na.rm))
+        rle <- IRanges::extractList(assay(x)[[y]], l)
+        (getFunction(.Generic))(rle, na.rm = na.rm)
     })
 
-    names(res) <- colnames(x)
+    if(!is(res, "matrix")) {
+        if(is(res, "list") & is.null(dim(res))) {
+            res <- matrix()
+        }
+        else {
+            res <- t(matrix(res))
+        }
+    }
+
+    colnames(res) <- colnames(x)
+    rownames(res) <- getIndex(x)$id
     return(res)
 })
 
@@ -1084,6 +1114,62 @@ setMethod("IQR", "GenoGAMDataSet", function(x) {
 })
 
 
+## Cosmetics
+## =========
+
+.showGenoGAMDataSet <- function(object) {
+    cl <- class(object)
+    dims <- dim(object)
+    md <- unique(names(colData(object)))
+    cnames <- colnames(object)
+    cdata <- names(colData(object))
+    sf <- sizeFactors(object)
+    form <- design(object)
+
+    if(length(tileSettings(object)) != 0) {
+        tsize <- tileSettings(object)$tileSize
+        tname <- "tiles"
+        chunk <- tileSettings(object)$chunk
+        if (chunk) {
+            tsize <- tileSettings(object)$chunkSize
+            tname <- "chunks"
+        }
+        unit <- ""
+        if(!is.null(tsize)) {
+            unit = "bp"
+            if(tsize/1000 > 1) {
+                unit <- "kbp"
+                tsize <- tsize/1000
+            }
+            if(tsize/1e6 > 1) {
+                unit <- "Mbp"
+                tsize <- tsize/1e6
+            }
+        }
+        chroms <- GenomeInfoDb::seqlevels(tileSettings(object)$chromosomes)
+    }
+    tnum <- length(getIndex(object))
+    
+    
+    cat("class:", cl, "\n")
+    cat("dimension:", dims, "\n")
+    cat(paste0("samples(", length(cnames), "):"), cnames, "\n")
+    cat(paste0("design variables(", length(md), "):"), md, "\n")
+    if(length(tileSettings(object)) != 0) {
+        cat(paste0(tname, " size: ", tsize, unit), "\n")
+        cat(paste0("number of ", tname, ": ", tnum), "\n")
+        cat("chromosomes:", chroms, "\n")
+    }
+    cat("size factors:\n")
+    show(sf)
+    cat("formula:\n")
+    cat(paste(as.character(form), collapse = " "), "\n")
+}
+
+## Show method for GenomicTiles.
+setMethod("show", "GenoGAMDataSet", function(object) {
+    .showGenoGAMDataSet(object)
+})
 
 
 

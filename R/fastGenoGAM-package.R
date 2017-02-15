@@ -8,6 +8,7 @@
 #' @import GenomicRanges
 #' @import HDF5Array
 #' @import methods
+#' @importFrom stats runif rnbinom
 #' @importFrom Rsamtools bamWhich
 #' @importFrom Rsamtools ScanBamParam
 #' @importFrom Rsamtools scanBamHeader
