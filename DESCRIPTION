@@ -25,7 +25,8 @@ Depends:
     Rsamtools (>= 1.18.2),
     SummarizedExperiment (>= 1.1.19),
     GenomicRanges (>= 1.23.16),
-    methods
+    methods,
+    stats
 Imports:
     BiocParallel (>= 1.5.17),
     data.table (>= 1.9.4),
@@ -49,17 +50,19 @@ VignetteBuilder: knitr
 NeedsCompilation: no
 RoxygenNote: 6.0.1
 biocViews: Regression, DifferentialPeakCalling, ChIPSeq,
-    DifferentialExpression, Genetics, Epigenetics
+    DifferentialExpression, Genetics, Epigenetics, WholeGenome,
+    ChipOnChip
 Collate: 
     'GenoGAM-class_dev.R'
     'GenoGAMSettings-class.R'
-    'GenoGAMDataSet-class_dev.R'
+    'GenoGAMDataSet-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'
     'devel.R'
     'fastGenoGAM-package.R'
     'helper.R'
     'readData.R'
+    'sf.R'
 URL: https://github.com/gstricker/GenoGAM
 BugReports: https://github.com/gstricker/GenoGAM/issues
 Author: Georg Stricker [aut, cre], Alexander Engelhardt [aut], Julien

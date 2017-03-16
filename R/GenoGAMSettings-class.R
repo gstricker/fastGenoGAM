@@ -63,7 +63,7 @@ setClass("GenoGAMSettings",
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
-             optimControl = list(maxit = 50, fnscale = -1, trace = 10)))
+             optimControl = list(maxit = 50, fnscale = -1, trace = 1)))
 
 ## Validity
 ## ========

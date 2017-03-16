@@ -1,348 +1,152 @@
-## library(GenoGAM)
-## load("/s/project/coreProm/peakCalling/sacCer2/rdata/tfiib_data.RData")
-## library(Matrix)
-## source("GenoGAMSetup-class.R")
-## source("sf.R")
-## source("helper.R")
+#B spline basis
+.bspline <- function(x, k, ord = 2, derivative = 0) {
+  res <- splines::spline.des(k, x, ord + 2, rep(derivative,length(x)), sparse=TRUE)$design
+  return(res)
+}
 
-## ggs <- setupGenoGAM(ggd)
-## BiocParallel::register(BiocParallel::MulticoreParam(workers=4))
+#' build a block matrix from a template submatrix and a design matrix
+#' @noRd
+.blockMatrixFromDesignMatrix <- function(template, design) {
+  ## create 4-dim array by 'inserting' the template into the desing matrix
+  arr <- array(template, c(dim(template),dim(design)))
+  dims <- dim(arr)
+  multP <- c(3,4,1,2)
+  reduceP <- c(3,1,4,2)
+  ## permute array for correct multiplication
+  multArr <- aperm(arr, multP)*as.vector(design)
+  ## permute array for correct reduction
+  reducedArr <- aperm(multArr, reduceP)
+  ## reduce 4-dim array to 2-dim matrix
+  dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
+  return(reducedArr)
+}
 
-## cvlog <- data.table::data.table(lambda = numeric(),
-##                                 theta = numeric(),
-##                                 ll = numeric())## to be maybe included in CV
+.getFits <- function(setup) {
+    nSplines <- length(.getVars(slot(setup, "formula"), "covar"))
+    dims <- dim(slot(setup, "designMatrix"))
+    rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
+    cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
+    fits <- as.vector(sapply(1:nSplines, function(y) {
+        X <- slot(setup, "designMatrix")[rows[[y]], cols[[y]]]
+        beta <- slot(setup, "beta")[cols[[y]], 1]
+        res <- as.vector(X %*% beta)
+        return(res)
+    }))
+    return(fits)
+}
 
-## #B spline basis
-## .bspline <- function(x, k, ord = 2, derivative = 0) {
-##   res <- splines::spline.des(k, x, ord + 2, rep(derivative,length(x)), sparse=TRUE)$design
-##   return(res)
-## }
 
-## #' build a block matrix from a template submatrix and a design matrix
-## #' @noRd
-## .blockMatrixFromDesignMatrix <- function(template, design) {
-##   ## create 4-dim array by 'inserting' the template into the desing matrix
-##   arr <- array(template, c(dim(template),dim(design)))
-##   dims <- dim(arr)
-##   multP <- c(3,4,1,2)
-##   reduceP <- c(3,1,4,2)
-##   ## permute array for correct multiplication
-##   multArr <- aperm(arr, multP)*as.vector(design)
-##   ## permute array for correct reduction
-##   reducedArr <- aperm(multArr, reduceP)
-##   ## reduce 4-dim array to 2-dim matrix
-##   dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
-##   return(reducedArr)
-## }
+.buildDesignMatrix <- function(ggd, setup, pos) {
+    ## get knots
+    knots <- .getKnots(pos, setup)
+    order <- slot(setup, "params")$order
 
-## genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
-##                     bpknots = 20, kfolds = 10, intervalSize = 20, 
-##                     intervals = 20, order = 2, m = 2) {
+    ## build matrix
+    x <- as(.bspline(pos, knots, order),"dgCMatrix")
+    design <- as.matrix(colData(ggd))
+    control <- rep(1, nrow(design))
+    design <- cbind(control, design)
+    X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
+    return(X)
+}
+
+.getKnots <- function(pos, setup) {
+    ## knots <- slot(setup, "knots")[[chrom]]
+    knots <- slot(setup, "knots")[[1]]
+    inner <- which(knots < max(pos) & knots > min(pos))
+    knots <- knots[(inner[1] - 4):(inner[length(inner)] + 4)]
+    return(knots)
+}
+
+.buildResponseVector <- function(ggd, gr) {
+    y <- assay(ggd)[start(gr):end(gr),]
     
-##     settings <- slot(ggd, "settings")
-##     tileSettings <- tileSettings(ggd)
-##     check <- checkSettings(ggd)
-##     coords <- getIndexCoordinates(ggd)
+    Y <- unname(unlist(as.data.frame(y)))
+    return(Y)
+}
 
-##     if(!check) break
+.estimateParams <- function(ggs) {
+    ## turn the beta matrix into a 1-column matrix
+    betas <- slot(ggs, "beta")
 
-##     ggs <- setupGenoGAM(ggd, lamda = lambda, theta = theta, family = family, 
-##                         H = H, bpknots = bpknots, order = order,
-##                         penorder = m)
+    distr <- slot(ggs, "family")
+    X <- slot(ggs, "designMatrix")
+    y <- slot(ggs, "response")
+    offset <- slot(ggs, "offset")
+    params <- slot(ggs, "params")
+    S <- slot(ggs, "penaltyMatrix")
 
-##     ## Cross Validation
-##     cv <- FALSE
+    if (distr == "nb") {    
+        likelihood <- .likelihood_penalized_nb
+        gradient <- .gradient_likelihood_penalized_nb
+    }
 
-##     if(is.null(lambda) | is.null(theta)) {
-##         futile.logger::flog.info("Estimating parameters")
+    res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
+                 theta = params$theta, lambda = params$lambda, S = S, 
+                 method = "L-BFGS", control = list(fnscale=-1, maxit = 1000))
+    return(res)
+}
+
+.initiate <- function(ggd, setup, index, id) {
+    tile <- IRanges::ranges(index[index$id == id,])
+    pos <- pos(SummarizedExperiment::rowRanges(ggd)[tile])
+    ## chrom <- GenomeInfoDb::seqlevelsInUse(tile)
+
+    ## initiate matrices and vectors
+    slot(setup, "designMatrix") <- .buildDesignMatrix(ggd, setup, pos)
+    slot(setup, "response") <- .buildResponseVector(ggd, tile)
+    numBetas <- dim(slot(setup, "designMatrix"))[2]
+    slot(setup, "beta") <- matrix(mean(slot(setup, "response"), na.rm = TRUE), numBetas, 1)
+    slot(setup, "offset") <- unname(rep(sizeFactors(ggd)[colnames(ggd)], each = width(tile)))
+    slot(setup, "knots")[[1]] <- .getKnots(pos, setup)
         
-##         ## get the tile ids for CV
-##         sumMatrix <- sum(ggd)
-##         ## ncv set to a number, such that CV does not compute more models than
-##         ## the actual genogam run. 
-##         ## 50 is the average expected number of iterations
-##         ncv <- min(intervals, ceiling(length(coords)/(kfolds*50)))
-##         if(ncv < length(coords)) {
-##             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd))) {
-##                 rsums <- rowSums(sumMatrix[[1]])
-##                 ids <- order(rsums, decreasing = TRUE)[1:ncv]
-##             }
-##             else {
-##                 pvals <- suppressMessages(suppressWarnings(.deseq(sumMatrix[[1]], colData(ggd))))
-##                 ids <- order(pvals)[1:ncv]
-##             }
-##         }
-##         else ids <- 1:length(data)
-    
-##         start <- proc.time()
-##         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
-##                                      id = ids, folds = kfolds, 
-##                                      intervalSize = intervalSize,
-##                                      fn = .loglik, ov = getOverhangSize(ggd), 
-##                                      method = "Nelder-Mead", #GenoGAM:::getDefaults(settings, "optimMethod"),
-##                                      control = GenoGAM:::getDefaults(settings, "optimControl")) 
-##         proc.time() - start
-##         names(params) <- c("lambda", "theta")
-##         lambda <- params[1]
-##         theta <- params[2]
-##         slot(ggs, "params")$lambda <- lambda
-##         slot(ggs, "params")$theta <- theta
-        
-##         cv <- TRUE
-##         futile.logger::flog.info("Done")
-##     }
-    
-##     futile.logger::flog.info("Fitting model")
+    ## iniate parameters
+    params <- slot(setup, "params")
+    if(is.null(params$lambda)) {
+        params$lambda <- numBetas
+    }
+    if(is.null(params$theta)) {
+        params$theta <- 1
+    }
+    slot(setup, "params") <- params
 
-##     lambdaFun <- function(id, data, init, coords) {
-##         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
+    ## penaltyMatrix
+    S <- buildSMatrix(numBetas, params$penorder)
 
-##         setup <- .initiate(data, init, coords, id)
-##         betas <- .estimateParams(setup)
-##         slot(setup, "beta") <- betas$par
-##         slot(setup, "fits") <- .getFits(setup)
-##         slot(setup, "designMatrix") <- new("dgCMatrix")
-##         slot(setup, "penaltyMatrix") <- new("dgCMatrix")
-##         slot(setup, "response") <- numeric()
+    ## add identity matrix to penalization
+    if(params$H > 0) {
+        I <- buildIMatrix(numBetas, params$H)
+        S <- S + I
+    }
+    slot(setup, "penaltyMatrix") <- S
 
-##         return(setup)
-##     }
+    return(setup)
+}
 
-##     ids <- coords$id
-##     res <- BiocParallel::bplapply(ids, lambdaFun, 
-##                                   data = ggd, init = ggs, coords = coords)
-## }
+#penalized likelihood to be maximized \ negbin
+.likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+  n <- dim(X)[1]
+  eta <- offset + X%*%beta
+  mu <- exp(eta)
+  aux1 <- theta + y
+  aux2 <- theta + mu
+  ## pull the log inside to use gamma and factorial in log space due to 
+  ## possibly very high numbers
+  l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
+  pen <- t(beta) %*% S %*% beta
+  return(l[1]-lambda*pen[1,1])
+}  
 
+#gradient of penalized likelihood \negbin
+.gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+  eta <- offset + X%*%beta
+  mu <- exp(eta)
+  z <- (y-mu)/(1+mu/theta)
+  res <- t(X)%*%z
+  pen <- S %*% beta
+  return (res[,1]-2*lambda*pen[,1])
+}
 
-## .getFits <- function(setup) {
-##     nSplines <- length(.getVars(slot(setup, "formula"), "covar"))
-##     dims <- dim(slot(setup, "designMatrix"))
-##     rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
-##     cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
-##     fits <- as.vector(sapply(1:nSplines, function(y) {
-##         X <- slot(setup, "designMatrix")[rows[[y]], cols[[y]]]
-##         beta <- slot(setup, "beta")[cols[[y]], 1]
-##         res <- as.vector(X %*% beta)
-##         return(res)
-##     }))
-##     return(fits)
-## }
-
-
-## .buildDesignMatrix <- function(ggd, setup, pos) {
-##     ## get knots
-##     knots <- .getKnots(pos, setup)
-##     order <- slot(setup, "params")$order
-
-##     ## build matrix
-##     x <- as(.bspline(pos, knots, order),"dgCMatrix")
-##     design <- as.matrix(colData(ggd))
-##     control <- rep(1, nrow(design))
-##     design <- cbind(control, design)
-##     X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
-##     return(X)
-## }
-
-## .getKnots <- function(pos, setup) {
-##     ## knots <- slot(setup, "knots")[[chrom]]
-##     knots <- slot(setup, "knots")[[1]]
-##     inner <- which(knots < max(pos) & knots > min(pos))
-##     knots <- knots[(inner[1] - 4):(inner[length(inner)] + 4)]
-##     return(knots)
-## }
-
-## .buildResponseVector <- function(ggd, gr) {
-##     y <- assay(ggd)[start(gr):end(gr),]
-    
-##     Y <- unname(unlist(as.data.frame(y)))
-##     return(Y)
-## }
-
-## .estimateParams <- function(ggs) {
-##     ## turn the beta matrix into a 1-column matrix
-##     betas <- slot(ggs, "beta")
-
-##     distr <- slot(ggs, "family")
-##     X <- slot(ggs, "designMatrix")
-##     y <- slot(ggs, "response")
-##     offset <- slot(ggs, "offset")
-##     params <- slot(ggs, "params")
-##     S <- slot(ggs, "penaltyMatrix")
-
-##     if (distr == "nb") {    
-##         likelihood <- .likelihood_penalized_nb
-##         gradient <- .gradient_likelihood_penalized_nb
-##     }
-
-##     res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
-##                  theta = params$theta, lambda = params$lambda, S = S, 
-##                  method = "L-BFGS", control = list(fnscale=-1, maxit = 1000))
-##     return(res)
-## }
-
-## .initiate <- function(ggd, setup, index, id) {
-##     tile <- IRanges::ranges(index[index$id == id,])
-##     pos <- pos(SummarizedExperiment::rowRanges(ggd)[tile])
-##     ## chrom <- GenomeInfoDb::seqlevelsInUse(tile)
-
-##     ## initiate matrices and vectors
-##     slot(setup, "designMatrix") <- .buildDesignMatrix(ggd, setup, pos)
-##     slot(setup, "response") <- .buildResponseVector(ggd, tile)
-##     numBetas <- dim(slot(setup, "designMatrix"))[2]
-##     slot(setup, "beta") <- matrix(mean(slot(setup, "response"), na.rm = TRUE), numBetas, 1)
-##     slot(setup, "offset") <- unname(rep(sizeFactors(ggd)[colnames(ggd)], each = width(tile)))
-##     slot(setup, "knots")[[1]] <- .getKnots(pos, setup)
-        
-##     ## iniate parameters
-##     params <- slot(setup, "params")
-##     if(is.null(params$lambda)) {
-##         params$lambda <- numBetas
-##     }
-##     if(is.null(params$theta)) {
-##         params$theta <- 1
-##     }
-##     slot(setup, "params") <- params
-
-##     ## penaltyMatrix
-##     S <- buildSMatrix(numBetas, params$penorder)
-
-##     ## add identity matrix to penalization
-##     if(params$H > 0) {
-##         I <- buildIMatrix(numBetas, params$H)
-##         S <- S + I
-##     }
-##     slot(setup, "penaltyMatrix") <- S
-
-##     return(setup)
-## }
-
-## #penalized likelihood to be maximized \ negbin
-## .likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-##   n <- dim(X)[1]
-##   eta <- offset + X%*%beta
-##   mu <- exp(eta)
-##   aux1 <- theta + y
-##   aux2 <- theta + mu
-##   ## pull the log inside to use gamma and factorial in log space due to 
-##   ## possibly very high numbers
-##   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
-##   pen <- t(beta) %*% S %*% beta
-##   return(l[1]-lambda*pen[1,1])
-## }  
-
-## #gradient of penalized likelihood \negbin
-## .gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-##   eta <- offset + X%*%beta
-##   mu <- exp(eta)
-##   z <- (y-mu)/(1+mu/theta)
-##   res <- t(X)%*%z
-##   pen <- S %*% beta
-##   return (res[,1]-2*lambda*pen[,1])
-## }
-
-## .doCrossValidation <- function(ggd, setup, coords, id, folds, intervalSize,
-##                                fn, method = "Nelder-Mead",
-##                                control = list(maxit=100, fnscale=-1), ...) {
-    
-##     setups <- vector("list", length(id))
-##     for (ii in 1:length(id)) {
-##         setups[[ii]] <- .initiate(ggd, setup, coords, id[ii])
-##     }
-##     names(setups) <- as.character(id)
-##     cvint <- .leaveOutConsecutiveIntervals(folds, intervalSize, 
-##                                            length(slot(setups[[1]], "response")))
-
-##     par <- slot(setup, "params")
-##     initpars <- NULL
-##     if(is.null(par$lamda)) {
-##         initpars <- c(initpars, lambda = log(slot(setups[[1]], "params")[["lambda"]]))
-##     }
-##     if(is.null(par$theta)) {
-##         initpars <- c(initpars, theta = log(slot(setups[[1]], "params")[["theta"]]))
-##     }
-##     fixedpars <- c(par["lambda"], par["theta"])
-##     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
-##                   method = method, control = control, 
-##                   fixedpars = fixedpars, ...)
-##     params <- exp(pars$par)
-    
-##     if(length(params) == 1) {
-##         fixedpars[sapply(fixedpars, is.null)] <- params
-##         params <- unlist(fixedpars)
-##     }
-##     return(params)
-## }
-
-## .loglik <- function(pars, setup, CV_intervals, ov, fixedpars, ...){
-
-##     if(is.null(fixedpars$lambda)) {
-##         fixedpars$lambda <- exp(pars[["lambda"]])
-##     }
-##     if(is.null(fixedpars$theta)) {
-##         fixedpars$theta <- exp(pars[["theta"]])
-##     }
-
-##     if(fixedpars$theta < 1e-3) {
-##         fixedpars$theta <- 1e-3
-##     }
-
-##     fullpred <- lapply(1:length(setup), function(y) {
-##         rep(NA, length(slot(setup[[1]], "response")))
-##     })
-##     names(fullpred) <- names(setup)
-##     ids <- expand.grid(folds = 1:length(CV_intervals), tiles = 1:length(setup))
-
-##     lambdaFun <- function(iter, ids, setup, CV_intervals) {
-## ##        suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
-##         id <- ids[iter,]
-        
-##         trainsetup <- setup[[id$tiles]]
-##         trainX <- slot(trainsetup, "designMatrix")
-##         trainY <- slot(trainsetup, "response")
-##         testX <- trainX[CV_intervals[[id$folds]],]
-##         slot(trainsetup, "designMatrix") <- trainX[-CV_intervals[[id$folds]],]
-##         slot(trainsetup, "response") <- trainY[-CV_intervals[[id$folds]]]
-##         slot(trainsetup, "offset") <- slot(trainsetup, "offset")[-CV_intervals[[id$folds]]]
-                    
-##         betas <- .estimateParams(trainsetup)
-            
-##         pred <- exp(testX %*% betas$par)
-##         return(pred)
-##     }
-    
-##     for(ii in 1:length(setup)) {
-##         slot(setup[[ii]], "params")$theta <- fixedpars$theta
-##         slot(setup[[ii]], "params")$lambda <- fixedpars$lambda
-##     }
-    
-##     cvs <- BiocParallel::bplapply(1:nrow(ids), lambdaFun, ids = ids, setup = setup,
-##                     CV_intervals = CV_intervals)
-
-##     for(ii in 1:length(cvs)) {
-##         id <- ids[ii,]
-##         fullpred[[id$tiles]][CV_intervals[[id$folds]]] <- cvs[[ii]]
-##     }
-
-##     res <- lapply(1:length(fullpred), function(y) {
-##         dens <- dnbinom(slot(setup[[y]], "response"), size = fixedpars$theta, mu = fullpred[[y]], log = TRUE)
-##         return(dens)
-##     })
-
-##     #############################################################
-##     ## out-of-sample log-likelihood of the fit on the chunk part of a tile
-    
-##     ## ll: sum CV log-lik by regions and parameter combination
-##     ## we take the average i.e we assume all regions have the same length.
-##     ll <- mean(sapply(res, function(y) {
-##         borders <- c(1:ov, (length(y) - ov + 1):length(ov))
-##         sum(y[-borders])
-##     }))
-##     templog <- data.table::data.table(lambda = fixedpars$lambda,
-##                                       theta = fixedpars$theta,
-##                                       ll = ll)
-##     cvlog <<- rbind(cvlog, templog)
-##     return(ll)
-## }
 
 
 

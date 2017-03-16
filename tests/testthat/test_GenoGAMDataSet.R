@@ -198,7 +198,6 @@ test_that("The read-in functions work correctly", {
 
     gr <- .processCountChunks(reads, center = TRUE)
     expect_true(length(gr) > 0)
-
     
     gr <- .centerFragments(reads, asMates = FALSE)
     expect_true(length(gr) > 0)
@@ -242,9 +241,149 @@ test_that("The subsetting methods work correct", {
     expect_true(all(colnames(res) == colnames(ggd)))
 })
 
-## test_that("Metric computation works correct", {
-##     ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+test_that("Metric computation works correct in normal case", {
+    ## make ggd and select random tile
+    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    tile <- sample(length(getIndex(ggd)), 1)
+    l <- extractList(assay(ggd), ranges(getIndex(ggd)[tile]))
+
+    ## for sum
+    res <- sum(ggd)
+    test_res <- sapply(l[[1]], sum)
     
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for mean
+    res <- mean(ggd)
+    test_res <- sapply(l[[1]], mean)
     
-## })
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for var
+    res <- var(ggd)
+    test_res <- sapply(l[[1]], var)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for sd
+    res <- sd(ggd)
+    test_res <- sapply(l[[1]], sd)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for median
+    res <- median(ggd)
+    test_res <- sapply(l[[1]], median)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for mad
+    res <- mad(ggd)
+    test_res <- sapply(l[[1]], mad)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+
+    ## for IQR
+    res <- IQR(ggd)
+    test_res <- sapply(l[[1]], IQR)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res[tile,] == test_res))
+    
+})
+
+test_that("Metric computation works correct in case of one tile", {
+    ## make ggd and select random tile
+    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    getTileNumber(ggd) <- 1
+    
+    ## for sum
+    res <- sum(ggd)
+    test_res <- sapply(assay(ggd), sum)
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(res == test_res))
+
+    ## for mean
+    res <- as.vector(mean(ggd))
+    test_res <- as.vector(sapply(assay(ggd), mean))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all.equal(res, test_res))
+
+    ## for var
+    res <- as.vector(var(ggd))
+    test_res <- as.vector(sapply(assay(ggd), var))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(identical(res, test_res))
+
+    ## for sd
+    res <- as.vector(sd(ggd))
+    test_res <- as.vector(sapply(assay(ggd), sd))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(identical(res, test_res))
+
+    ## for median
+    res <- as.vector(median(ggd))
+    test_res <- as.vector(sapply(assay(ggd), median))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(identical(res, test_res))
+
+    ## for mad
+    res <- as.vector(mad(ggd))
+    test_res <- as.vector(sapply(assay(ggd), mad))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(identical(res, test_res))
+
+    ## for IQR
+    res <- as.vector(IQR(ggd))
+    test_res <- as.vector(sapply(assay(ggd), IQR))
+    
+    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(identical(res, test_res))
+})
+
+
+test_that("Metric computation works correct in case of empty GenoGAMDataSet", {
+    ## make ggd and select random tile
+    ggd <- GenoGAMDataSet()
+    
+    ## for sum
+    res <- sum(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for mean
+    res <- mean(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for var
+    res <- var(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for sd
+    res <- sd(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for median
+    res <- median(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for mad
+    res <- mad(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+
+    ## for IQR
+    res <- IQR(ggd)
+    expect_true(all(dim(res) == c(1,1)))
+})
 
