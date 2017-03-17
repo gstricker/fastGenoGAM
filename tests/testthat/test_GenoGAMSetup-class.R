@@ -1,0 +1,93 @@
+context("Test the GenoGAMSetup functionality")
+
+test_that("GenoGAMSetup constructor works correctly", {
+    ggs <- GenoGAMSetup()
+
+    expect_true(all.equal(slot(ggs, "params"),
+                          list(lambda = 0, theta = 0, H = 0,
+                               order = 2, penorder = 2)))
+    expect_true(length(slot(ggs, "knots")) == 0)
+    expect_true(all(dim(slot(ggs, "designMatrix")) == c(0, 0)))
+    expect_true(all(dim(slot(ggs, "beta")) == c(1, 1)))
+    expect_true(all(dim(slot(ggs, "vcov")) == c(0, 0)))
+    expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(0, 0)))
+    expect_true(slot(ggs, "formula") == formula(~ 1))
+    expect_true(length(slot(ggs, "offset")) == 0)
+    expect_true(slot(ggs, "family") == "nb")
+    expect_true(length(slot(ggs, "response")) == 0)
+    expect_true(length(slot(ggs, "fits")) == 0)
+
+    mat <- matrix(1:9, 3, 3)
+    ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, H = 0.05),
+                        knots = list(1:10), designMatrix = as(mat, "dgCMatrix"),
+                        beta = mat, vcov = as(mat, "dgCMatrix"),
+                        penaltyMatrix = as(mat, "dgCMatrix"), formula = ~ s(x),
+                        offset = 1:3, family = "myFamily", response  = 1:10,
+                        fits = 1:10)
+
+    expect_true(all.equal(slot(ggs, "params"),
+                          list(lambda = 5, order = 4, H = 0.05,
+                               theta = 0, penorder = 2)))
+    expect_true(all(slot(ggs, "knots")[[1]] == 1:10))
+    expect_true(all(dim(slot(ggs, "designMatrix")) == c(3, 3)))
+    expect_true(all(dim(slot(ggs, "beta")) == c(3, 3)))
+    expect_true(all(dim(slot(ggs, "vcov")) == c(3, 3)))
+    expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(3, 3)))
+    expect_true(slot(ggs, "formula") == formula(~ s(x)))
+    expect_true(all(slot(ggs, "offset") == 1:3))
+    expect_true(slot(ggs, "family") == "myFamily")
+    expect_true(all(slot(ggs, "response") == 1:10))
+    expect_true(all(slot(ggs, "fits") == 1:10))
+})
+
+test_that("Knots are placed correctly", {
+    x <- 1:1000
+    nknots <- 100
+    ord <- 2
+    knots <- .placeKnots(x, nknots, ord)
+
+    expect_true(length(knots[knots < 1]) == 4)
+    expect_true(length(knots[knots > 1000]) == 4)
+    expect_true(length(knots) == (nknots + 2*ord))
+    ## check if all knots have same spacing up to a tolerance value
+    lowerRange <- min(diff(knots))
+    upperRange <- max(diff(knots))
+    expect_true(all.equal(lowerRange, upperRange))
+})
+
+test_that("The penalty matrix is build correctly", {
+    p <- 10
+    order <- 2
+    nfun <- 2
+
+    S <- .buildSMatrix(p, order, nfun)
+    
+    diagonal <- rep(c(1, 5, rep(6, 6), 5, 1), 2)
+
+    expect_true(all(diag(S) == diagonal))
+    expect_true(rowSums(S) == 0)
+    expect_true(colSums(S) == 0)
+
+    I <- .buildIMatrix(p, 0.5)
+    expect_true(all(diag(I) == rep(0.5, p)))
+})
+
+test_that("The design matrix is build correctly", {
+    design <- matrix(c(1,1,1,0), 2, 2)
+    template <- matrix(1, 3, 3)
+    X <- .blockMatrixFromDesignMatrix(template, design)
+
+    expect_true(all(diag(X) == rep(c(1, 0), each = 3)))
+    expect_true(all(colSums(X) == c(6, 6, 6, 3, 3, 3)))
+    expect_true(all(rowSums(X) == c(6, 6, 6, 3, 3, 3)))
+
+    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    k <- 10
+    order <- 2
+    x <- pos(rowRanges(ggd))
+    knots <- .placeKnots(x, k, order)
+    X <- .buildDesignMatrix(ggd, knots, x, order)
+    dims <- dim(ggd)
+    
+    expect_true(all(rowSums(X) == rep(c(1, 2), each = dims[1])))
+})

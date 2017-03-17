@@ -1,151 +1,105 @@
-#B spline basis
-.bspline <- function(x, k, ord = 2, derivative = 0) {
-  res <- splines::spline.des(k, x, ord + 2, rep(derivative,length(x)), sparse=TRUE)$design
-  return(res)
-}
+## .getFits <- function(setup) {
+##     nSplines <- length(.getVars(slot(setup, "formula"), "covar"))
+##     dims <- dim(slot(setup, "designMatrix"))
+##     rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
+##     cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
+##     fits <- as.vector(sapply(1:nSplines, function(y) {
+##         X <- slot(setup, "designMatrix")[rows[[y]], cols[[y]]]
+##         beta <- slot(setup, "beta")[cols[[y]], 1]
+##         res <- as.vector(X %*% beta)
+##         return(res)
+##     }))
+##     return(fits)
+## }
 
-#' build a block matrix from a template submatrix and a design matrix
-#' @noRd
-.blockMatrixFromDesignMatrix <- function(template, design) {
-  ## create 4-dim array by 'inserting' the template into the desing matrix
-  arr <- array(template, c(dim(template),dim(design)))
-  dims <- dim(arr)
-  multP <- c(3,4,1,2)
-  reduceP <- c(3,1,4,2)
-  ## permute array for correct multiplication
-  multArr <- aperm(arr, multP)*as.vector(design)
-  ## permute array for correct reduction
-  reducedArr <- aperm(multArr, reduceP)
-  ## reduce 4-dim array to 2-dim matrix
-  dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
-  return(reducedArr)
-}
-
-.getFits <- function(setup) {
-    nSplines <- length(.getVars(slot(setup, "formula"), "covar"))
-    dims <- dim(slot(setup, "designMatrix"))
-    rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
-    cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
-    fits <- as.vector(sapply(1:nSplines, function(y) {
-        X <- slot(setup, "designMatrix")[rows[[y]], cols[[y]]]
-        beta <- slot(setup, "beta")[cols[[y]], 1]
-        res <- as.vector(X %*% beta)
-        return(res)
-    }))
-    return(fits)
-}
-
-
-.buildDesignMatrix <- function(ggd, setup, pos) {
-    ## get knots
-    knots <- .getKnots(pos, setup)
-    order <- slot(setup, "params")$order
-
-    ## build matrix
-    x <- as(.bspline(pos, knots, order),"dgCMatrix")
-    design <- as.matrix(colData(ggd))
-    control <- rep(1, nrow(design))
-    design <- cbind(control, design)
-    X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
-    return(X)
-}
-
-.getKnots <- function(pos, setup) {
-    ## knots <- slot(setup, "knots")[[chrom]]
-    knots <- slot(setup, "knots")[[1]]
-    inner <- which(knots < max(pos) & knots > min(pos))
-    knots <- knots[(inner[1] - 4):(inner[length(inner)] + 4)]
-    return(knots)
-}
-
-.buildResponseVector <- function(ggd, gr) {
-    y <- assay(ggd)[start(gr):end(gr),]
+## .buildResponseVector <- function(ggd, gr) {
+##     y <- assay(ggd)[start(gr):end(gr),]
     
-    Y <- unname(unlist(as.data.frame(y)))
-    return(Y)
-}
+##     Y <- unname(unlist(as.data.frame(y)))
+##     return(Y)
+## }
 
-.estimateParams <- function(ggs) {
-    ## turn the beta matrix into a 1-column matrix
-    betas <- slot(ggs, "beta")
+## .estimateParams <- function(ggs) {
+##     ## turn the beta matrix into a 1-column matrix
+##     betas <- slot(ggs, "beta")
 
-    distr <- slot(ggs, "family")
-    X <- slot(ggs, "designMatrix")
-    y <- slot(ggs, "response")
-    offset <- slot(ggs, "offset")
-    params <- slot(ggs, "params")
-    S <- slot(ggs, "penaltyMatrix")
+##     distr <- slot(ggs, "family")
+##     X <- slot(ggs, "designMatrix")
+##     y <- slot(ggs, "response")
+##     offset <- slot(ggs, "offset")
+##     params <- slot(ggs, "params")
+##     S <- slot(ggs, "penaltyMatrix")
 
-    if (distr == "nb") {    
-        likelihood <- .likelihood_penalized_nb
-        gradient <- .gradient_likelihood_penalized_nb
-    }
+##     if (distr == "nb") {    
+##         likelihood <- .likelihood_penalized_nb
+##         gradient <- .gradient_likelihood_penalized_nb
+##     }
 
-    res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
-                 theta = params$theta, lambda = params$lambda, S = S, 
-                 method = "L-BFGS", control = list(fnscale=-1, maxit = 1000))
-    return(res)
-}
+##     res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
+##                  theta = params$theta, lambda = params$lambda, S = S, 
+##                  method = "L-BFGS", control = list(fnscale=-1, maxit = 1000))
+##     return(res)
+## }
 
-.initiate <- function(ggd, setup, index, id) {
-    tile <- IRanges::ranges(index[index$id == id,])
-    pos <- pos(SummarizedExperiment::rowRanges(ggd)[tile])
-    ## chrom <- GenomeInfoDb::seqlevelsInUse(tile)
+## .initiate <- function(ggd, setup, index, id) {
+##     tile <- IRanges::ranges(index[index$id == id,])
+##     pos <- pos(SummarizedExperiment::rowRanges(ggd)[tile])
+##     ## chrom <- GenomeInfoDb::seqlevelsInUse(tile)
 
-    ## initiate matrices and vectors
-    slot(setup, "designMatrix") <- .buildDesignMatrix(ggd, setup, pos)
-    slot(setup, "response") <- .buildResponseVector(ggd, tile)
-    numBetas <- dim(slot(setup, "designMatrix"))[2]
-    slot(setup, "beta") <- matrix(mean(slot(setup, "response"), na.rm = TRUE), numBetas, 1)
-    slot(setup, "offset") <- unname(rep(sizeFactors(ggd)[colnames(ggd)], each = width(tile)))
-    slot(setup, "knots")[[1]] <- .getKnots(pos, setup)
+##     ## initiate matrices and vectors
+##     slot(setup, "designMatrix") <- .buildDesignMatrix(ggd, setup, pos)
+##     slot(setup, "response") <- .buildResponseVector(ggd, tile)
+##     numBetas <- dim(slot(setup, "designMatrix"))[2]
+##     slot(setup, "beta") <- matrix(mean(slot(setup, "response"), na.rm = TRUE), numBetas, 1)
+##     slot(setup, "offset") <- unname(rep(sizeFactors(ggd)[colnames(ggd)], each = width(tile)))
+##     slot(setup, "knots")[[1]] <- .getKnots(pos, setup)
         
-    ## iniate parameters
-    params <- slot(setup, "params")
-    if(is.null(params$lambda)) {
-        params$lambda <- numBetas
-    }
-    if(is.null(params$theta)) {
-        params$theta <- 1
-    }
-    slot(setup, "params") <- params
+##     ## iniate parameters
+##     params <- slot(setup, "params")
+##     if(is.null(params$lambda)) {
+##         params$lambda <- numBetas
+##     }
+##     if(is.null(params$theta)) {
+##         params$theta <- 1
+##     }
+##     slot(setup, "params") <- params
 
-    ## penaltyMatrix
-    S <- buildSMatrix(numBetas, params$penorder)
+##     ## penaltyMatrix
+##     S <- buildSMatrix(numBetas, params$penorder)
 
-    ## add identity matrix to penalization
-    if(params$H > 0) {
-        I <- buildIMatrix(numBetas, params$H)
-        S <- S + I
-    }
-    slot(setup, "penaltyMatrix") <- S
+##     ## add identity matrix to penalization
+##     if(params$H > 0) {
+##         I <- buildIMatrix(numBetas, params$H)
+##         S <- S + I
+##     }
+##     slot(setup, "penaltyMatrix") <- S
 
-    return(setup)
-}
+##     return(setup)
+## }
 
-#penalized likelihood to be maximized \ negbin
-.likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-  n <- dim(X)[1]
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  aux1 <- theta + y
-  aux2 <- theta + mu
-  ## pull the log inside to use gamma and factorial in log space due to 
-  ## possibly very high numbers
-  l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
-  pen <- t(beta) %*% S %*% beta
-  return(l[1]-lambda*pen[1,1])
-}  
+## #penalized likelihood to be maximized \ negbin
+## .likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+##   n <- dim(X)[1]
+##   eta <- offset + X%*%beta
+##   mu <- exp(eta)
+##   aux1 <- theta + y
+##   aux2 <- theta + mu
+##   ## pull the log inside to use gamma and factorial in log space due to 
+##   ## possibly very high numbers
+##   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
+##   pen <- t(beta) %*% S %*% beta
+##   return(l[1]-lambda*pen[1,1])
+## }  
 
-#gradient of penalized likelihood \negbin
-.gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  z <- (y-mu)/(1+mu/theta)
-  res <- t(X)%*%z
-  pen <- S %*% beta
-  return (res[,1]-2*lambda*pen[,1])
-}
+## #gradient of penalized likelihood \negbin
+## .gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+##   eta <- offset + X%*%beta
+##   mu <- exp(eta)
+##   z <- (y-mu)/(1+mu/theta)
+##   res <- t(X)%*%z
+##   pen <- S %*% beta
+##   return (res[,1]-2*lambda*pen[,1])
+## }
 
 
 

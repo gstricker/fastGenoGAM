@@ -21,6 +21,8 @@
 #' @slot offset An offset of the samples
 #' @slot family The distribution to be used. At the moment only "nb"
 #' (Negative Binomial) is available.
+#' @slot response The response vector
+#' @slot fits The vector of fits
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @noRd
 setClass("GenoGAMSetup",
@@ -45,6 +47,13 @@ setClass("GenoGAMSetup",
 .validateParamsType <- function(object) {
     if(class(slot(object, "params")) != "list") {
         return("'params' must be a list object")
+    }
+    NULL
+}
+
+.validateParamsElements <- function(object) {
+    if(!all(names(slot(object, "params")) %in% c("lambda", "theta", "H", "order", "penorder"))) {
+        return("'params' must contain the elements 'lambda', 'theta', 'H', 'order' and 'penorder'")
     }
     NULL
 }
@@ -92,7 +101,7 @@ setClass("GenoGAMSetup",
 }
 
 .validateOffsetType <- function(object) {
-    if(class(slot(object, "offset")) != "numeric") {
+    if(mode(slot(object, "offset")) != "numeric") {
         return("'offset' must be a numeric object")
     }
     NULL
@@ -106,14 +115,14 @@ setClass("GenoGAMSetup",
 }
 
 .validateResponseType <- function(object) {
-    if(class(slot(object, "response")) != "numeric") {
+    if(mode(slot(object, "response")) != "numeric") {
         return("'response' must be a numeric object")
     }
     NULL
 }
 
 .validateFitsType <- function(object) {
-    if(class(slot(object, "fits")) != "numeric") {
+    if(mode(slot(object, "fits")) != "numeric") {
         return("'fits' must be a numeric object")
     }
     NULL
@@ -126,7 +135,7 @@ setClass("GenoGAMSetup",
       .validateCovarianceType(object), .validatePenaltyMatrixType(object),
       .validateFormulaType(object), .validateOffsetType(object),
       .validateFamilyType(object), .validateResponseType(object),
-      .validateFitsType(object))
+      .validateFitsType(object), .validateParamsElements(object))
 }
 
 setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
@@ -134,59 +143,73 @@ setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
 #' Constructor
 #' @noRd
 GenoGAMSetup <- function(...) {
-  return(new("GenoGAMSetup", ...))
+    ggs <- new("GenoGAMSetup", ...)
+    params <- slot(ggs, "params")
+    coreParams <- c("lambda", "theta", "H", "order", "penorder")
+    allin <- coreParams  %in% names(params)
+    if(!all(allin)) {
+        coreValues <- list(lambda = 0, theta = 0, H = 0, order = 2, penorder = 2)
+        for(elem in coreParams) {
+            if(is.null(params[[elem]])) {
+                params[[elem]] <- coreValues[[elem]]
+            }
+        }
+    }
+    slot(ggs, "params") <- params
+    return(ggs)
 }
 
 #' Constructor function
 #' @noRd
 setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb", bpknots = 20, order = 2, penorder = 2) {
 
-    ##TODO: Put knots computation for one tile, designMatrix, beta initialisation, penalty matrix and offset
-  ## knot placement
-  knots <- generateKnotPositions(ggd, bpknots)
+    ## knot placement    
+    positions <- ranges(getIndex(ggd))[1]
+    x <- start(positions):end(positions)
+    nknots <- round(length(x)/bpknots)
+    knots <- .placeKnots(x = x, nknots = nknots)
 
-  ## take the first tile and see how many knots are in there. then add 8 additional knots (4 to each side)
-  nbetas <- length(which(knots[[1]] > start(getIndex(ggd)[1]) & knots[[1]] < end(getIndex(ggd)[1]))) + 2*order
-  nknots <- nbetas + 4
+    X <- .buildDesignMatrix(ggd, knots = knots, pos = x, order = order)
 
-  ## formula handling
-  formula <- design(ggd)
+    ## Number of betas = number of knots + 4 (with order 2)
+    ## Number of functions = Count the functions in the formula
+    nbetas <- nknots + 2*order
+    nfun <- length(.getVars(design(ggd), type = "covar"))
+    S <- .buildSMatrix(nbetas, penorder, nfun)
+    I <- .buildIMatrix(nbetas * nfun, H)
+    S <- S + I
+
+    ## turn knots into list to comply with object requirements
+    knots <- list(knots)
+    names(knots) <- "1"
 
     ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, H = H,
                                           order = order, penorder = penorder),
-                            knots = knots, formula = formula, 
-                            offset = sizeFactors(ggd), family = family)
+                            knots = knots, formula = design(ggd), 
+                            offset = sizeFactors(ggd), family = family,
+                            designMatrix = X, penaltyMatrix = S)
   
-  return(ggsetup)
+    return(ggsetup)
 }
 
-## #' A function to generate knots genome-wide for P-Splines,
-## #' ensuring same spacing everywhere independent of chromosome length.
-## #' @noRd
-## generateKnotPositions <- function(ggd, bpknots = 20){
-##   referenceChrom <- names(which(seqlengths(ggd) == max(seqlengths(ggd))))
-##   positions <- rowRanges(ggd)[seqnames(rowRanges(ggd)) == referenceChrom]
-##   nknots <- round(length(positions)/bpknots)
-##   x <- pos(positions)
-##   knots <- placeKnots(x = x, nknots = nknots)
+#' A function to generate knots for P-Splines from a GenoGAMDataSet object
+#' @noRd
+.generateKnotPositions <- function(ggd, bpknots = 20){
 
-##   ## chroms <- seqlengths(ggd) 
-##   ## res <- lapply(names(chroms), function(chr) {
-##   ##   idx <- which(knots < chroms[chr])
-##   ##   ans <- knots[c(idx, c(1:4 + length(idx)))]
-##   ##   return(ans)
-##   ## })
-##   ## names(res) <- names(chroms)
-##   ## return(res)
-##   res <- list(knots)
-##   names(res) <- referenceChrom
-##   return(res)
-## }
+    positions <- IRanges::ranges(getIndex(ggd))[1]
+    x <- IRanges::start(positions):IRanges::end(positions)
+    nknots <- round(length(x)/bpknots)
+    knots <- .placeKnots(x = x, nknots = nknots)
+
+    res <- list(knots)
+    names(res) <- "1"
+    return(res)
+}
 
 #' A function to place knots for P-Splines
 #' Courtesy to Simon Wood (mgcv). Slightly changed.
 #' @noRd
-placeKnots <- function(x, nknots, ord = 2) {
+.placeKnots <- function(x, nknots, ord = 2) {
   m <- ord + 1
   nk <- nknots - ord
   xu <- max(x)
@@ -202,18 +225,58 @@ placeKnots <- function(x, nknots, ord = 2) {
 }
 
 #' A function to build the penalization matrix S
-#' Courtesy to Simon Wood (mgcv)
+#' Courtesy to Simon Wood (mgcv). Slightly changed
 #' @noRd
-buildSMatrix <- function(p, order) {
-  S = Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
-  for (i in 1:order) S = diff(S) ## twice the difference
-  S = t(S)%*%S ## square
+.buildSMatrix <- function(p, order, nfun) {
+    
+    S <- Matrix::Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
+    for (i in 1:order) {
+        S <- diff(S) ## twice the difference   
+    }
+    S <- t(S)%*%S ## square
+    design <- diag(nfun)
+    res <- as(.blockMatrixFromDesignMatrix(S, design), "dgCMatrix")
+    return(res)
 }
 
 #' A function to build the identity matrix I with multiple epsilon
 #' Courtesy to Simon Wood (mgcv)
 #' @noRd
-buildIMatrix <- function(p, epsilon) {
-  I = Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
+.buildIMatrix <- function(p, epsilon) {
+  I = Matrix::Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
   return(epsilon*I)
+}
+
+#B spline basis
+.bspline <- function(x, k, ord = 2, derivative = 0) {
+  res <- splines::spline.des(k, x, ord + 2, rep(derivative,length(x)), sparse=TRUE)$design
+  return(res)
+}
+
+#' build a block matrix from a template submatrix and a design matrix
+#' @noRd
+.blockMatrixFromDesignMatrix <- function(template, design) {
+  ## create 4-dim array by 'inserting' the template into the desing matrix
+  arr <- array(template, c(dim(template),dim(design)))
+  dims <- dim(arr)
+  multP <- c(3,4,1,2)
+  reduceP <- c(3,1,4,2)
+  ## permute array for correct multiplication
+  multArr <- aperm(arr, multP)*as.vector(design)
+  ## permute array for correct reduction
+  reducedArr <- aperm(multArr, reduceP)
+  ## reduce 4-dim array to 2-dim matrix
+  dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
+  return(reducedArr)
+}
+
+.buildDesignMatrix <- function(ggd, knots, pos, order) {
+
+    ## build matrix
+    x <- as(.bspline(pos, knots, order),"dgCMatrix")
+    design <- as.matrix(colData(ggd))
+    control <- rep(1, nrow(design))
+    design <- cbind(control, design)
+    X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
+    return(X)
 }

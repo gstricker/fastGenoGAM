@@ -1,15 +1,17 @@
-## .getVars <- function(formula, type = c("by", "covar")) {
-##     type <- match.arg(type)
-##     chFormula <- as.character(formula)
-##     variables <- gsub(" ", "", strsplit(chFormula[length(chFormula)],"\\+")[[1]])
-##     r <- switch(type,
-##                 by = "by=(.+)\\)",
-##                 covar = "s\\((.+)\\)")
-##     if(type == "covar") variables <- gsub(",.+", ")", variables)
-##     temp <- sapply(sapply(variables, function(m) regmatches(m,regexec(r,m))), function(y) y[2])
-##     res <- gsub(",(.+)", "", temp)
-##     return(res)
-## }
+#' get varibles from a formula object
+#' @noRd
+.getVars <- function(formula, type = c("by", "covar")) {
+    type <- match.arg(type)
+    chFormula <- as.character(formula)
+    variables <- gsub(" ", "", strsplit(chFormula[length(chFormula)],"\\+")[[1]])
+    r <- switch(type,
+                by = "by=(.+)\\)",
+                covar = "s\\((.+)\\)")
+    if(type == "covar") variables <- gsub(",.+", ")", variables)
+    temp <- sapply(sapply(variables, function(m) regmatches(m,regexec(r,m))), function(y) y[2])
+    res <- gsub(",(.+)", "", temp)
+    return(res)
+}
 
 ## #' #' Update Formula with a specific penalization parameter lambda
 ## #' Not used at the moment

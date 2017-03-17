@@ -17,3 +17,4 @@ config <- "/data/ouga/home/ag_gagneur/strickeg/workspace/analysis/diffBinding/co
 
 ggd <- GenoGAMDataSet(config, 2000, 250, design = ~ s(x), directory = folder)
 ggd <- computeSizeFactors(ggd)
+

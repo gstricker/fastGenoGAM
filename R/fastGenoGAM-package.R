@@ -8,6 +8,7 @@
 #' @import GenomicRanges
 #' @import HDF5Array
 #' @import methods
+#' @import Matrix
 #' @importFrom stats runif rnbinom as.formula
 #' @importFrom Rsamtools bamWhich
 #' @importFrom Rsamtools ScanBamParam

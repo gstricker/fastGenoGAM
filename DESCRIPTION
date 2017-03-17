@@ -25,6 +25,7 @@ Depends:
     Rsamtools (>= 1.18.2),
     SummarizedExperiment (>= 1.1.19),
     GenomicRanges (>= 1.23.16),
+    Matrix (>= 1.2-8),
     methods,
     stats
 Imports:
@@ -58,8 +59,10 @@ Collate:
     'GenoGAMDataSet-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'
+    'cv.R'
     'devel.R'
     'fastGenoGAM-package.R'
+    'genogam.R'
     'helper.R'
     'readData.R'
     'sf.R'
