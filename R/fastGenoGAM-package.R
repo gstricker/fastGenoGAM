@@ -8,8 +8,7 @@
 #' @import GenomicRanges
 #' @import HDF5Array
 #' @import methods
-#' @import Matrix
-#' @importFrom stats runif rnbinom as.formula
+#' @importFrom stats runif rnbinom as.formula dnbinom optim
 #' @importFrom Rsamtools bamWhich
 #' @importFrom Rsamtools ScanBamParam
 #' @importFrom Rsamtools scanBamHeader
@@ -27,6 +26,7 @@
 #' @importFrom futile.logger flog.error
 #' @importFrom futile.logger flog.trace
 #' @importFrom futile.logger flog.debug
+#' @importFrom futile.logger flog.threshold
 #' @import DESeq2
 #' @import Biostrings
 "_PACKAGE"

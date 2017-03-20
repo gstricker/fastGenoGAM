@@ -25,10 +25,10 @@ Depends:
     Rsamtools (>= 1.18.2),
     SummarizedExperiment (>= 1.1.19),
     GenomicRanges (>= 1.23.16),
-    Matrix (>= 1.2-8),
     methods,
     stats
 Imports:
+    Matrix (>= 1.2-8),	
     BiocParallel (>= 1.5.17),
     data.table (>= 1.9.4),
     DESeq2 (>= 1.11.23),

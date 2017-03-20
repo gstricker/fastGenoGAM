@@ -64,12 +64,12 @@ test_that("The penalty matrix is build correctly", {
     
     diagonal <- rep(c(1, 5, rep(6, 6), 5, 1), 2)
 
-    expect_true(all(diag(S) == diagonal))
-    expect_true(rowSums(S) == 0)
-    expect_true(colSums(S) == 0)
+    expect_true(all(Matrix::diag(S) == diagonal))
+    expect_true(all(Matrix::rowSums(S) == 0))
+    expect_true(all(Matrix::colSums(S) == 0))
 
     I <- .buildIMatrix(p, 0.5)
-    expect_true(all(diag(I) == rep(0.5, p)))
+    expect_true(all(Matrix::diag(I) == rep(0.5, p)))
 })
 
 test_that("The design matrix is build correctly", {
@@ -77,9 +77,9 @@ test_that("The design matrix is build correctly", {
     template <- matrix(1, 3, 3)
     X <- .blockMatrixFromDesignMatrix(template, design)
 
-    expect_true(all(diag(X) == rep(c(1, 0), each = 3)))
-    expect_true(all(colSums(X) == c(6, 6, 6, 3, 3, 3)))
-    expect_true(all(rowSums(X) == c(6, 6, 6, 3, 3, 3)))
+    expect_true(all(Matrix::diag(X) == rep(c(1, 0), each = 3)))
+    expect_true(all(Matrix::colSums(X) == c(6, 6, 6, 3, 3, 3)))
+    expect_true(all(Matrix::rowSums(X) == c(6, 6, 6, 3, 3, 3)))
 
     ggd <- makeTestGenoGAMDataSet(sim = TRUE)
     k <- 10
@@ -89,5 +89,5 @@ test_that("The design matrix is build correctly", {
     X <- .buildDesignMatrix(ggd, knots, x, order)
     dims <- dim(ggd)
     
-    expect_true(all(rowSums(X) == rep(c(1, 2), each = dims[1])))
+    expect_true(all.equal(Matrix::rowSums(X), rep(c(1, 2), each = dims[1])))
 })

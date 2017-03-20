@@ -146,10 +146,7 @@
         borders <- c(1:ov, (length(y) - ov + 1):length(ov))
         sum(y[-borders])
     }))
-    templog <- data.table::data.table(lambda = fixedpars$lambda,
-                                      theta = fixedpars$theta,
-                                      ll = ll)
-    cvlog <<- rbind(cvlog, templog)
+    
     return(ll)
 }
 
