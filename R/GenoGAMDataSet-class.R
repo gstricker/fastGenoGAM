@@ -289,7 +289,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
     ## initiate size factors
     sf <- rep(0, length(colnames(se)))
-    names(sf) <- colnames(se)
+    ##names(sf) <- colnames(se)
 
     ## update chromosome list
     if(is.null(slot(settings, "chromosomeList"))) {
@@ -500,7 +500,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     
     ## initiate size factors
     sf <- rep(0, nrow(colData))
-    names(sf) <- config$ID
+    ##names(sf) <- config$ID
     
     ## update chromosome list
     if(is.null(slot(settings, "chromosomeList"))) {
@@ -783,7 +783,9 @@ setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
 
 ##' @describeIn GenoGAMDataSet Access to the sizeFactors slot
 setMethod("sizeFactors", "GenoGAMDataSet", function(object) {
-    slot(object, "sizeFactors")
+    sf <- slot(object, "sizeFactors")
+    names(sf) <- colnames(object)
+    return(sf)
 })
 
 ##' @describeIn GenoGAMDataSet Replace method of the sizeFactors slot

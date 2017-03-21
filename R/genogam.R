@@ -44,7 +44,7 @@
 ##         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
 ##                                      id = ids, folds = kfolds, 
 ##                                      intervalSize = intervalSize,
-##                                      fn = .loglik, ov = getOverhangSize(ggd), 
+##                                      fn = .loglik, 
 ##                                      method = "Nelder-Mead", #GenoGAM:::getDefaults(settings, "optimMethod"),
 ##                                      control = GenoGAM:::getDefaults(settings, "optimControl")) 
 ##         proc.time() - start
@@ -79,3 +79,81 @@
 ##                                   data = ggd, init = ggs, coords = coords)
 ## }
 
+.buildResponseVector <- function(ggd, id) {
+    index <- getIndex(ggd)
+    tile <- index[index$id == id,]
+    positions <- rowRanges(ggd)
+    rows <- subjectHits(findOverlaps(tile, positions))
+    y <- assay(ggd)[rows,]
+    
+    Y <- unname(unlist(as.data.frame(y)))
+    return(Y)
+}
+
+
+.initiate <- function(ggd, setup, id) {
+
+    ## initiate response vector and betas
+    slot(setup, "response") <- .buildResponseVector(ggd, id)
+    numBetas <- dim(slot(setup, "designMatrix"))[2]
+    slot(setup, "beta") <- matrix(mean(slot(setup, "response"), na.rm = TRUE), numBetas, 1)
+        
+    ## initialize lambda and theta
+    params <- slot(setup, "params")
+    if(is.null(params$lambda)) {
+        params$lambda <- numBetas
+    }
+    if(is.null(params$theta)) {
+        params$theta <- 1
+    }
+    slot(setup, "params") <- params
+
+    return(setup)
+}
+
+
+.estimateParams <- function(ggs) {
+    ## turn the beta matrix into a 1-column matrix
+    betas <- slot(ggs, "beta")
+
+    distr <- slot(ggs, "family")
+    X <- slot(ggs, "designMatrix")
+    y <- slot(ggs, "response")
+    offset <- slot(ggs, "offset")
+    params <- slot(ggs, "params")
+    S <- slot(ggs, "penaltyMatrix")
+
+    if (distr == "nb") {    
+        likelihood <- .likelihood_penalized_nb
+        gradient <- .gradient_likelihood_penalized_nb
+    }
+
+    res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
+                 theta = params$theta, lambda = params$lambda, S = S, 
+                 method = "L-BFGS", control = list(fnscale=-1, maxit = 1000))
+    return(res)
+}
+
+#penalized likelihood to be maximized \ negbin
+.likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+  n <- dim(X)[1]
+  eta <- offset + X%*%beta
+  mu <- exp(eta)
+  aux1 <- theta + y
+  aux2 <- theta + mu
+  ## pull the log inside to use gamma and factorial in log space due to 
+  ## possibly very high numbers
+  l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
+  pen <- t(beta) %*% S %*% beta
+  return(l[1]-lambda*pen[1,1])
+}  
+
+#gradient of penalized likelihood \negbin
+.gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+  eta <- offset + X%*%beta
+  mu <- exp(eta)
+  z <- (y-mu)/(1+mu/theta)
+  res <- t(X)%*%z
+  pen <- S %*% beta
+  return (res[,1]-2*lambda*pen[,1])
+}

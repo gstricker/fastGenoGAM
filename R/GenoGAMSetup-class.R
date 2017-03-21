@@ -159,6 +159,26 @@ GenoGAMSetup <- function(...) {
     return(ggs)
 }
 
+#' Get number of functions from GenoGAMSetup
+.nfun <- function(ggs) {
+    vars <- .getVars(slot(ggs, "formula"), type = "covar")
+    return(length(vars))
+}
+
+#' Get number of betas from GenoGAMSetup
+.nbeta <- function(ggs) {
+    betas <- slot(ggs, "beta")
+    if(ncol(betas) > 1) {
+        res <- nrow(betas)
+    }
+    else {
+        funs <- .nfun(ggs)
+        res <- nrow(betas)/funs
+    }
+    return(res)
+}
+
+
 #' Constructor function
 #' @noRd
 setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb", bpknots = 20, order = 2, penorder = 2) {
@@ -171,9 +191,9 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 
     X <- .buildDesignMatrix(ggd, knots = knots, pos = x, order = order)
 
-    ## Number of betas = number of knots + 4 (with order 2)
+    ## Number of betas = number of knots
     ## Number of functions = Count the functions in the formula
-    nbetas <- nknots + 2*order
+    nbetas <- nknots
     nfun <- length(.getVars(design(ggd), type = "covar"))
     S <- .buildSMatrix(nbetas, penorder, nfun)
     I <- .buildIMatrix(nbetas * nfun, H)
@@ -183,10 +203,12 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
     knots <- list(knots)
     names(knots) <- "1"
 
+    offset <- rep(sizeFactors(ggd), each = getTileSize(ggd))
+
     ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, H = H,
                                           order = order, penorder = penorder),
                             knots = knots, formula = design(ggd), 
-                            offset = sizeFactors(ggd), family = family,
+                            offset = offset, family = family,
                             designMatrix = X, penaltyMatrix = S)
   
     return(ggsetup)

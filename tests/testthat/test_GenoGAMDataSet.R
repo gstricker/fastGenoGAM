@@ -171,7 +171,7 @@ test_that("Accessors return the right slots", {
     expect_identical(getOverhangSize(test_ggd), metadata(slot(test_ggd, "index"))$overhangSize)
     expect_identical(getTileNumber(test_ggd), metadata(slot(test_ggd, "index"))$numTiles)
     expect_identical(design(test_ggd), slot(test_ggd, "design"))
-    expect_identical(sizeFactors(test_ggd), slot(test_ggd, "sizeFactors"))
+    expect_true(all(sizeFactors(test_ggd) == slot(test_ggd, "sizeFactors")))
 
     getChunkSize(test_ggd) <- 2500
     expect_equal(getTileNumber(test_ggd), 4)

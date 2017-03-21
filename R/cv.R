@@ -22,23 +22,22 @@
     
     setups <- vector("list", length(id))
     for (ii in 1:length(id)) {
-        setups[[ii]] <- .initiate(ggd, setup, coords, id[ii])
+        setups[[ii]] <- .initiate(ggd, setup, id[ii])
     }
     names(setups) <- as.character(id)
     cvint <- .leaveOutConsecutiveIntervals(folds, intervalSize, 
                                            length(slot(setups[[1]],
                                                        "response")))
+    ov <- getOverhangSize(ggd)
     par <- slot(setup, "params")
     initpars <- NULL
     if(is.null(par$lamda)) {
-        initpars <- c(initpars,
-                      lambda = log(slot(setups[[1]], "params")[["lambda"]]))
+        initpars$lambda <- log(slot(setups[[1]], "params")[["lambda"]])
     }
     if(is.null(par$theta)) {
-        initpars <- c(initpars,
-                      theta = log(slot(setups[[1]], "params")[["theta"]]))
+        initpars$theta <- log(slot(setups[[1]], "params")[["theta"]])
     }
-    fixedpars <- c(par["lambda"], par["theta"])
+    fixedpars <- list(lambda = par$lambda, theta = par$theta)
 
     input <- paste0("Performing Cross-Validation with the following parameters:\n",
                     "  Tile indeces: ", id, "\n",
@@ -54,7 +53,7 @@
         control$trace <- 10
     }
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
-                  method = method, control = control, 
+                  ov = ov, method = method, control = control, 
                   fixedpars = fixedpars, ...)
     params <- exp(pars$par)
 
@@ -79,15 +78,15 @@
 #' @param fixedpars The parameters to be used in the model but kept
 #' fixed, as they don't need optimization.
 #' @param ... Other parameters
-#' @return The log-likelihood of the model
+#' @return The mean log-likelihood over all models
 #' @noRd
 .loglik <- function(pars, setup, CV_intervals, ov, fixedpars, ...){
 
     if(is.null(fixedpars$lambda)) {
-        fixedpars$lambda <- exp(pars[["lambda"]])
+        fixedpars$lambda <- exp(pars$lambda)
     }
     if(is.null(fixedpars$theta)) {
-        fixedpars$theta <- exp(pars[["theta"]])
+        fixedpars$theta <- exp(pars$theta)
     }
 
     if(fixedpars$theta < 1e-3) {
@@ -142,9 +141,21 @@
     
     ## ll: sum CV log-lik by regions and parameter combination
     ## we take the average i.e we assume all regions have the same length.
+    nfuns <- .nfun(setup[[1]])
+    
     ll <- mean(sapply(res, function(y) {
-        borders <- c(1:ov, (length(y) - ov + 1):length(ov))
-        sum(y[-borders])
+        if(ov < 1) {
+            res <- sum(y[-borders])
+        }
+        else {
+            ymat <- matrix(y, ncol = nfuns)
+            borders <- c(1:ov, (nrow(ymat) - ov + 1):nrow(ymat))
+            if(length(borders) >= nrow(ymat)) {
+                futile.logger::flog.error("The overhang size covers the entire tile. Change parameter to a lower meaningful value. See getOverhangSize().")
+            }
+            res <- sum(ymat[-borders,])
+        }
+        return(res)
     }))
     
     return(ll)
