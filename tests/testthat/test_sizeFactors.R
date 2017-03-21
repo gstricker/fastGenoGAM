@@ -32,7 +32,7 @@ test_that("Size factor function work in case of single input", {
     df <- DataFrame(colA = 1:10000)
     se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
     ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                      design = ~ s(x) + s(x, by = "experiment"))
+                      design = ~ s(x))
 
     expect_error(supressWarnings(computeSizeFactors(ggd)))
 })

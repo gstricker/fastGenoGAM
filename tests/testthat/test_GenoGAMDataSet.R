@@ -6,7 +6,7 @@ seqlengths(gr) <- 1e6
 df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
 se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
 ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                      design = ~ s(x) + s(x, by = "experiment"))
+                      design = ~ s(x))
 
 test_that("The constructor works generally correctly", {
     df <- GenoGAMDataSet()
@@ -26,7 +26,7 @@ test_that("The constructor works correctly for SummarizedExperiment", {
     df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
     se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
     expect_error(GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                                design = ~ s(x) + s(x, by = "experiment")),
+                                design = ~ s(x) + s(x, by = experiment)),
                  "Sequence lengths missing in the Seqinfo object of SummarizedExperiment")
 
     gr <- GPos(GRanges(c("chr1", "chr1"), IRanges(c(1,5001), c(10000, 10000))))
@@ -34,7 +34,7 @@ test_that("The constructor works correctly for SummarizedExperiment", {
     df <- DataFrame(colA = 1:15000, colB = round(runif(15000)))
     se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
     expect_error(GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                                design = ~ s(x) + s(x, by = "experiment")),
+                                design = ~ s(x) + s(x, by = experiment)),
                  "Overlapping regions encountered. Please reduce ranges and data first.")
 })
 
@@ -46,7 +46,7 @@ test_that("The constructor works correctly for config files and data.frames", {
     params <- Rsamtools::ScanBamParam(which = region)
     settings <- GenoGAMSettings(bamParams = params)
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_true(checkObject(ds))
     expect_equal(getTileNumber(ds), 3)
@@ -55,7 +55,7 @@ test_that("The constructor works correctly for config files and data.frames", {
 
     df <- read.table(config, header = TRUE, sep = '\t')
     ds <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
-                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_true(checkObject(ds))
     expect_equal(getTileNumber(ds), 3)
@@ -65,7 +65,7 @@ test_that("The constructor works correctly for config files and data.frames", {
     params <- Rsamtools::ScanBamParam(which = region)
     settings <- GenoGAMSettings(bamParams = params)
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_false(checkObject(ds))
     expect_true(is.null(getTileNumber(ds)))
@@ -73,11 +73,15 @@ test_that("The constructor works correctly for config files and data.frames", {
 
     settings <- GenoGAMSettings(chromosomeList = c("chrV"))
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-                         design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+                         design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_false(checkObject(ds))
     expect_true(is.null(getTileNumber(ds)))
     expect_true(length(assays(ds)) == 0)
+
+    ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
+                         design = ~ s(x) + s(x, by = myColumn), directory = dir)
+    expect_false(checkObject(ds))
 })
 
 test_that("Tiling works correctly under full chromosome conditions", {
@@ -173,6 +177,7 @@ test_that("Accessors return the right slots", {
     expect_identical(design(test_ggd), slot(test_ggd, "design"))
     expect_true(all(sizeFactors(test_ggd) == slot(test_ggd, "sizeFactors")))
 
+    expect_error(design(test_ggd) <- ~ s(x) + s(by = myColumn))
     getChunkSize(test_ggd) <- 2500
     expect_equal(getTileNumber(test_ggd), 4)
     getTileSize(test_ggd) <- 2500

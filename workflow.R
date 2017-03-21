@@ -10,6 +10,7 @@ source("./R/GenoGAMDataSet-class.R")
 source("./R/GenoGAMSetup-class.R")
 source("./R/readData.R")
 source("./R/sf.R")
+source("./R/cv.R")
 
 flog.threshold(DEBUG)
 folder <- "/s/project/coreProm/Michi/thornton/align_STAR"

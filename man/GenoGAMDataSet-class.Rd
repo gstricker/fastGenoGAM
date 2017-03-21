@@ -208,14 +208,14 @@ and IP will be 1, since we are interested in the corrected IP. See examples.
 
 Design must be a formula. At the moment only the following is
 possible: Either ~ s(x) for a smooth fit over the entire data or
-s(x, by = "myColumn"), where 'myColumn' is a column name
+s(x, by = myColumn), where 'myColumn' is a column name
 in the experimentDesign. Any combination of this is possible:
 
-~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
+~ s(x) + s(x, by = myColumn) + s(x, by = ...) + ...
 
 For example the formula for correcting IP for input would look like this:
 
-~ s(x) + s(x, by = "experiment")
+~ s(x) + s(x, by = experiment)
 
 where 'experiment' is a column with 0s and 1s, with the ip samples annotated
 with 1 and input samples with 0.
@@ -239,13 +239,13 @@ dir <- system.file("extdata/Set1", package = "fastGenoGAM")
 
 ## For all data
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-    design = ~ s(x) + s(x, by = "genotype"), directory = dir)
+    design = ~ s(x) + s(x, by = genotype), directory = dir)
 ggd
 
 ## Read data of a particular chromosome
 settings <- GenoGAMSettings(chromosomeList = "chrXIV")
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    design = ~ s(x) + s(x, by = genotype), directory = dir,
     settings = settings)
 ggd
 
@@ -254,7 +254,7 @@ region <- GRanges("chrXIV", IRanges(305000, 308000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    design = ~ s(x) + s(x, by = genotype), directory = dir,
     settings = settings)
 ggd
 
@@ -262,7 +262,7 @@ ggd
 
 df <- read.table(config, header = TRUE, sep = '\\t')
 ggd <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
-    design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+    design = ~ s(x) + s(x, by = genotype), directory = dir,
     settings = settings)
 ggd
 
@@ -273,7 +273,7 @@ seqlengths(gr) <- 1e6
 df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
 se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
 ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                      design = ~ s(x) + s(x, by = "experiment"))
+                      design = ~ s(x) + s(x, by = experiment))
 ggd
 }
 \author{

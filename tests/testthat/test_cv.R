@@ -16,7 +16,8 @@ test_that("The likelihood function computes correctly", {
     id <- 3
     settings <- GenoGAMSettings()
     cv <- .leaveOutConsecutiveIntervals(folds, iv, getTileSize(ggd)*2)
-    setup <- .initiate(ggd, ggs, id)
+    coords <- .getCoordinates(ggd)
+    setup <- .initiate(ggd, ggs, coords, id)
     fixedpars <- list(lambda = NULL, theta = NULL)
     initpars <- list(lambda = log(slot(setup, "params")[["lambda"]]),
                   theta = log(slot(setup, "params")[["theta"]]))

@@ -147,14 +147,14 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' 
 #' Design must be a formula. At the moment only the following is
 #' possible: Either ~ s(x) for a smooth fit over the entire data or
-#' s(x, by = "myColumn"), where 'myColumn' is a column name
+#' s(x, by = myColumn), where 'myColumn' is a column name
 #' in the experimentDesign. Any combination of this is possible:
 #' 
-#' ~ s(x) + s(x, by = "myColumn") + s(x, by = ...) + ...
+#' ~ s(x) + s(x, by = myColumn) + s(x, by = ...) + ...
 #' 
 #' For example the formula for correcting IP for input would look like this:
 #' 
-#' ~ s(x) + s(x, by = "experiment")
+#' ~ s(x) + s(x, by = experiment)
 #'
 #' where 'experiment' is a column with 0s and 1s, with the ip samples annotated
 #' with 1 and input samples with 0.
@@ -173,13 +173,13 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #'
 #' ## For all data
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir)
+#'     design = ~ s(x) + s(x, by = genotype), directory = dir)
 #' ggd
 #' 
 #' ## Read data of a particular chromosome
 #' settings <- GenoGAMSettings(chromosomeList = "chrXIV")
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     design = ~ s(x) + s(x, by = genotype), directory = dir,
 #'     settings = settings)
 #' ggd
 #' 
@@ -188,7 +188,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' params <- Rsamtools::ScanBamParam(which = region)
 #' settings <- GenoGAMSettings(bamParams = params)
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     design = ~ s(x) + s(x, by = genotype), directory = dir,
 #'     settings = settings)
 #' ggd
 #'
@@ -196,7 +196,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' 
 #' df <- read.table(config, header = TRUE, sep = '\t')
 #' ggd <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
-#'     design = ~ s(x) + s(x, by = "genotype"), directory = dir,
+#'     design = ~ s(x) + s(x, by = genotype), directory = dir,
 #'     settings = settings)
 #' ggd
 #'
@@ -207,7 +207,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
 #' se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
 #' ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-#'                       design = ~ s(x) + s(x, by = "experiment"))
+#'                       design = ~ s(x) + s(x, by = experiment))
 #' ggd
 #' @name GenoGAMDataSet
 #' @rdname GenoGAMDataSet-class
@@ -545,10 +545,11 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
         df <- S4Vectors::DataFrame(input = background, IP = ip)
         se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
         ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
-                              design = ~ s(x) + s(x, by = "experiment"))
+                              design = ~ s(x))
         coldf <- S4Vectors::DataFrame(experiment = c(0, 1))
         rownames(coldf) <- c("input", "IP")
         colData(ggd) <- coldf
+        design(ggd) <- ~ s(x) + s(x, by = experiment)
     }
     else {
         config <- system.file("extdata/Set1", "experimentDesign.txt",
@@ -559,7 +560,7 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
         params <- Rsamtools::ScanBamParam(which = region)
         settings <- GenoGAMSettings(bamParams = params)
         ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
-                              design = ~ s(x) + s(x, by = "genotype"),
+                              design = ~ s(x) + s(x, by = genotype),
                               directory = dir, settings = settings)
     }
 
@@ -574,7 +575,7 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
 #' @noRd
 .checkSettings <- function(object, params = c("chunkSize", "tileSize",
                                        "equality", "tileRanges",
-                                       "chromosomes", "numTiles")) {
+                                       "chromosomes", "numTiles", "formula")) {
     param <- match.arg(params)
     switch(param,
            chunkSize = .checkChunkSize(object),
@@ -582,7 +583,8 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
            equality = .checkEqualityOfTiles(object),
            chromosomes = .checkChromosomes(object),
            numTiles = .checkNumberOfTiles(object),
-           tileRanges = .checkTileRanges(object))
+           tileRanges = .checkTileRanges(object),
+           formula = .checkFormulaVariables(object))
 }
 
 ## check the chunk size and return a logical value
@@ -643,6 +645,15 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
     return(res)
 }
 
+.checkFormulaVariables <- function(object) {
+    formulaCols <- as.vector(na.omit(.getVars(design(object))))
+    res <- all(formulaCols %in% colnames(colData(object)))
+    if(!res) {
+        res <- "'by' variables in design don't match colData"
+    }
+    return(res)
+}
+
 ##' Function to check the GenoGAMDataSet object
 ##'
 ##' @noRd
@@ -651,7 +662,7 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
     futile.logger::flog.debug("Check if tile settings match the data.")
 
     params = c("chunkSize", "tileSize", "tileRanges",
-               "equality", "chromosomes", "numTiles")
+               "equality", "chromosomes", "numTiles", "formula")
 
     settings <- tileSettings(object)
     
@@ -777,6 +788,11 @@ setMethod("design", "GenoGAMDataSet", function(object) {
 
 ##' @describeIn GenoGAMDataSet Replace method of the design slot.
 setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
+    newCols <- as.vector(na.omit(.getVars(value)))
+    if(!all(newCols %in% colnames(colData(object)))) {
+        futile.logger::flog.error("'by' variables could not be found in colData")
+        stop("'by' variables could not be found in colData")
+    }
     slot(object, "design") <- value
     return(object)
 })

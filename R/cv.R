@@ -22,7 +22,7 @@
     
     setups <- vector("list", length(id))
     for (ii in 1:length(id)) {
-        setups[[ii]] <- .initiate(ggd, setup, id[ii])
+        setups[[ii]] <- .initiate(ggd, setup, coords, id[ii])
     }
     names(setups) <- as.character(id)
     cvint <- .leaveOutConsecutiveIntervals(folds, intervalSize, 
@@ -31,7 +31,7 @@
     ov <- getOverhangSize(ggd)
     par <- slot(setup, "params")
     initpars <- NULL
-    if(is.null(par$lamda)) {
+    if(is.null(par$lambda)) {
         initpars$lambda <- log(slot(setups[[1]], "params")[["lambda"]])
     }
     if(is.null(par$theta)) {
@@ -40,13 +40,13 @@
     fixedpars <- list(lambda = par$lambda, theta = par$theta)
 
     input <- paste0("Performing Cross-Validation with the following parameters:\n",
-                    "  Tile indeces: ", id, "\n",
+                    "  Tile indeces: ", paste(id, collapse = ","), "\n",
                     "  Number of folds: ", folds, "\n",
                     "  Interval size: ", intervalSize, "\n",
                     "  Optim method: ", method, "\n",
                     "  Maximal iterations: ", control$maxit, "\n",
-                    "  Parameters to optimize: ", names(initpars), "\n",
-                    "  Value of fixed parameters: ", fixedpars, "\n")
+                    "  Parameters to optimize: ", paste(names(initpars), collapse = ","), "\n",
+                    "  Value of fixed parameters: ", paste(fixedpars, collapse = ", "), "\n")
     futile.logger::flog.debug(input)
 
     if(flog.threshold() == "DEBUG" | flog.threshold() == "TRACE") {
@@ -69,7 +69,8 @@
 
 #' The loglikelihood function
 #' 
-#' @param pars The parameters to be optimized
+#' @param pars The parameters to be optimized. If .loglik is used within optim,
+#' the pars argument will be coerced to vector even if list was given
 #' @param setup The GenoGAMSetup object
 #' @param CV_intervals A list of the indices of the data points split by
 #' the folds
@@ -83,10 +84,10 @@
 .loglik <- function(pars, setup, CV_intervals, ov, fixedpars, ...){
 
     if(is.null(fixedpars$lambda)) {
-        fixedpars$lambda <- exp(pars$lambda)
+        fixedpars$lambda <- exp(pars[["lambda"]])
     }
     if(is.null(fixedpars$theta)) {
-        fixedpars$theta <- exp(pars$theta)
+        fixedpars$theta <- exp(pars[["theta"]])
     }
 
     if(fixedpars$theta < 1e-3) {
@@ -145,7 +146,7 @@
     
     ll <- mean(sapply(res, function(y) {
         if(ov < 1) {
-            res <- sum(y[-borders])
+            res <- sum(y)
         }
         else {
             ymat <- matrix(y, ncol = nfuns)
