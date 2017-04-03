@@ -119,6 +119,15 @@ test_that("Tiling works correctly with incorrect input", {
     expect_error(.makeTiles(l), "Chromosome list should contain at least one entry")
 })
 
+test_that("Tiling works correctly with tiles bigger than chromosomes", {
+    chromosomes <- GRanges(c("chr1", "chr2"), IRanges(c(1,1), c(6000, 10000)))
+    seqlengths(chromosomes) <- c(6000, 1e6)
+    l <- list(chunkSize = 8000, overhangSize = 100, chromosomes = chromosomes)
+    tiles <- .makeTiles(l)
+    expect_true(length(tiles) == 3)
+    expect_true(all(width(tiles) == c(6000, 8200, 8200)))
+})
+
 test_that("Tiling works correctly with a distinct set of regions", {
     chromosomes <- GRanges(c("chr1", "chr1", "chr2", "chr2"),
                            IRanges(c(1, 1200, 1, 10000), c(2000, 10000, 999, 11100)))
@@ -390,5 +399,11 @@ test_that("Metric computation works correct in case of empty GenoGAMDataSet", {
     ## for IQR
     res <- IQR(ggd)
     expect_true(all(dim(res) == c(1,1)))
+})
+
+## test .getCoordinates (with and without gaps) and .getChunkCoords here
+test_that("Coordinate and Chunk transformation work correctly", {
+    ## so it comes up
+    expect_error()
 })
 

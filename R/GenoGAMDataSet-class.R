@@ -32,7 +32,7 @@ setClass("GenoGAMDataSet",
                       design = "formula", sizeFactors = "numeric",
                       index = "GRanges"),
          prototype = list(settings = GenoGAMSettings(),
-                          design = ~ 1, sizeFactors = numeric(), 
+                          design = ~ s(x), sizeFactors = numeric(), 
                           index = GenomicRanges::GRanges()))
 
 ## Validity
@@ -345,8 +345,8 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         starts <- IRanges::start(y) + startSeq
         ends <- c(IRanges::start(y) + endSeq, IRanges::end(y))
         ir <- IRanges::IRanges(starts, ends)
-        chunks <- GenomicRanges::GRanges(seqnames = seqnames(y), ir)
-        seqinfo(chunks) <- seqinfo(y)
+        chunks <- GenomicRanges::GRanges(seqnames = GenomeInfoDb::seqnames(y), ir)
+        GenomeInfoDb::seqinfo(chunks) <- GenomeInfoDb::seqinfo(y)
 
         ## flank to tiles
         if(sl$tileSize == sl$chunkSize) {
@@ -354,9 +354,17 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         }
         else {
             ov <- round(IRanges::width(chunks)/2)
+            ## shift to center to get a point to flank from
             centeredChunks <- suppressWarnings(IRanges::shift(chunks, ov))
-            ir <- suppressWarnings(IRanges::flank(centeredChunks, round(sl$tileSize/2), both = TRUE))
+            ## flank to get tiles
+            ir <- suppressWarnings(IRanges::flank(centeredChunks,
+                                                  round(sl$tileSize/2),
+                                                  both = TRUE))
+            ## trim tiles if overhang caused it to go out of bounds
             tiles <- suppressWarnings(IRanges::trim(ir))
+            ## remove smaller tiles at the borders that are completely
+            ## contained by bigger tiles
+            tiles <- tiles[!overlapsAny(tiles, type="within", drop.self=TRUE)]
         }
 
         ## adjust first tile
@@ -370,8 +378,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         trimmedStarts <- IRanges::start(tiles[endsToResize]) - IRanges::end(tiles[endsToResize]) + IRanges::end(y)
         IRanges::start(tiles[endsToResize]) <- max(trimmedStarts, IRanges::start(y))
         IRanges::end(tiles[endsToResize]) <- IRanges::end(y)
-
-        
 
         ## remove duplicate tiles if present
         tiles <- unique(tiles)
@@ -388,9 +394,10 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
     ## resize start and end tiles till correct tile size is reached
     startsToResize <- which(width(tiles) < l$tileSize & start(tiles) == 1)
-    tiles[startsToResize] <- resize(tiles[startsToResize], width = l$tileSize)
+    suppressWarnings(tiles[startsToResize] <- resize(tiles[startsToResize], width = l$tileSize))
     endsToResize <- which(width(tiles) < l$tileSize)
-    tiles[endsToResize] <- resize(tiles[endsToResize], width = l$tileSize, fix = "end")
+    suppressWarnings(tiles[endsToResize] <- resize(tiles[endsToResize], width = l$tileSize, fix = "end"))
+    tiles <- IRanges::trim(tiles)
     
     ## add 'id' column, check element and put settings in metadata
     S4Vectors::mcols(tiles)$id <- 1:length(tiles)
@@ -970,17 +977,25 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     gpCoords <- rowRanges(se)@pos_runs
     l <- S4Vectors::metadata(index)
     l$chromosomes <- gpCoords
+    minWidth <- min(width(gpCoords))
+    if(minWidth < l$tileSize) {
+        l$tileSize <- minWidth
+        l$chunkSize <- minWidth - 2*l$overhangSize
+    }
     indx <- .makeTiles(l)
     GenomeInfoDb::seqinfo(indx) <- GenomeInfoDb::seqinfo(gpCoords)
     
     return(indx)
 }
 
-#' @rdname GenoGAMDataSet-subsetting
-setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
-          function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlaps <- function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
+    if(any((width(subject) %% 2) == 1)) {
+        futile.logger::flog.info("Some subset ranges have odd widths. Rounding to the next even number.")
+        idx <- which((width(subject) %% 2) == 1)
+        width(subject)[idx] <- width(subject)[idx] + 1
+    }          
     settings <- slot(query, "settings")
     design <- design(query)
     sf <- sizeFactors(query)
@@ -1002,7 +1017,18 @@ setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
     ggd <- new("GenoGAMDataSet", subse, settings = settings,
                design = design, sizeFactors = sf, index = index)
     return(ggd)
-})
+}
+
+#' @rdname GenoGAMDataSet-subsetting
+setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
+          function(query, subject, maxgap = 0L, minoverlap = 1L,
+                   type = c("any", "start", "end", "within", "equal"),
+                   invert = FALSE, ...) {
+              res <- .subsetByOverlaps(query = query, subject = subject,
+                                       maxgap = maxgap, minoverlap = minoverlap,
+                                       type = type, invert = invert)
+              return(res)
+          })
 
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
@@ -1025,15 +1051,32 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 #' @param x The GenoGAMDataSet object
 #' @return An integerList with the row numbers for each tile
 .getCoordinates <- function(x) {
-    
-    ov <- IRanges::findOverlaps(rowRanges(x), getIndex(x))
-    sh <- S4Vectors::subjectHits(ov)
-    qh <- S4Vectors::queryHits(ov)
-    l <- range(IRanges::splitAsList(qh, sh))
-    l <- IRanges::IRanges(l[,1], l[,2])
+
+    ## if genome is complete use the fast Bioconductor function
+    if(sum(seqlengths(ggd)) == length(ggd)) {
+        l <- absoluteRanges(getIndex(x))
+    }
+    ## otherwise the slower version 'by bloc
+    else {
+        ov <- IRanges::findOverlaps(rowRanges(x), getIndex(x))
+        sh <- S4Vectors::subjectHits(ov)
+        qh <- S4Vectors::queryHits(ov)
+        l <- range(IRanges::splitAsList(qh, sh))
+        l <- IRanges::IRanges(l[,1], l[,2])
+    }
     return(l)
 }
 
+#' Function to establish chunk coordinates
+#' @param x A IRanges object as the output of .getCoordinates
+#' @return The same object as x but with not overlapping ranges
+#' which were cut at the center of the overhang
+.getChunkCoords <- function(x) {
+    start <- c(start(x[1]), ceiling((end(x[-length(x)]) + start(x[-1]))/2))
+    end <- c((start[-1] - 1), end(x[length(x)]))
+    ir <- IRanges(start, end)
+}
+    
 #' compute metrics for each tile
 #' @param x The GenoGAMDataSet object
 #' @param what A character naming the metric

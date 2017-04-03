@@ -1,218 +1,190 @@
-## #############################
-## ## GenoGAM class 
-## ##################
+#############################
+## GenoGAM class 
+##################
 
-## #' @include GenoGAMSettings-class.R
-## #' @include GenomicTiles-class.R
-## NULL
+#' @include GenoGAMSettings-class.R
+NULL
 
-## #' GenoGAM class
-## #'
-## #' This class is designed to represent the model object containing the estimate
-## #' parameters, arguments and finals fits of the model on a basepair level.
-## #' 
-## #' @slot vcov A list of covariance matrices for each tile fit.
-## #' @slot design A formula object.
-## #' @slot sizeFactors A named numeric vector with size factors for each sample
-## #' @slot fitparams A named numeric vector with parameters used to fit the model
-## #' @slot family The name of the distribution family used
-## #' @slot cvparams Parameters used for cross validation.
-## #' @slot settings A GenoGAMSettings object representing the global and local
-## #' settings that were used to compute the model.
-## #' @slot smooths A data.table of knots and coefficients of the model
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @exportClass GenoGAM
-## setClass("GenoGAM",
-##          contains = "GenomicTiles",
-##          slots = list(vcov = "list", 
-##                       design = "formula",
-##                       sizeFactors = "numeric", 
-##                       fitparams = "numeric",
-##                       family = "character",
-##                       cvparams = "numeric",
-##                       settings = "GenoGAMSettings",
-##                       smooths = "data.table"),
-##          prototype = prototype(vcov = list(),
-##                                design = ~ 1, 
-##                                sizeFactors = numeric(),
-##                                fitparams = numeric(),
-##                                family = "nb",
-##                                cvparams = numeric(),
-##                                settings = GenoGAMSettings(),
-##                                smooths = data.table::data.table()))
+#' GenoGAM class
+#'
+#' This is the class the holds the complete model as well all hyperparameters
+#' and settings that were used to fit it. It extends the RangedSummarizedExperiment
+#' class by adding a couple of more slots to hold hyperparameters and settings.
+#' The 'assays' slot holds the basepair fit and standard deviation. Additionally
+#' all knot positions and beta coefficients will be stored in the 'smooths' slot
+#' in order to be able to make use of the piecewise function that produces the
+#' fit. For information on the slots inherited from SummarizedExperiment
+#' check the respective class.
+#' 
+#' @slot family The name of the distribution family used
+#' @slot design The formula of the model
+#' @slot sizeFactors The offset used in the model. 
+#' @slot factorialDesign The factorial design used. The same as colData in the
+#' GenoGAMDataSet
+#' @slot params All hyperparameters used to fit the data. The parameters
+#' estimated by cross validation can also be found here. But the parameters
+#' used in cross validation are in the settings slot.
+#' @slot settings A GenoGAMSettings object representing the global
+#' settings that were used to compute the model.
+#' @slot smooths A data.table of knots and coefficients of the model
+#' @name GenoGAM-class
+#' @rdname GenoGAM-class
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @exportClass GenoGAM
+setClass("GenoGAM",
+         contains = "RangedSummarizedExperiment",
+         slots = list(family = "character",
+                      design = "formula",
+                      sizeFactors = "numeric",
+                      factorialDesign = "DataFrame",
+                      params = "list",
+                      settings = "GenoGAMSettings",
+                      smooths = "data.table"),
+         prototype = prototype(family = "nb",
+                               design = ~ s(x),
+                               sizeFactors = numeric(),
+                               factorialDesign = DataFrame(),
+                               params = list(),
+                               settings = GenoGAMSettings(),
+                               smooths = data.table::data.table()))
 
-## ## Validity
-## ## ========
+## Validity
+## ========
 
-## .validateVcovType <- function(object) {
-##     if(class(slot(object, "vcov")) != "list") {
-##         return("'vcoc' must be a list object")
-##     }
-##     NULL
-## }
+.validateFamilyType <- function(object) {
+    if(class(slot(object, "family")) != "character") {
+        return("'family' must be a character object")
+    }
+    NULL
+}
 
-## .validateDesignType <- function(object) {
-##     if(class(slot(object, "design")) != "formula") {
-##         return("'design' must be a formula object")
-##     }
-##     NULL
-## }
+.validateDesignType <- function(object) {
+    if(class(slot(object, "design")) != "formula") {
+        return("'design' must be a formula object")
+    }
+    NULL
+}
 
+.validateSFType <- function(object) {
+    if(class(slot(object, "sizeFactors")) != "numeric") {
+        return("'sizeFactors' must be a numeric object")
+    }
+    NULL
+}
 
-## .validateSFType <- function(object) {
-##     if(class(slot(object, "sizeFactors")) != "numeric") {
-##         return("'sizeFactors' must be a numeric object")
-##     }
-##     NULL
-## }
+.validateFactorialDesign <- function(object) {
+    if(class(slot(object, "factorialDesign")) != "DataFrame") {
+        return("'factorialDesign' must be a DataFrame class")
+    }
+}
 
-## .validateFitParamsType <- function(object) {
-##     if(class(slot(object, "fitparams")) != "numeric") {
-##         return("'fitparams' must be a numeric object")
-##     }
-##     NULL
-## }
+.validateParamsType <- function(object) {
+    if(class(slot(object, "params")) != "list") {
+        return("'params' must be a list object")
+    }
+    NULL
+}
 
-## .validateFamilyType <- function(object) {
-##     if(class(slot(object, "family")) != "character") {
-##         return("'family' must be a character object")
-##     }
-##     NULL
-## }
+.validateSettingsType <- function(object) {
+    if(class(slot(object, "settings")) != "GenoGAMSettings") {
+        return("'settings' must be a GenoGAMSettings object")
+    }
+    NULL
+}
 
-## .validateCVParamsType <- function(object) {
-##     if(class(slot(object, "cvparams")) != "numeric") {
-##         return("'cvparams' must be a numeric object")
-##     }
-##     NULL
-## }
+.validateSmoothsType <- function(object) {
+    if(class(slot(object, "smooths"))[1] != "data.table") {
+        return("'smooths' must be a data.table object")
+    }
+    NULL
+}
 
-## .validateSettingsType <- function(object) {
-##     if(class(slot(object, "settings")) != "GenoGAMSettings") {
-##         return("'settings' must be a GenoGAMSettings object")
-##     }
-##     NULL
-## }
+## general validate function
+.validateGenoGAM <- function(object) {
+    c(.validateFamilyType(object),
+      .validateDesignType(object),
+      .validateSFType(object),
+      .validateFactorialDesign(object),
+      .validateParamsType(object),
+      .validateSettingsType(object),
+      .validateSmoothsType(object))
+}
 
-## .validateSmoothsType <- function(object) {
-##     if(class(slot(object, "smooths"))[1] != "data.table") {
-##         return("'smooths' must be a data.table object")
-##     }
-##     NULL
-## }
-
-## ## general validate function
-## .validateGenoGAM <- function(object) {
-##     c(.validateVcovType(object), 
-##       .validateDesignType(object),
-##       .validateSFType(object),
-##       .validateFitParamsType(object),
-##       .validateFamilyType(object),
-##       .validateCVParamsType(object),
-##       .validateSettingsType(object),
-##       .validateSmoothsType(object))
-## }
-
-## setValidity2("GenoGAM", .validateGenoGAM)
+setValidity2("GenoGAM", .validateGenoGAM)
 
 
-## ## Accessors
-## ## =========
+## Constructor
+## ========
 
-## #' GenoGAM-methods
-## #'
-## #' The different accessor functions for the GenoGAM object
-## #'
-## #' @name GenoGAM-methods
-## #' @rdname GenoGAM-methods
-## #' @param x,object A GenoGAM object.
-## #' @return The respective slot
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## NULL
-
-## #' Accessor to the 'design' slot
-## #'
-## #' The 'design' slot holds the formula of the fit
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- design(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("design", "GenoGAM", function(object) {
-##     object@design
-## })
-
-## #' Accessor to the 'sizeFactors' slot
-## #'
-## #' The 'sizeFactors' slot holds the size factors for each sample
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- sizeFactors(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("sizeFactors", "GenoGAM", function(object) {
-##     object@sizeFactors
-## })
-
-## #' Accessor to the 'settings' slot
-## #'
-## #' The 'settings' slot holds the globals settings used during the 
-## #' modeling procedure
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- getSettings(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("getSettings", "GenoGAM", function(object) {
-##     object@settings
-## })
-
-## #' Combined accessor to the different 'params' slots
-## #'
-## #' The 'fitparams' slot and the 'cvparams' slot hold the
-## #' parameters used in Cross Validation and fitting of the model
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- params(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("params", "GenoGAM", function(x) {
-##     list(fitparams = x@fitparams,
-##          cvparams = x@cvparams)
-## })
+#' GenoGAM constructor
+#'
+#' The GenoGAM constructor, not designed to be actually used, by the user.
+#' Rather to be a point of reference and documentation for slots and how
+#' to access them.
+#'
+#' @aliases design sizeFactors getSettings getFamily colData getParams getSmooths
+#' @param object,x For use of S4 methods. The GenoGAM object.
+#' @param ... Slots of the GenoGAM class. See the slot description.
+#' @return An object of the type GenoGAM.
+#' @name GenoGAM
+#' @rdname GenoGAM-class
+#' @export
+GenoGAM <- function(...) {
+    return(new("GenoGAM", ...))
+}
 
 
-## #' Accessor to the 'smooths' slot
-## #'
-## #' The 'smooths' slot holds the knot positions and coefficients of the
-## #' fitted splines
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- coef(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("coef", "GenoGAM", function(object) {
-##     object@smooths
-## })
+## Accessors
+## =========
 
-## ## Constructor
-## ## ========
+##' @describeIn GenoGAM An accessor to the design slot
+setMethod("design", "GenoGAM", function(object) {
+    slot(object, "design")
+})
 
-## #' GenoGAM constructor
-## #'
-## #' The GenoGAM constructor, not designed to be actually used, by the user.
-## #'
-## #' For arguments see slots of the class.
-## #' @return An object of the type GenoGAM.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .GenoGAM <- function(...) {
-##     return(new("GenoGAM", ...))
-## }
+##' @describeIn GenoGAM An accessor to the sizeFactors slot
+setMethod("sizeFactors", "GenoGAM", function(object) {
+    slot(object, "sizeFactors")
+})
+
+##' @export
+setGeneric("getSettings", function(object) standardGeneric("getSettings"))
+
+##' @describeIn GenoGAM An accessor to the settings slot
+setMethod("getSettings", "GenoGAM", function(object) {
+    slot(object, "settings")
+})
+
+##' @export
+setGeneric("getFamily", function(object) standardGeneric("getFamily"))
+
+##' @describeIn GenoGAM An accessor to the family slot
+setMethod("getFamily", "GenoGAM", function(object) {
+    slot(object, "family")
+})
+
+##' @describeIn GenoGAM An accessor to the factorialDesign slot.
+##' It overwrites the inherited colData function, which points to the colData slot.
+setMethod("colData", "GenoGAM", function(x) {
+    slot(x, "factorialDesign")
+})
+
+##' @export
+setGeneric("getParams", function(object) standardGeneric("getParams"))
+
+##' @describeIn GenoGAM An accessor to the params slot
+setMethod("getParams", "GenoGAM", function(object) {
+    slot(object, "params")
+})
+
+##' @export
+setGeneric("getSmooths", function(object) standardGeneric("getSmooths"))
+
+##' @describeIn GenoGAM An accessor to the smooths slot
+setMethod("getSmooths", "GenoGAM", function(object) {
+    slot(object, "smooths")
+})
+
 
 ## ## Cosmetics
 ## ## ==========
@@ -307,219 +279,6 @@
 
 
 
-
-
-
-
-
-## #############################
-## ## GenoGAM class 
-## ##################
-
-## #' @include GenoGAMSettings-class.R
-## #' @include GenomicTiles-class.R
-## NULL
-
-## #' GenoGAM class
-## #'
-## #' This class is designed to represent the model object containing the estimate parameters,
-## #' arguments and finals fits of the model on a basepair level.
-## #' 
-## #' @slot design A mgcv-type formula object.
-## #' @slot fits A data.frame of the fits, the standard error and the first and
-## #' second derivative of the fits for each experiment.
-## #' @slot positions A GPos object of the positions and seqnames corresponding
-## #' to the rows in the 'fits' slot.
-## #' @slot smooths A data.frame of knot positions and base function coefficients,
-## #' in order to reproduce the splines and compute derivatives. 
-## #' @slot vcov A list of covariance matrices for each tile fit.
-## #' @slot experimentDesign The design matrix according to which the fitting
-## #' was performed.
-## #' @slot fitparams Global parameters 'lambda', 'theta', 'Coefficient of Variation' and
-## #' the 'penalty order' used to compute the model.
-## #' @slot family The distribution family.
-## #' @slot cvparams Parameters used for cross validation.
-## #' @slot settings The global and local settings that were used to compute the model.
-## #' @slot tileSettings A list of settings used to compute tiles.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @exportClass GenoGAM
-## setClass("GenoGAM",
-##          slots = list(design = "formula", fits = "data.frame",
-##              positions = "GPos", smooths = "list", vcov = "list",
-##              experimentDesign = "matrix", fitparams = "numeric",
-##              family = "ANY", cvparams = "numeric",
-##              settings = "GenoGAMSettings", tileSettings = "list"),
-##          prototype = prototype(design = ~ 1, fits = data.frame(),
-##              positions = GPos(), smooths = list(), vcov = list(),
-##              experimentDesign = matrix(), fitparams = numeric(), family = mgcv::nb(),
-##              cvparams = numeric(), settings = GenoGAMSettings(),
-##              tileSettings = list()))
-
-## ## Validity
-## ## ========
-
-## #' Validating the correct type
-## .validateDesignType <- function(object) {
-##     if(class(slot(object, "design")) != "formula") {
-##         return("'design' must be a formula object")
-##     }
-##     NULL
-## }
-
-## .validateFitsType <- function(object) {
-##     if(class(slot(object, "fits")) != "data.frame") {
-##         return("'fits' must be a data.frame object")
-##     }
-##     NULL
-## }
-
-## .validatePositionsType <- function(object) {
-##     if(class(slot(object, "positions")) != "GPos") {
-##         return("'positions' must be a GPos object")
-##     }
-##     NULL
-## }
-
-## .validateSmoothsType <- function(object) {
-##     if(class(slot(object, "smooths")) != "list") {
-##         return("'smooths' must be a list object")
-##     }
-##     NULL
-## }
-
-## .validateVCovType <- function(object) {
-##     if(class(slot(object, "vcov")) != "list") {
-##         return("'vcov' must be a list object")
-##     }
-##     NULL
-## }
-
-## .validateExpDesignType <- function(object) {
-##     if(class(slot(object, "experimentDesign")) != "matrix") {
-##         return("'experimentDesign' must be a matrix object")
-##     }
-##     NULL
-## }
-
-## .validateFitParamsType <- function(object) {
-##     if(class(slot(object, "fitparams")) != "numeric") {
-##         return("'fitparams' must be a numeric object")
-##     }
-##     NULL
-## }
-
-## .validateCVParamsType <- function(object) {
-##     if(class(slot(object, "cvparams")) != "numeric") {
-##         return("'cvparams' must be a numeric object")
-##     }
-##     NULL
-## }
-
-## .validateSettingsType <- function(object) {
-##     if(class(slot(object, "settings")) != "GenoGAMSettings") {
-##         return("'settings' must be a GenoGAMSettings object")
-##     }
-##     NULL
-## }
-
-## .validateTileSettingsType <- function(object) {
-##     if(class(slot(object, "tileSettings")) != "list") {
-##         return("'tileSettings' must be a list object")
-##     }
-##     NULL
-## }
-
-## ## general validate function
-## .validateGenoGAM <- function(object) {
-##     c(.validateDesignType(object), .validateFitsType(object),
-##       .validatePositionsType(object), .validateSmoothsType(object),
-##       .validateExpDesignType(object), .validateFitParamsType(object),
-##       .validateCVParamsType(object), .validateSettingsType(object),
-##       .validateTileSettingsType(object), .validateVCovType(object))
-## }
-
-## setValidity2("GenoGAM", .validateGenoGAM)
-
-## ## Constructor
-## ## ========
-
-## #' GenoGAM constructor
-## #'
-## #' The GenoGAM constructor, not designed to be actually used, by the user.
-## #'
-## #' For arguments see slots of the class.
-## #' @return An object of the type GenoGAM.
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## .GenoGAM <- function(...) {
-##     return(new("GenoGAM", ...))
-## }
-
-## ## Accessors
-## ## =========
-
-## #' GenoGAM-methods
-## #'
-## #' The different accessor functions for the GenoGAM object
-## #'
-## #' @name GenoGAM-methods
-## #' @rdname GenoGAM-methods
-## #' @param x,object A GenoGAM object.
-## #' @return The respective slot
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## NULL
-
-## #' Accessor to the 'positions' slot
-## #'
-## #' The 'positions' slot holds the positions of the fit in GPos format
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' ranges <- rowRanges(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("rowRanges", "GenoGAM", function(x) {
-##     x@positions
-## })
-
-## #' Accessor to the 'design' slot
-## #'
-## #' The 'design' slot holds the formula of the fit
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' des <- design(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("design", "GenoGAM", function(object) {
-##     object@design
-## })
-
-## #' @rdname GenoGAM-methods
-## #' @export
-## setGeneric("getFits", function(x) standardGeneric("getFits"))
-
-## #' Accessor to 'fits' slot
-## #'
-## #' The 'fits' slot contains the fitted values of the model
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' fits <- getFits(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("getFits", "GenoGAM", function(x) x@fits)
-
-## #' Accessor to the 'experimentDesign' slot
-## #'
-## #' The 'experimentDesign' slot contains the experimental design of the model as
-## #' specified in the config file
-## #'
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' exdesign <- colData(gg)
-## #' @rdname GenoGAM-methods
-## #' @export
-## setMethod("colData", "GenoGAM", function(x) x@experimentDesign)
 
 ## ## Cosmetics
 ## ## ==========

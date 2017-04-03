@@ -1,19 +1,3 @@
-## .getFits <- function(setup) {
-##     nSplines <- length(.getVars(slot(setup, "formula"), "covar"))
-##     dims <- dim(slot(setup, "designMatrix"))
-##     rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
-##     cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
-##     fits <- as.vector(sapply(1:nSplines, function(y) {
-##         X <- slot(setup, "designMatrix")[rows[[y]], cols[[y]]]
-##         beta <- slot(setup, "beta")[cols[[y]], 1]
-##         res <- as.vector(X %*% beta)
-##         return(res)
-##     }))
-##     return(fits)
-## }
-
-
-
 
 ## ############################ Tests
 

@@ -1,0 +1,3 @@
+# To explore
+
+- Iterations for beta estimation are usually in ht ehigh hundreds, sometimes even exceeding 1000 and taking up to 7 seconds. Look for better initialization of beta, beyond mean over the response vector.

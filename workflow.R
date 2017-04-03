@@ -13,9 +13,12 @@ source("./R/sf.R")
 source("./R/cv.R")
 
 flog.threshold(DEBUG)
-folder <- "/s/project/coreProm/Michi/thornton/align_STAR"
-config <- "/data/ouga/home/ag_gagneur/strickeg/workspace/analysis/diffBinding/config.txt"
+## folder <- "/s/project/coreProm/Michi/thornton/align_STAR"
+## config <- "/data/ouga/home/ag_gagneur/strickeg/workspace/analysis/diffBinding/config.txt"
 
-ggd <- GenoGAMDataSet(config, 2000, 250, design = ~ s(x), directory = folder)
+folder <- "/s/project/coreProm/data/sacCer2"
+config <- "/data/ouga/home/ag_gagneur/strickeg/workspace/analysis/peakcalls/config_tfiib.txt"
+
+ggd <- GenoGAMDataSet(config, 2000, 250, design = ~ s(x) + s(x, by = tfiib), directory = folder)
 ggd <- computeSizeFactors(ggd)
 

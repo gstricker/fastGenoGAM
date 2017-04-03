@@ -28,17 +28,17 @@
 setClass("GenoGAMSetup",
          slots = list(params = "list", knots = "list",
                       designMatrix = "dgCMatrix", beta = "matrix",
-                      vcov = "dgCMatrix", penaltyMatrix = "dgCMatrix",
+                      sd = "list", penaltyMatrix = "dgCMatrix",
                       formula = "formula", offset = "numeric", 
                       family = "character", response = "numeric",
-                      fits = "numeric"),
+                      fits = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
-                          beta = matrix(), vcov = new("dgCMatrix"),
+                          beta = matrix(), sd = list(),
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           offset = numeric(), family = "nb", 
-                          response = numeric(), fits = numeric()))
+                          response = numeric(), fits = list()))
 
 ## Validity
 ## ========
@@ -79,9 +79,9 @@ setClass("GenoGAMSetup",
     NULL
 }
 
-.validateCovarianceType <- function(object) {
-    if(class(slot(object, "vcov")) != "dgCMatrix") {
-        return("'vcov' must be a dgCMatrix object")
+.validateSDType <- function(object) {
+    if(class(slot(object, "sd")) != "list") {
+        return("'sd' must be a list object")
     }
     NULL
 }
@@ -122,8 +122,8 @@ setClass("GenoGAMSetup",
 }
 
 .validateFitsType <- function(object) {
-    if(mode(slot(object, "fits")) != "numeric") {
-        return("'fits' must be a numeric object")
+    if(mode(slot(object, "fits")) != "list") {
+        return("'list' must be a numeric object")
     }
     NULL
 }
@@ -132,7 +132,7 @@ setClass("GenoGAMSetup",
 .validateGenoGAMSetup <- function(object) {
     c(.validateParamsType(object), .validateKnotsType(object),
       .validateDesignMatrixType(object), .validateBetaType(object),
-      .validateCovarianceType(object), .validatePenaltyMatrixType(object),
+      .validateSDType(object), .validatePenaltyMatrixType(object),
       .validateFormulaType(object), .validateOffsetType(object),
       .validateFamilyType(object), .validateResponseType(object),
       .validateFitsType(object), .validateParamsElements(object))

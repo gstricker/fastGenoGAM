@@ -13,6 +13,13 @@
     return(res)
 }
 
+.makeNames <- function(formula) {
+    vars <- .getVars(formula)
+    vars[!is.na(vars)] <- paste("s(x)", vars[!is.na(vars)], sep = ":")
+    vars[is.na(vars)] <- "s(x)"
+    return(vars)
+}
+
 ## #' #' Update Formula with a specific penalization parameter lambda
 ## #' Not used at the moment
 ## #'
