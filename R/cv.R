@@ -57,7 +57,6 @@
                   fixedpars = fixedpars, ...)
     params <- exp(pars$par)
 
-    futile.logger::flog.trace("Optimal parameter values:", params, capture = TRUE)
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
     
     if(length(params) == 1) {

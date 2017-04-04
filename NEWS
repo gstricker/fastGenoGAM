@@ -8,3 +8,5 @@ NEW FEATURES IN VERSION 2.0
 	o Simplified underlying infrastructure and thus less overhead
 	o GenoGAMDataSet can now be efficiently created from SummarizedExperiment objects
 	o Access to the GenoGAMSettings class, to modify global settings for computation of the model
+	o Included logging on different levels for easier maintanance and debugging
+	o Included second penalization (first order) for regions with very low coverage.

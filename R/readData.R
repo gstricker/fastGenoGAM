@@ -113,8 +113,6 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
             return(DataFrame())
         }
     }
-    futile.logger::flog.trace("The following chromosomes will be read in:")
-    futile.logger::flog.trace(show(chromosomeLengths))
     ## get other parameters
     center <- slot(settings, "center")
     processFun <- slot(settings, "processFunction")
@@ -129,7 +127,7 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
         if(!is.null(center)) {
             args <- c(args, center = center)
         }
-        futile.logger::flog.trace(paste("Reading in", config$ID[ii]))
+        futile.logger::flog.info(paste("Reading in", config$ID[ii]))
         futile.logger::flog.debug(paste(config$ID[ii], "is located at", config$file[ii],
                                         "and is paired end =", config$paired[ii]))
         res <- do.call(.readRawData, c(list(path = config$file[ii], processFUN = processFun,
@@ -153,7 +151,7 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
 
         ## write to HDF5 if TRUE
         if(hdf5) {
-            futile.logger::flog.trace(paste("HDF5 directory for the data set to:", dir))
+            futile.logger::flog.info(paste("HDF5 directory for the data set to:", dir))
             ans <- .writeToHDF5(ans, dir = dir)
         }
     }
@@ -173,17 +171,17 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
 ##' @noRd
 .writeToHDF5 <- function(dflist, dir = "./h5data") {
     if(!dir.exists(dir)) {
-        futile.logger::flog.trace(paste("HDF5 directory created at:", dir))
+        futile.logger::flog.info(paste("HDF5 directory created at:", dir))
         dir.create(dir)
     }
 
-    futile.logger::flog.trace("Writing to HDF5")
+    futile.logger::flog.info("Writing to HDF5")
     h5list <- BiocParallel::bplapply(names(dflist), function(df) {
         h5file <- file.path(dir, df)
         h5 <- HDF5Array::HDF5Array(HDF5Array::DelayedArray(dflist[[df]]))
         return(h5)
     })
-    futile.logger::flog.trace("Writing to HDF5 finished")
+    futile.logger::flog.info("Writing to HDF5 finished")
     return(h5list)
 }
 

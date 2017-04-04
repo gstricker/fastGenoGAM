@@ -54,7 +54,6 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
     }
     
     ## add to GenomicTiles
-    futile.logger::flog.trace("The log-size-factors were computed as:", sf, capture = TRUE)
     futile.logger::flog.debug("The log-size-factors were computed as:", sf, capture = TRUE)
     slot(ggd, "sizeFactors") <- sf
 

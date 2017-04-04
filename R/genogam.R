@@ -2,22 +2,78 @@
 ## The main modelling function ##
 #################################
 
-## lambda <- 4608.962 
-## theta <- 1.504998 
-## ## lambda = NULL
-## ## theta = NULL
-## family = "nb"
-## H = 0
-## bpknots = 20
-## kfolds = 10
-## intervalSize = 20
-## intervals = 20
-## order = 2
-## m = 2
+lambda <- 266.836829
+theta <- 2.415738
+## lambda = NULL
+## theta = NULL
+family = "nb"
+H = 0
+bpknots = 20
+kfolds = 10
+intervalSize = 20
+regions = 20
+order = 2
+m = 2
 
+##' genogam
+##'
+##' The main modelling function.
+##' @param ggd The GenoGAMDataSet object to be fitted
+##' @param lambda The penalization parameter. If NULL (default) estimated by
+##' cross validation. So far only one parameter for all splines is supported.
+##' @param theta The global overdispersion parameter. If NULL (default) estimated
+##' by cross validation.
+##' @param family The distribution to be used. So far only Negative-Binomial (nb)
+##' is supported.
+##' @param H The factor for additional first-order regularization. This should be
+##' zero (default) in most cases. It can be useful for sparse data with many
+##' zero-counts regions or very low coverage. In this cases it is advised to use
+##' a small factor like 0.01, which would penalize those regions but not the ones
+##' with higher coverage. See Wood S., Generalized Additive Models (2006) for more.
+##' @param bpknots The spacing between knots. The lower the number, the more local
+##' functions and the more sensitive the model with the trade-off of increased
+##' computation time. In our experience going below 20 is not necessary even for
+##' close double peaks.
+##' @param kfolds The number of folds for cross validation
+##' @param intervalSize The size of the hold-out intervals in cross validation.
+##' If replicates are present, this can easily be increased to twice the fragment
+##' size to capture more of the local correlation. If no replicates are present,
+##' keep the number low to avoid heavy interpolation (default).
+##' @param regions How many regions should be used in cross validation? The number
+##' is an upper limit. It is usually corrected down, such that the total number of
+##' models computed during cross validation does not exceed the total number of
+##' models to compute for the entire genome. This is usually the case for small
+##' organisms such as yeast.
+##' @param order The order of the B-spline basis, which is order + 2, where 0
+##' is the lowest order. Thus order = 2 is equivalent to cubic order (= 3).
+##' @param m The order of penalization. Thus m = 2 penalizes the second differences.
+##' @return The fit as a GenoGAM object
+##' @examples
+##' ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+##' res <- genogam(ggd, lambda = 266.8368, theta = 2.415738)
+##' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+##' @export
 genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                     bpknots = 20, kfolds = 10, intervalSize = 20, 
-                    intervals = 20, order = 2, m = 2) {
+                    regions = 20, order = 2, m = 2) {
+
+    futile.logger::flog.info("Initializing the model")
+
+    input <- paste0("Initializing the model with the following parameters:\n",
+                    "  Lambda: ", lambda, "\n",
+                    "  Theta: ", theta, "\n",
+                    "  Family: ", family, "\n",
+                    "  H: ", H, "\n",
+                    "  Knot spacing: ", bpknots, "\n",
+                    "  Number of folds: ", kfolds, "\n",
+                    "  Interval size: ", intervalSize, "\n",
+                    "  Number of regions: ", regions, "\n",
+                    "  B-spline order: ", order, "\n",
+                    "  Penalization order: ", m, "\n",
+                    "  GenoGAMDataSet object: ")
+    futile.logger::flog.debug(input)
+    futile.logger::flog.debug(show(ggd))
+    futile.logger::flog.debug(show(slot(ggd, "settings")))
     
     settings <- slot(ggd, "settings")
     tileSettings <- tileSettings(ggd)
@@ -31,30 +87,39 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                         H = H, bpknots = bpknots, order = order,
                         penorder = m)
 
+    futile.logger::flog.info("Done")
     ## Cross Validation
     cv <- FALSE
 
     if(is.null(lambda) | is.null(theta)) {
-        futile.logger::flog.info("Estimating parameters")
+        futile.logger::flog.info("Estimating hyperparameters")
         
         ## get the tile ids for CV
         sumMatrix <- sum(ggd)
         ## ncv set to a number, such that CV does not compute more models than
         ## the actual genogam run. 
         ## 50 is the average expected number of iterations
-        ncv <- min(intervals, ceiling(length(coords)/(kfolds*50)))
+        ncv <- min(regions, ceiling(length(coords)/(kfolds*50)))
+
+        if(ncv < regions) {
+            futile.logger::flog.debug(paste("Reducing the number of regions to", ncv))
+        }
+        
         if(ncv < length(coords)) {
             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd))) {
                 rsums <- rowSums(sumMatrix[[1]])
                 ids <- order(rsums, decreasing = TRUE)[1:ncv]
             }
             else {
+                futile.logger::flog.debug("Performing DESeq2 analysis to find regions with highest fold change")
                 pvals <- suppressMessages(suppressWarnings(.deseq(sumMatrix, colData(ggd))))
                 ids <- order(pvals)[1:ncv]
             }
         }
         else ids <- 1:length(coords)
-    
+
+        futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
+        
         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
                                      id = ids, folds = kfolds, 
                                      intervalSize = intervalSize,
@@ -75,8 +140,15 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     lambdaFun <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
+        maxit <- slot(settings, "optimControl")$betaMaxit
         setup <- .initiate(data, init, coords, id)
-        betas <- .estimateParams(setup)
+        betas <- .estimateParams(setup, maxit)
+
+        futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$counts[1], "iterations"))
+        if(betas$convergence == 1) {
+            futile.logger::flog.warn("Beta estimation did not converge. This is not necessarily a problem, but can affect the fit and the correct assimilation of the tiles. If this is the case, try increase the 'betaMaxit' parameter in the 'optimControl' slot in the settings.")
+        }
+        
         slot(setup, "beta") <- betas$par
         slot(setup, "fits") <- .getFits(setup)
         
@@ -96,6 +168,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     res <- BiocParallel::bplapply(ids, lambdaFun, 
                                   data = ggd, init = ggs, coords = coords)
 
+    futile.logger::flog.info("Done")
+
+    futile.logger::flog.info("Assembling fits and building GenoGAM object")
     ## make chunk coordinates relative
     s <- start(chunks) %% start(coords) + 1
     e <- s + width(chunks) - 1
@@ -125,7 +200,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     if(cv) {
         modelParams$kfolds <- kfolds
         modelParams$intervalSize <- intervalSize
-        modelParams$intervals <- ncv
+        modelParams$regions <- ncv
     }
     modelParams <- c(modelParams, tileSettings(ggd))
     modelParams$check <- NULL
@@ -139,6 +214,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     
     ## How to make it run and write directly parallel. Do parallel by Chromosome, write to HDD and run next chromosome?
 
+    futile.logger::flog.info("Done")
     return(gg)
 }
 
@@ -207,7 +283,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
 #' estimate betas
 #' @noRd
-.estimateParams <- function(ggs) {
+.estimateParams <- function(ggs, maxit = 100) {
     ## turn the beta matrix into a 1-column matrix
     betas <- slot(ggs, "beta")
 
@@ -225,7 +301,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
                  theta = params$theta, lambda = params$lambda, S = S, 
-                 method = "L-BFGS", control = list(fnscale=-1, maxit = 200))
+                 method = "L-BFGS", control = list(fnscale=-1, maxit = maxit))
     return(res)
 }
 

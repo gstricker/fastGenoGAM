@@ -239,7 +239,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     }
 
     if(class(experimentDesign) == "RangedSummarizedExperiment") {
-        futile.logger::flog.trace("Building GenoGAMDataSet from SummarizedExperiment object")
         futile.logger::flog.debug("Building GenoGAMDataSet from SummarizedExperiment object")
         ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
                                     chunkSize = chunkSize,
@@ -248,7 +247,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
                                     settings = settings, ...)
     }
     else {
-        futile.logger::flog.trace(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
         futile.logger::flog.debug(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
         ggd <- .GenoGAMDataSetFromConfig(config = experimentDesign,
                                         chunkSize = chunkSize,
@@ -327,7 +325,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     futile.logger::flog.debug(input)
 
     l$tileSize <- l$chunkSize + 2*l$overhangSize
-    futile.logger::flog.trace(paste0("GenoGAMDataSet: Tile size computed to be ", l$tileSize))
     futile.logger::flog.debug(paste0("GenoGAMDataSet: Tile size computed to be ", l$tileSize))
 
     ## deal with overlapping ranges to reduce complexity and redundancy
@@ -403,7 +400,6 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     S4Vectors::mcols(tiles)$id <- 1:length(tiles)
     l$numTiles <- length(tiles)
 
-    futile.logger::flog.trace(paste0("GenoGAMDataSet: Data split into ", l$numTiles, " tiles"))
     futile.logger::flog.debug(paste0("GenoGAMDataSet: Data split into ", l$numTiles, " tiles"))
 
     l$check <- TRUE
@@ -665,7 +661,6 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
 ##'
 ##' @noRd
 .checkGenoGAMDataSet <- function(object) {
-    futile.logger::flog.trace("Check if tile settings match the data.")
     futile.logger::flog.debug("Check if tile settings match the data.")
 
     params = c("chunkSize", "tileSize", "tileRanges",
@@ -689,7 +684,6 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
         return(FALSE)
     }
     
-    futile.logger::flog.trace("All checks passed.")
     futile.logger::flog.debug("All checks passed.")
     return(TRUE)
 }
@@ -1197,11 +1191,6 @@ setMethod("IQR", "GenoGAMDataSet", function(x) {
     if(length(tileSettings(object)) != 0) {
         tsize <- tileSettings(object)$tileSize
         tname <- "tiles"
-        chunk <- tileSettings(object)$chunk
-        if (chunk) {
-            tsize <- tileSettings(object)$chunkSize
-            tname <- "chunks"
-        }
         unit <- ""
         if(!is.null(tsize)) {
             unit = "bp"

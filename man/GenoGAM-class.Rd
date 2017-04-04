@@ -14,6 +14,7 @@
 \alias{design,GenoGAM-method}
 \alias{sizeFactors,GenoGAM-method}
 \alias{getSettings,GenoGAM-method}
+\alias{getFamily,GenoGAM-method}
 \alias{colData,GenoGAM-method}
 \alias{getParams,GenoGAM-method}
 \alias{getSmooths,GenoGAM-method}
@@ -26,6 +27,8 @@ GenoGAM(...)
 \S4method{sizeFactors}{GenoGAM}(object)
 
 \S4method{getSettings}{GenoGAM}(object)
+
+\S4method{getFamily}{GenoGAM}(object)
 
 \S4method{colData}{GenoGAM}(x)
 
@@ -62,6 +65,8 @@ to access them.
 \item \code{sizeFactors}: An accessor to the sizeFactors slot
 
 \item \code{getSettings}: An accessor to the settings slot
+
+\item \code{getFamily}: An accessor to the family slot
 
 \item \code{colData}: An accessor to the factorialDesign slot.
 It overwrites the inherited colData function, which points to the colData slot.
