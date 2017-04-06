@@ -2,18 +2,18 @@
 ## The main modelling function ##
 #################################
 
-lambda <- 266.836829
-theta <- 2.415738
-## lambda = NULL
-## theta = NULL
-family = "nb"
-H = 0
-bpknots = 20
-kfolds = 10
-intervalSize = 20
-regions = 20
-order = 2
-m = 2
+## lambda <- 266.836829
+## theta <- 2.415738
+## ## lambda = NULL
+## ## theta = NULL
+## family = "nb"
+## H = 0
+## bpknots = 20
+## kfolds = 10
+## intervalSize = 20
+## regions = 20
+## order = 2
+## m = 2
 
 ##' genogam
 ##'
@@ -153,7 +153,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         slot(setup, "fits") <- .getFits(setup)
         
         H <- .compute_hessian_negbin(setup)
-        slot(setup, "sd") <- .computeSD(setup, H)
+        slot(setup, "se") <- .computeSE(setup, H)
         
         slot(setup, "designMatrix") <- new("dgCMatrix")
         slot(setup, "penaltyMatrix") <- new("dgCMatrix")
@@ -177,21 +177,16 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     relativeChunks <- IRanges::IRanges(s, e)
 
     ## combine fits
-    allFits <- lapply(res, function(y) {
-        s <- start(relativeChunks[slot(y, "params")$id])
-        e <- end(relativeChunks[slot(y, "params")$id])
-        dt <- cbind(data.table::as.data.table(slot(y, "fits"))[s:e,], data.table::as.data.table(slot(y, "sd"))[s:e,])
-        return(dt)
-    })
-
-    combined <- data.table::rbindlist(allFits)
-    varNames <- colnames(combined)
-    combined <- DataFrame(combined)
-    colnames(combined) <- varNames
-
+    combinedFits <- .transformResults(res, relativeChunks, what = "fits")
+    combinedSEs <- .transformResults(res, relativeChunks, what = "se")
+        
     ## build GenoGAM object
     se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rowRanges(ggd),
-                                                     assays = list(combined))
+                                                     assays = list(fits = combinedFits,
+                                                                   se = combinedSEs))
+
+    ## SEE RIGHT: FIX ISSUE WITH LINE ABOVE AND THE NOTES FROM MATRIX PACKAGE!
+    
     modelParams <- slot(ggs, "params")
     modelParams$cv <- cv
     modelParams$bpknots <- bpknots
@@ -362,7 +357,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
 #' Compute basepair Standard deviation from Hessian
 #' @noRd
-.computeSD <- function(setup, H) {
+.computeSE <- function(setup, H) {
     X <- slot(setup, "designMatrix")
     Hinv <- .invertHessian(H)*(-1)
     
@@ -376,14 +371,34 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         rows <- list(1:dims[1])
         cols <- list(1:dims[2])
     }
-    sds <- lapply(1:nSplines, function(y) {
+    ses <- lapply(1:nSplines, function(y) {
         Xsub <- X[rows[[y]], cols[[y]]]
         HinvSub <- Hinv[cols[[y]],cols[[y]]]
         res <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%t(Xsub)))
         return(res)
     })
     varNames <- .makeNames(slot(setup, "formula"))
-    names(sds) <- paste("se", varNames, sep = ".")
+    names(ses) <- paste("se", varNames, sep = ".")
 
-    return(sds)
+    return(ses)
+}
+
+##' transform the result list of GenoGAMSetup object into a list
+##' with two DataFrames representing the fits and standard errors
+##' @noRd
+.transformResults <- function(x, relativeChunks, what = c("fits", "se")) {
+
+    allData <- lapply(x, function(y) {
+        s <- start(relativeChunks[slot(y, "params")$id])
+        e <- end(relativeChunks[slot(y, "params")$id])
+        dt <- data.table::as.data.table(slot(y, what))[s:e,]
+        return(dt)
+    })
+
+    combinedData <- data.table::rbindlist(allData)
+    varNames <- colnames(combinedData)
+    combinedData <- DataFrame(combinedData)
+    colnames(combinedData) <- varNames
+
+    return(combinedData)
 }

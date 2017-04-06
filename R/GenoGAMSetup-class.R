@@ -28,14 +28,14 @@
 setClass("GenoGAMSetup",
          slots = list(params = "list", knots = "list",
                       designMatrix = "dgCMatrix", beta = "matrix",
-                      sd = "list", penaltyMatrix = "dgCMatrix",
+                      se = "list", penaltyMatrix = "dgCMatrix",
                       formula = "formula", offset = "numeric", 
                       family = "character", response = "numeric",
                       fits = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
-                          beta = matrix(), sd = list(),
+                          beta = matrix(), se = list(),
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           offset = numeric(), family = "nb", 
                           response = numeric(), fits = list()))
@@ -79,9 +79,9 @@ setClass("GenoGAMSetup",
     NULL
 }
 
-.validateSDType <- function(object) {
-    if(class(slot(object, "sd")) != "list") {
-        return("'sd' must be a list object")
+.validateSEType <- function(object) {
+    if(class(slot(object, "se")) != "list") {
+        return("'se' must be a list object")
     }
     NULL
 }
@@ -132,7 +132,7 @@ setClass("GenoGAMSetup",
 .validateGenoGAMSetup <- function(object) {
     c(.validateParamsType(object), .validateKnotsType(object),
       .validateDesignMatrixType(object), .validateBetaType(object),
-      .validateSDType(object), .validatePenaltyMatrixType(object),
+      .validateSEType(object), .validatePenaltyMatrixType(object),
       .validateFormulaType(object), .validateOffsetType(object),
       .validateFamilyType(object), .validateResponseType(object),
       .validateFitsType(object), .validateParamsElements(object))

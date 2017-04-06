@@ -18,6 +18,10 @@
 \alias{colData,GenoGAM-method}
 \alias{getParams,GenoGAM-method}
 \alias{getSmooths,GenoGAM-method}
+\alias{assay,GenoGAM,missing-method}
+\alias{fits,GenoGAM-method}
+\alias{se,GenoGAM-method}
+\alias{[,GenoGAM,GRanges,ANY,ANY-method}
 \title{GenoGAM class}
 \usage{
 GenoGAM(...)
@@ -35,11 +39,21 @@ GenoGAM(...)
 \S4method{getParams}{GenoGAM}(object)
 
 \S4method{getSmooths}{GenoGAM}(object)
+
+\S4method{assay}{GenoGAM,missing}(x, i)
+
+\S4method{fits}{GenoGAM}(object)
+
+\S4method{se}{GenoGAM}(object)
+
+\S4method{[}{GenoGAM,GRanges,ANY,ANY}(x, i)
 }
 \arguments{
 \item{...}{Slots of the GenoGAM class. See the slot description.}
 
 \item{object, x}{For use of S4 methods. The GenoGAM object.}
+
+\item{i}{A GRanges object (only for subsetting)}
 }
 \value{
 An object of the type GenoGAM.
@@ -69,11 +83,18 @@ to access them.
 \item \code{getFamily}: An accessor to the family slot
 
 \item \code{colData}: An accessor to the factorialDesign slot.
-It overwrites the inherited colData function, which points to the colData slot.
 
 \item \code{getParams}: An accessor to the params slot
 
 \item \code{getSmooths}: An accessor to the smooths slot
+
+\item \code{assay}: The accessor to the fits and standard errors
+
+\item \code{fits}: An accessor to the fits
+
+\item \code{se}: An accessor to the standard errors
+
+\item \code{[}: Additional subsetting by single brackets
 }}
 
 \section{Slots}{
@@ -98,6 +119,26 @@ settings that were used to compute the model.}
 \item{\code{smooths}}{A data.table of knots and coefficients of the model}
 }}
 
+\examples{
+
+## creating test GenoGAM object
+gg <- makeTestGenoGAM()
+gg
+
+## using accessors
+design(gg)
+sizeFactors(gg)
+getSettings(gg)
+getFamily(gg)
+colData(gg)
+getParams(gg)
+getSmooths(gg)
+rowRanges(gg)
+assay(gg)
+assays(gg)
+fits(gg) 
+se(gg)
+}
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}
 }

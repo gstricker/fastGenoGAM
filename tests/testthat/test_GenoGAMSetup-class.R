@@ -9,7 +9,7 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(length(slot(ggs, "knots")) == 0)
     expect_true(all(dim(slot(ggs, "designMatrix")) == c(0, 0)))
     expect_true(all(dim(slot(ggs, "beta")) == c(1, 1)))
-    expect_true(all(dim(slot(ggs, "vcov")) == c(0, 0)))
+    expect_true(length(slot(ggs, "se")) == 0)
     expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(0, 0)))
     expect_true(slot(ggs, "formula") == formula(~ 1))
     expect_true(length(slot(ggs, "offset")) == 0)
@@ -18,12 +18,13 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(length(slot(ggs, "fits")) == 0)
 
     mat <- matrix(1:9, 3, 3)
+    k <- 10
     ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, H = 0.05),
-                        knots = list(1:10), designMatrix = as(mat, "dgCMatrix"),
-                        beta = mat, vcov = as(mat, "dgCMatrix"),
+                        knots = list(1:k), designMatrix = as(mat, "dgCMatrix"),
+                        beta = mat, se = list(runif(k)),
                         penaltyMatrix = as(mat, "dgCMatrix"), formula = ~ s(x),
-                        offset = 1:3, family = "myFamily", response  = 1:10,
-                        fits = 1:10)
+                        offset = 1:3, family = "myFamily", response  = 1:k,
+                        fits = list(runif(k)*3))
 
     expect_true(all.equal(slot(ggs, "params"),
                           list(lambda = 5, order = 4, H = 0.05,
@@ -31,13 +32,13 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(all(slot(ggs, "knots")[[1]] == 1:10))
     expect_true(all(dim(slot(ggs, "designMatrix")) == c(3, 3)))
     expect_true(all(dim(slot(ggs, "beta")) == c(3, 3)))
-    expect_true(all(dim(slot(ggs, "vcov")) == c(3, 3)))
+    expect_true(length(slot(ggs, "se")[[1]]) == k)
     expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(3, 3)))
     expect_true(slot(ggs, "formula") == formula(~ s(x)))
     expect_true(all(slot(ggs, "offset") == 1:3))
     expect_true(slot(ggs, "family") == "myFamily")
     expect_true(all(slot(ggs, "response") == 1:10))
-    expect_true(all(slot(ggs, "fits") == 1:10))
+    expect_true(length(slot(ggs, "fits")[[1]]) == k)
 })
 
 test_that("Knots are placed correctly", {

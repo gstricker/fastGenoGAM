@@ -224,6 +224,7 @@ test_that("The read-in functions work correctly", {
 
 test_that("The subsetting methods work correct", {
     ggd <- makeTestGenoGAMDataSet()
+    getOverhangSize(ggd) <- 0
     gr <- GRanges("chrXIV", IRanges(306501,307500))
     seqlengths(gr) <- seqlengths(ggd)
     
@@ -231,9 +232,9 @@ test_that("The subsetting methods work correct", {
     expect_identical(gr, rowRanges(res)@pos_runs)
     expect_equal(getTileNumber(res), 1)
 
-    test_gr <- GRanges("chrXIV", IRanges(305000,307000))
+    test_gr <- GRanges("chrXIV", IRanges(305000,306999))
     seqlengths(test_gr) <- seqlengths(ggd)
-    res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
+    res <- subset(ggd, seqnames == "chrXIV" & pos < 307000)
     expect_identical(test_gr, rowRanges(res)@pos_runs)
     expect_equal(getTileNumber(res), 2)
 
@@ -403,7 +404,29 @@ test_that("Metric computation works correct in case of empty GenoGAMDataSet", {
 
 ## test .getCoordinates (with and without gaps) and .getChunkCoords here
 test_that("Coordinate and Chunk transformation work correctly", {
-    ## so it comes up
-    expect_error()
+    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    coords <- .getCoordinates(ggd)
+    index <- getIndex(ggd)
+
+    expect_error(.getCoordinates())
+    expect_true(length(coords) == length(index))
+    expect_true(width(range(coords)) == length(rowRanges(ggd)))
+    expect_true(all(width(coords) == width(index)))
+
+    chunks <- .getChunkCoords(coords)
+    ## all indices must be of same length
+    expect_true(all.equal(length(coords), length(index), length(chunks)))
+    
+    ## The first and the second chunks of a chromosome must be of same length
+    ## as the last and the second-to-last. 
+    expect_true(width(chunks[1]) == width(chunks[length(chunks)]))
+    expect_true(width(chunks[2]) == width(chunks[length(chunks) - 1]))
+
+    ## The rest should be of size = chunkSize
+    numEqualChunks <- length(which(width(chunks) == getChunkSize(ggd)))
+    expect_true(numEqualChunks == (length(chunks) - 4))
+
+    ## But on average they should always be exactly chunkSize
+    expect_true(all.equal(mean(width(chunks)), getChunkSize(ggd)))
 })
 

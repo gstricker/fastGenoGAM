@@ -74,7 +74,7 @@ offer a subset based on tiles.
 # subset by overlaps
 ggd <- makeTestGenoGAMDataSet()
 rowRanges(ggd)
-gr <- GRanges("chrXIV", IRanges(306500,307500))
+gr <- GRanges("chrXIV", IRanges(306200,307800))
 res <- subsetByOverlaps(ggd, gr)
 rowRanges(res)
 

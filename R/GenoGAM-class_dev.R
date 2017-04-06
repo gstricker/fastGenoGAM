@@ -127,6 +127,25 @@ setValidity2("GenoGAM", .validateGenoGAM)
 #' @param i A GRanges object (only for subsetting)
 #' @param ... Slots of the GenoGAM class. See the slot description.
 #' @return An object of the type GenoGAM.
+#' @examples
+#'
+#' ## creating test GenoGAM object
+#' gg <- makeTestGenoGAM()
+#' gg
+#'
+#' ## using accessors
+#' design(gg)
+#' sizeFactors(gg)
+#' getSettings(gg)
+#' getFamily(gg)
+#' colData(gg)
+#' getParams(gg)
+#' getSmooths(gg)
+#' rowRanges(gg)
+#' assay(gg)
+#' assays(gg)
+#' fits(gg) 
+#' se(gg)
 #' @name GenoGAM
 #' @rdname GenoGAM-class
 #' @export
@@ -165,7 +184,6 @@ setMethod("getFamily", "GenoGAM", function(object) {
 })
 
 ##' @describeIn GenoGAM An accessor to the factorialDesign slot.
-##' It overwrites the inherited colData function, which points to the colData slot.
 setMethod("colData", "GenoGAM", function(x) {
     slot(x, "factorialDesign")
 })
@@ -186,8 +204,41 @@ setMethod("getSmooths", "GenoGAM", function(object) {
     slot(object, "smooths")
 })
 
+##' @describeIn GenoGAM The accessor to the fits and standard errors
+setMethod("assay", c("GenoGAM", "missing"), function(x, i) {
+    res <- slot(x, "assays")
+    if(length(res) < 1) {
+        return(NULL)
+    }
+    return(res[[1]])
+})
 
-## Test GenoGAM#
+##' @export
+setGeneric("fits", function(object) standardGeneric("fits"))
+
+##' @describeIn GenoGAM An accessor to the fits
+setMethod("fits", "GenoGAM", function(object) {
+    assays(object)[["fits"]]
+})
+
+##' @export
+setGeneric("se", function(object) standardGeneric("se"))
+
+##' @describeIn GenoGAM An accessor to the standard errors
+setMethod("se", "GenoGAM", function(object) {
+    assays(object)[["se"]]
+})
+
+setMethod("colnames", "GenoGAM", function(x) {
+    rownames(slot(x, "colData"))
+})
+
+setMethod("dimnames", "GenoGAM", function(x) {
+    list(names(x), rownames(slot(x, "colData")))
+})
+
+
+## Test GenoGAM
 ## =============
 
 #' Make an example /code{GenoGAM}
@@ -207,21 +258,21 @@ makeTestGenoGAM <- function() {
     sdexperiment <- runif(k)
     gr <- GenomicRanges::GPos(GenomicRanges::GRanges("chrXYZ", IRanges::IRanges(1, k)))
     GenomeInfoDb::seqlengths(gr) <- 1e6
-    df <- S4Vectors::DataFrame(input = background, IP = ip, sdx = sdx,
-                               sde = sdexperiment)
-    names(df) <- c("s(x)", "s(x):experiment", "se.s(x)", "se.s(x):experiment")
+    sdf <- S4Vectors::DataFrame(input = background, IP = ip)
+    sedf <- S4Vectors::DataFrame(sdx = sdx, sde = sdexperiment)
+    names(sdf) <- names(sedf) <- c("s(x)", "s(x):experiment")
     
-    se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
+    se <- SummarizedExperiment(rowRanges = gr, assays = list(fits = sdf, se = sedf))
     family <- "nb"
     design <- ~ s(x) + s(x, by = experiment)
     sizeFactors <- c(input = 0, IP = 0)
-    coldf <- S4Vectors::DataFrame(experiment = c(0, 1))
-    rownames(coldf) <- c("input", "IP")
-    colData(ggd) <- coldf
+    params <- list(cv = FALSE)
         
     gg <- GenoGAM(se, family = family, design = design,
-                   sizeFactors = sizeFactors,
-                  factorialDesign = coldf)
+                   sizeFactors = sizeFactors, params = params)
+    coldf <- S4Vectors::DataFrame(experiment = c(0, 1))
+    rownames(coldf) <- c("input", "IP")
+    slot(gg, "factorialDesign") <- coldf
     
     return(gg)
 }
@@ -240,15 +291,28 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
 ## Cosmetics
 ## ==========
 
+.check <- function(x) {
+    res <- ifelse(is.null(x), NA, x)
+    return(res)
+}
+
 ##' The actual show function
 ##' @noRd
 .showGenoGAM <- function(gg) {
     params <- slot(gg, "params")
+    
+    if(is.null(params$cv)) {
+        params$cv <- FALSE
+    }
+    
     form <- design(gg)
     cl <- class(gg)
     dims <- dim(gg)
     md <- unique(names(colData(gg)))
     cnames <- colnames(gg)
+    seidx <- grep("se\\.", cnames)
+    tracks <- cnames[-seidx]
+    setracks <- cnames[seidx]
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
     
@@ -257,8 +321,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     }
     
     cat("Family: ", fam, "\n")
-    cat("Formula:\n")
-    cat(paste(as.character(form), collapse = " "), "\n")
+    cat("Formula: ", paste(as.character(form), collapse = " "), "\n")
 
     tsize <- params$tileSize
     tname <- "Tiles"
@@ -274,22 +337,24 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
             tsize <- tsize/1e6
         }
     }
-    chroms <- GenomeInfoDb::seqlevels(params$chromosomes)
+
+    chroms <- NA
+    if(!is.null(params$chromosomes)) {
+        chroms <- GenomeInfoDb::seqlevels(params$chromosomes)
+    }
     tnum <- params$numTiles
     
     cat("Class:", cl, "\n")
     cat("Dimension:", dims, "\n")
     cat(paste0("Samples(", length(samples), "):"), samples, "\n")
     cat(paste0("Design variables(", length(md), "):"), md, "\n")
-
-
-    ## continue with tracks. Need seperate by name from SE tracks
-    cat(paste0("Tracks(", length(md), "):"), md, "\n")
-    cat(paste0(tname, " Size: ", tsize, unit), "\n")
-    cat(paste0("Number of ", tname, ": ", tnum), "\n")
+    cat(paste0("Smooth functions(", length(tracks), "):"), tracks, "\n")
+    cat(paste0("Pointwise SEs(", length(setracks), "):"), setracks, "\n")
     cat("Chromosomes:", chroms, "\n")
-   
-    cat("Size factors: ", sizeFactors(gg), "\n")
+    
+    cat("\n")
+    cat("Size factors:\n")
+    show(sizeFactors(gg))
 
     if(params$cv) {
         performed <- "Performed"
@@ -297,38 +362,32 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     else {
         performed <- "Not performed"
     }
+    cat("\n")
     cat("Cross Validation: ", performed, "\n")
     if(params$cv) {
-        cat("  Number of folds: ", params$kfolds, "\n")
-        cat("  Interval size: ", params$intervalSize, "\n")
-        cat("  Number of regions: ", params$regions, "\n")
+        cat("  Number of folds: ", .check(params$kfolds), "\n")
+        cat("  Interval size: ", .check(params$intervalSize), "\n")
+        cat("  Number of regions: ", .check(params$regions), "\n")
     }
     cat("\n")
     cat("Spline Parameters:\n")
-    cat("  Knot spacing: ", params$bpknots, "\n")
-    cat("  B-spline order: ", params$order, "\n")
-    cat("  Penalization order: ", params$penorder, "\n")
+    cat("  Knot spacing: ", .check(params$bpknots), "\n")
+    cat("  B-spline order: ", .check(params$order), "\n")
+    cat("  Penalization order: ", .check(params$penorder), "\n")
 
     cat("\n")
     cat("Tile settings:\n")
-    cat("  Chunk size:", params$chunkSize, "\n")
-    cat("  Tile size:", params$tileSize, "\n")
-    cat("  Overhang size:", params$overhangSize, "\n")
-    cat("  Number of tiles:", params$numTiles, "\n")
-    cat("  Chromosomes:\n")
-    show(params$chromosomes)
+    cat("  Chunk size:", .check(params$chunkSize), "\n")
+    cat("  Tile size:", .check(params$tileSize), "\n")
+    cat("  Overhang size:", .check(params$overhangSize), "\n")
+    cat("  Number of tiles:", .check(params$numTiles), "\n")
+    cat("  Evaluated genome ranges:\n")
+    show(.check(params$chromosomes))
 }
 
 setMethod("show", "GenoGAM", function(object) {
     .showGenoGAM(object)
 })
-
-
-## setMethod("summary", "GenoGAM", function(object) {
-##     .showGenoGAM(object)
-##     cat("Coefficients: \n")
-##     coef(object)
-## })
 
 ## #' View the dataset
 ## #'

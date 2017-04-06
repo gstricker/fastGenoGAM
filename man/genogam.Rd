@@ -57,7 +57,7 @@ The main modelling function.
 }
 \examples{
 ggd <- makeTestGenoGAMDataSet(sim = TRUE)
-res <- genogam(ggd, lambda = 1000, theta = 1.5)
+res <- genogam(ggd, lambda = 266.8368, theta = 2.415738)
 }
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}

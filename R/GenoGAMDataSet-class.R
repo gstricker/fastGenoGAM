@@ -920,7 +920,7 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' # subset by overlaps
 #' ggd <- makeTestGenoGAMDataSet()
 #' rowRanges(ggd)
-#' gr <- GRanges("chrXIV", IRanges(306500,307500))
+#' gr <- GRanges("chrXIV", IRanges(306200,307800))
 #' res <- subsetByOverlaps(ggd, gr)
 #' rowRanges(res)
 #'
@@ -1047,7 +1047,7 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 .getCoordinates <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
-    if(sum(seqlengths(ggd)) == length(ggd)) {
+    if(sum(seqlengths(x)) == length(x)) {
         l <- absoluteRanges(getIndex(x))
     }
     ## otherwise the slower version 'by bloc
@@ -1069,6 +1069,7 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
     start <- c(start(x[1]), ceiling((end(x[-length(x)]) + start(x[-1]))/2))
     end <- c((start[-1] - 1), end(x[length(x)]))
     ir <- IRanges(start, end)
+    return(ir)
 }
     
 #' compute metrics for each tile
