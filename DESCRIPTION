@@ -55,7 +55,7 @@ biocViews: Regression, DifferentialPeakCalling, ChIPSeq,
     ChipOnChip
 Collate: 
     'GenoGAMSettings-class.R'
-    'GenoGAM-class_dev.R'
+    'GenoGAM-class.R'
     'GenoGAMDataSet-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'

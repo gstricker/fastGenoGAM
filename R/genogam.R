@@ -216,6 +216,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' Builds the response vector from GenoGAMDataSet and the given row coordinates
 #' @noRd
 .buildResponseVector <- function(ggd, coords, id) {
+    
+    if(length(ggd) == 0 | length(coords) == 0) {
+        return(numeric())
+    }
+    
     tile <- coords[id,]
     y <- assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
     
@@ -230,7 +235,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     ## initiate response vector and betas
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)
     numBetas <- dim(slot(setup, "designMatrix"))[2]
-    slot(setup, "beta") <- matrix(log(mean(slot(setup, "response"), na.rm = TRUE)), numBetas, 1)
+    if(length(slot(setup, "response")) != 0) {
+        slot(setup, "beta") <- matrix(log(mean(slot(setup, "response"), na.rm = TRUE)), numBetas, 1)
+    }
         
     ## initialize lambda and theta
     params <- slot(setup, "params")
@@ -248,6 +255,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' compute fits from design matrix and estimated betas
 #' @noRd
 .getFits <- function(setup, log = TRUE) {
+    if(all(dim(slot(setup, "designMatrix")) == c(0, 0)) |
+       all(is.na(slot(setup, "beta")))) {
+        return(list())
+    }
+    
     X <- slot(setup, "designMatrix")
     betas <- slot(setup, "beta")
     
