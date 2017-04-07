@@ -185,7 +185,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                                                      assays = list(fits = combinedFits,
                                                                    se = combinedSEs))
 
-    ## SEE RIGHT: FIX ISSUE WITH LINE ABOVE AND THE NOTES FROM MATRIX PACKAGE!
+    ## SEE RIGHT: FIX ISSUE WITH LINE ABOVE (check computeSE function) AND THE NOTES FROM MATRIX PACKAGE!
     
     modelParams <- slot(ggs, "params")
     modelParams$cv <- cv
@@ -378,7 +378,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         return(res)
     })
     varNames <- .makeNames(slot(setup, "formula"))
-    names(ses) <- paste("se", varNames, sep = ".")
+    names(ses) <- varNames
 
     return(ses)
 }

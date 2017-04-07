@@ -93,7 +93,7 @@ setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #'
 #' GenoGAMDataSet is the constructor function for the GenoGAMDataSet-class. 
 #'
-#' @aliases getIndex tileSettings dataRange getChromosomes getTileSize getChunkSize getOverhangSize getTileNumber design sizeFactors
+#' @aliases getIndex tileSettings dataRange getChromosomes getTileSize getChunkSize getOverhangSize getTileNumber
 #' getChunkSize<- getTileSize<- getOverhangSize<- getTileNumber<-
 #' @param experimentDesign Either a character object specifying the path to a
 #' delimited text file (the delimiter will be determined automatically),

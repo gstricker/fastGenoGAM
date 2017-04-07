@@ -122,7 +122,7 @@ setValidity2("GenoGAM", .validateGenoGAM)
 #' Rather to be a point of reference and documentation for slots and how
 #' to access them.
 #'
-#' @aliases design sizeFactors getSettings getFamily colData getParams getSmooths
+#' @aliases getSettings getFamily colData getParams getSmooths fits se dimnames colnames
 #' @param object,x For use of S4 methods. The GenoGAM object.
 #' @param i A GRanges object (only for subsetting)
 #' @param ... Slots of the GenoGAM class. See the slot description.
@@ -229,10 +229,12 @@ setMethod("se", "GenoGAM", function(object) {
     assays(object)[["se"]]
 })
 
+##' @describeIn GenoGAM column names of GenoGAM
 setMethod("colnames", "GenoGAM", function(x) {
     rownames(slot(x, "colData"))
 })
 
+##' @describeIn GenoGAM The names of the dimensions of GenoGAM
 setMethod("dimnames", "GenoGAM", function(x) {
     list(names(x), rownames(slot(x, "colData")))
 })
@@ -291,6 +293,8 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
 ## Cosmetics
 ## ==========
 
+#' returns NA if object is NULL and the object otherwise
+#' @noRd
 .check <- function(x) {
     res <- ifelse(is.null(x), NA, x)
     return(res)

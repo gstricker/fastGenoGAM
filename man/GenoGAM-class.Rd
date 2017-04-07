@@ -4,13 +4,15 @@
 \name{GenoGAM-class}
 \alias{GenoGAM-class}
 \alias{GenoGAM}
-\alias{design}
-\alias{sizeFactors}
 \alias{getSettings}
 \alias{getFamily}
 \alias{colData}
 \alias{getParams}
 \alias{getSmooths}
+\alias{fits}
+\alias{se}
+\alias{dimnames}
+\alias{colnames}
 \alias{design,GenoGAM-method}
 \alias{sizeFactors,GenoGAM-method}
 \alias{getSettings,GenoGAM-method}
@@ -21,6 +23,8 @@
 \alias{assay,GenoGAM,missing-method}
 \alias{fits,GenoGAM-method}
 \alias{se,GenoGAM-method}
+\alias{colnames,GenoGAM-method}
+\alias{dimnames,GenoGAM-method}
 \alias{[,GenoGAM,GRanges,ANY,ANY-method}
 \title{GenoGAM class}
 \usage{
@@ -45,6 +49,10 @@ GenoGAM(...)
 \S4method{fits}{GenoGAM}(object)
 
 \S4method{se}{GenoGAM}(object)
+
+\S4method{colnames}{GenoGAM}(x)
+
+\S4method{dimnames}{GenoGAM}(x)
 
 \S4method{[}{GenoGAM,GRanges,ANY,ANY}(x, i)
 }
@@ -93,6 +101,10 @@ to access them.
 \item \code{fits}: An accessor to the fits
 
 \item \code{se}: An accessor to the standard errors
+
+\item \code{colnames}: column names of GenoGAM
+
+\item \code{dimnames}: The names of the dimensions of GenoGAM
 
 \item \code{[}: Additional subsetting by single brackets
 }}

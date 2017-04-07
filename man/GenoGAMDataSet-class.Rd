@@ -12,8 +12,6 @@
 \alias{getChunkSize}
 \alias{getOverhangSize}
 \alias{getTileNumber}
-\alias{design}
-\alias{sizeFactors}
 \alias{getChunkSize<-}
 \alias{getTileSize<-}
 \alias{getOverhangSize<-}
