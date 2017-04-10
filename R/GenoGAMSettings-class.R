@@ -27,8 +27,9 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' needed anyway, see details.
 #' @slot optimMethod The optiomisation method to be used in cross validation.
 #' See ?optim for a complete list.
-#' @slot optimControl Settings for the optim function. See ?optim for a 
-#' complete list.
+#' @slot optimControl List of control settings for the optim function.
+#' Almost all parameters are supported, with a couple of exceptions. See
+#' details. For a complete list of parameters see ?optim. 
 #' @details Center can have three values: TRUE, FALSE, NULL. TRUE will
 #' trigger the center function, FALSE will trigger the use of the entire
 #' fragment. NULL should be used in case a custom process function is used.
@@ -38,6 +39,17 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' to compute the coverage via the IRanges::coverage function. Note, that there
 #' is a difference between the GAlignments object in the single and paired end
 #' case.
+#'
+#' optimControl has two maxit fields: 'maxit' refers to the maximal iterations
+#' in the cross validation procedure. Convergence rarely exceeds 50. 'betaMaxit'
+#' refers to the maximum iterations in estimation of the beta parameters.
+#' Convergence will sometimes need up to 1000 iterations. Also the parameter
+#' 'trace' is overwritten. Please use the threshold setting through
+#' futile.logger::flog() to control trace information. All other parameters can
+#' be used as specified in ?optim. Note that the method used to estimate the
+#' beta vector is 'L-BFGS-B'. The method for cross validation can be changed.
+#' Keep in mind however, that not all methods will work, as it is not gradient
+#' based.
 #' @name GenoGAMSettings-class
 #' @rdname GenoGAMSettings-class
 #' @examples

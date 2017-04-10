@@ -85,4 +85,68 @@ test_that("Fits are correctly computed", {
     expect_true(all(names(res3) == fitNames))
 })
 
-## NEXT TEST ESTIMATEPARAMS
+test_that("Beta estimation work correct", {
+    ## With empty input
+    setup <- .initiate(emptyGGD, emptyGGS, coords, sample(5, 1))
+    expect_warning(emptyBetas <- .estimateParams(setup))
+    expect_true(length(emptyBetas$par) == 0)
+    
+    ## With normal input
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    betas1 <- .estimateParams(setup, maxit = 10000)
+    betas2 <- .estimateParams(setup, maxit = 10000)
+    
+    expect_true(all.equal(betas1$par, betas2$par))
+    expect_true(all(c(betas1$convergence, betas2$convergence) == 0))
+    expect_true(length(betas1$par) == length(slot(setup, "beta")))
+})
+
+test_that("Negative binomial log-likelihood and gradient give correct results", {
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    X <- slot(setup, "designMatrix")
+    S <- slot(setup, "penaltyMatrix")
+    theta <- 1
+    lambda <- 0
+    y <- matrix(1, dim(X)[1], 1)
+    betas <- rep(0, dim(X)[2])
+    offset <- rep(0, dim(X)[1])
+
+    ## true loglik with input from above
+    loglik <- -2*dim(X)[1]*log(2)
+    ## computed loglik
+    res <- .likelihood_penalized_nb(betas, X, y, offset, theta, lambda, S)
+    expect_true(all.equal(loglik, res))
+
+    ## return warnings due to inappropriate theta
+    expect_warning(invalid <- .likelihood_penalized_nb(betas, X, y, offset, theta = 0, lambda, S))
+    expect_true(is.nan(invalid))
+
+    newY <- matrix(3, dim(X)[1], 1)
+    ## true gradient
+    grad <- colSums(as.matrix(X))
+    ## computed gradients
+    res <- .gradient_likelihood_penalized_nb(betas, X, newY, offset, theta, lambda, S)
+    expect_true(all.equal(grad, res))
+})
+
+test_that("Hessian matrix computation is correct", {
+    ## with empty input
+    setup <- .initiate(emptyGGD, emptyGGS, coords, sample(5, 1))
+    res <- .compute_hessian_negbin(setup)
+    
+    ## with normal input
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    slot(setup, "fits") <- list("s(x)" = rep(0, dim(X)[1]))
+    slot(setup, "params")$lambda <- 0
+    slot(setup, "params")$theta <- 1
+    slot(setup, "response") <- rep(-5, dim(X)[1])
+
+    X <- slot(setup, "designMatrix")
+    ## true Hessian with above inputs
+    Htrue <- t(X) %*% X
+    ## computed Hessian
+    res <- .compute_hessian_negbin(setup)
+    expect_true(all.equal(Htrue@x, res@x))
+
+    ## TEST LAST HESSIAN FUNCTIONS
+})

@@ -118,6 +118,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         }
         else ids <- 1:length(coords)
 
+        control <- slot(settings, "optimControl")
+        control$betaMaxit <- NULL
         futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
         
         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
@@ -125,7 +127,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                                      intervalSize = intervalSize,
                                      fn = .loglik, 
                                      method = slot(settings, "optimMethod"),
-                                     control = slot(settings, "optimControl")) 
+                                     control = control) 
 
         names(params) <- c("lambda", "theta")
         slot(ggs, "params")$lambda <- params["lambda"]
@@ -140,9 +142,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     lambdaFun <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
-        maxit <- slot(settings, "optimControl")$betaMaxit
+        control <- slot(slot(data, "settings"), "optimControl")
+        control$maxit <- control$betaMaxit
+        control$betaMaxit <- NULL
+        control$trace <- 1
         setup <- .initiate(data, init, coords, id)
-        betas <- .estimateParams(setup, maxit)
+        betas <- .estimateParams(setup, control)
 
         futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$counts[1], "iterations"))
         if(betas$convergence == 1) {
@@ -290,8 +295,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
 #' estimate betas
 #' @noRd
-.estimateParams <- function(ggs, maxit = 100) {
-    ## turn the beta matrix into a 1-column matrix
+.estimateParams <- function(ggs, control = list(fnscale=-1, maxit = 100)) {
+
     betas <- slot(ggs, "beta")
 
     distr <- slot(ggs, "family")
@@ -308,7 +313,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
                  theta = params$theta, lambda = params$lambda, S = S, 
-                 method = "L-BFGS", control = list(fnscale=-1, maxit = maxit))
+                 method = "L-BFGS-B", control = control)
+
     return(res)
 }
 
@@ -354,15 +360,21 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     names(eta) <- NULL
     
     mu <- exp(eta)
-    d <- - mu * (1 + y/theta) / ((1 + mu/theta)^2) 
-    res <- t(X) %*% Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))%*% X - 2*lambda*S 
+    d <- - mu * (1 + y/theta) / ((1 + mu/theta)^2)
+    
+    if(length(d) == 0) {
+        return(as(matrix(), "dtCMatrix"))
+    }
+    
+    D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
+    res <- t(X) %*% D %*% X - 2*lambda*S 
     return (res)
 }
 
 #' Computation of the inverse of H
 #' @noRd
 .invertHessian <- function(H, tol = 0.0001) {
-    Hinv <- Matrix::solve(H)
+    Hinv <- invisible(Matrix::solve(H))
     Hinv[abs(Hinv) < tol] <- 0
     return(Hinv)
 }
