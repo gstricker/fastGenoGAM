@@ -129,12 +129,23 @@ test_that("Negative binomial log-likelihood and gradient give correct results", 
     expect_true(all.equal(grad, res))
 })
 
-test_that("Hessian matrix computation is correct", {
+test_that("Hessian matrix computation is correct for empty spline", {
     ## with empty input
     setup <- .initiate(emptyGGD, emptyGGS, coords, sample(5, 1))
-    res <- .compute_hessian_negbin(setup)
-    
-    ## with normal input
+    hess <- .compute_hessian_negbin(setup)
+    expect_true(all(is.na(hess)))
+
+    inv <- .invertHessian(hess)
+    expect_true(all(is.na(hess)))
+    expect_true(all.equal(hess, inv))
+
+    se <- .computeSE(setup, hess)
+    expect_true(length(se[[1]]) == 0)
+})
+
+test_that("Hessian matrix computation is correct for one spline", {
+
+    ## Check hessian
     setup <- .initiate(ggd, ggs, coords, sample(5, 1))
     slot(setup, "fits") <- list("s(x)" = rep(0, dim(X)[1]))
     slot(setup, "params")$lambda <- 0
@@ -148,5 +159,140 @@ test_that("Hessian matrix computation is correct", {
     res <- .compute_hessian_negbin(setup)
     expect_true(all.equal(Htrue@x, res@x))
 
-    ## TEST LAST HESSIAN FUNCTIONS
+    ## Check inversion of hessian
+    inv <- .invertHessian(res, tol = 0)
+    ## check that inverted matrix is covariance matrix
+    ## check for symmetry
+    l <- sort(inv[lower.tri(inv)])
+    u <- sort(inv[upper.tri(inv)])
+    expect_true(all.equal(u,l))
+    ## check for positive-definite
+    ## all eigenvalues are positive
+    e <- eigen(inv)
+    expect_true(all(e$values > 0))
+
+    ## Test computation of standard errors (SE)
+    slot(ggd, "design") <- ~ s(x)
+    ggs <- setupGenoGAM(ggd)
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    
+    slot(setup, "beta") <- .estimateParams(setup)$par
+    slot(setup, "fits") <- .getFits(setup)
+    hess <- .compute_hessian_negbin(setup)
+    se <- .computeSE(setup, hess)
+
+    ## add all SEs at same position
+    seSums <- unique(se[[1]])
+    ## get the index breaks
+    quants <- round(quantile(1:length(seSums)))
+    ## get the indeces for the first quantile,
+    ## the centre half and the last quantile
+    data50 <- quants[2]:quants[4]
+    data25 <- quants[1]:(quants[2] - 1)
+    data100 <- (quants[4] + 1):quants[5]
+
+    ## compute the range of SE in the centre 50% of data
+    range50 <- diff(range(seSums[data50]))
+    ## compute the range of SE in the first quantile of data
+    range25 <- diff(range(seSums[data25]))
+    ## compute the range of SE in the last quantile of data
+    range100 <- diff(range(seSums[data100]))
+    ## compare the ranges against each other.
+    ## The SE should be higher at least at one of the borders,
+    ## hence have a higher range in the first and last quantile of data
+    expect_true(range25 > range50 | range100 > range50)
+})
+
+test_that("Hessian matrix computation is correct for more than one spline", {
+
+    ## Check hessian
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    slot(setup, "fits") <- list("s(x)" = rep(0, dim(X)[1]/2),
+                                "s(x):experiment" = rep(0, dim(X)[1]/2))
+    slot(setup, "params")$lambda <- 0
+    slot(setup, "params")$theta <- 1
+    slot(setup, "response") <- rep(-5, dim(X)[1])
+
+    X <- slot(setup, "designMatrix")
+    ## true Hessian with above inputs
+    Htrue <- t(X) %*% X
+    ## computed Hessian
+    res <- .compute_hessian_negbin(setup)
+    expect_true(all.equal(Htrue@x, res@x))
+
+    ## Check inversion of hessian
+    inv <- .invertHessian(res, tol = 0)
+    ## check that inverted matrix is covariance matrix
+    ## check for symmetry
+    l <- sort(inv[lower.tri(inv)])
+    u <- sort(inv[upper.tri(inv)])
+    expect_true(all.equal(u,l))
+    ## check for positive-definite
+    ## all eigenvalues are positive
+    e <- eigen(inv)
+    expect_true(all(e$values > 0))
+
+    ## Test computation of standard errors (SE)
+    slot(ggd, "design") <- ~ s(x) + s(x, by = experiment)
+    ggs <- setupGenoGAM(ggd)
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    slot(setup, "beta") <- .estimateParams(setup)$par
+    slot(setup, "fits") <- .getFits(setup)
+    hess <- .compute_hessian_negbin(setup)
+    se <- .computeSE(setup, hess)
+
+    ## add all SEs at same position
+    seSums <- unique(se[[1]]) + se[[2]][se[[2]] > 0]
+    ## get the index breaks
+    quants <- round(quantile(1:length(seSums)))
+    ## get the indeces for the first quantile,
+    ## the centre half and the last quantile
+    data50 <- quants[2]:quants[4]
+    data25 <- quants[1]:(quants[2] - 1)
+    data100 <- (quants[4] + 1):quants[5]
+
+    ## compute the range of SE in the centre 50% of data
+    range50 <- diff(range(seSums[data50]))
+    ## compute the range of SE in the first quantile of data
+    range25 <- diff(range(seSums[data25]))
+    ## compute the range of SE in the last quantile of data
+    range100 <- diff(range(seSums[data100]))
+    ## compare the ranges against each other.
+    ## The SE should be higher at least at one of the borders,
+    ## hence have a higher range in the first and last quantile of data
+    expect_true(range25 > range50 | range100 > range50)
+})
+
+test_that("Data transformation works correct", {
+    ## with empty input
+    emptyChunks <- .getChunkCoords(emptyCoords)
+    emptyFits <- .transformResults(list(emptyGGS), emptyChunks, what = "fits")
+    expect_true(length(emptyFits) == 0)
+
+    ## normal input
+    chunks <- .getChunkCoords(coords)
+    s <- start(chunks) %% start(coords) + 1
+    e <- s + width(chunks) - 1
+    relativeChunks <- IRanges::IRanges(s, e)
+
+    id <- sample(5, 1)
+    setup <- .initiate(ggd, ggs, coords, id)
+    slot(setup, "beta") <- .estimateParams(setup)$par
+    slot(setup, "fits") <- .getFits(setup)
+    hess <- .compute_hessian_negbin(setup)
+    slot(setup, "se") <- .computeSE(setup, hess)
+    slot(setup, "params")$id <- id
+
+    fits <- .transformResults(list(setup), relativeChunks, what = "fits")
+    se <- .transformResults(list(setup), relativeChunks, what = "se")
+
+    expect_true(class(fits) == "DataFrame" & class(se) == "DataFrame")
+    expect_true(nrow(fits) == width(chunks[id,]) & nrow(se) == width(chunks[id,]))
+
+    ## mixed input (should return same data.table as above due to first entry being empty)
+    fits <- .transformResults(list(emptyGGS, setup), relativeChunks, what = "fits")
+    se <- .transformResults(list(emptyGGS, setup), relativeChunks, what = "se")
+
+    expect_true(class(fits) == "DataFrame" & class(se) == "DataFrame")
+    expect_true(nrow(fits) == width(chunks[id,]) & nrow(se) == width(chunks[id,]))
 })

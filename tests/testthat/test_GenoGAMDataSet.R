@@ -404,6 +404,29 @@ test_that("Metric computation works correct in case of empty GenoGAMDataSet", {
 
 ## test .getCoordinates (with and without gaps) and .getChunkCoords here
 test_that("Coordinate and Chunk transformation work correctly", {
+    ## empty input
+    emptyGGD <- GenoGAMDataSet()
+    emptyCoords <- .getCoordinates(emptyGGD)
+    emptyChunks <- .getChunkCoords(emptyCoords)
+    expect_true(length(emptyCoords) == 0)
+    expect_true(length(emptyChunks) == 0)
+
+    ## normal input without overhang
+    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+    getOverhangSize(ggd) <- 0
+    index <- getIndex(ggd)
+    coords <- .getCoordinates(ggd)
+    chunks <- .getChunkCoords(coords)
+    
+    expect_true(length(coords) == length(index))
+    expect_true(width(range(coords)) == length(rowRanges(ggd)))
+    expect_true(all(width(coords) == width(index)))
+
+    expect_true(length(chunks) == length(index))
+    expect_true(width(range(chunks)) == length(rowRanges(ggd)))
+    expect_true(all(width(chunks) == width(index)))
+
+    ## normal input with overhang
     ggd <- makeTestGenoGAMDataSet(sim = TRUE)
     coords <- .getCoordinates(ggd)
     index <- getIndex(ggd)

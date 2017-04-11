@@ -1066,6 +1066,10 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 #' @return The same object as x but with not overlapping ranges
 #' which were cut at the center of the overhang
 .getChunkCoords <- function(x) {
+    if(length(x) == 0) {
+        return(x)
+    }
+    
     start <- c(start(x[1]), ceiling((end(x[-length(x)]) + start(x[-1]))/2))
     end <- c((start[-1] - 1), end(x[length(x)]))
     ir <- IRanges(start, end)

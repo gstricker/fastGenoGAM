@@ -18,6 +18,8 @@
 #' By default r = 2.
 #' @slot formula The formula of the model. Usually the same as the design of
 #' the GenoGAMDataSet
+#' @slot design The actual design used to model the data, obtained
+#' from merging the formula into the colData
 #' @slot offset An offset of the samples
 #' @slot family The distribution to be used. At the moment only "nb"
 #' (Negative Binomial) is available.
@@ -29,14 +31,15 @@ setClass("GenoGAMSetup",
          slots = list(params = "list", knots = "list",
                       designMatrix = "dgCMatrix", beta = "matrix",
                       se = "list", penaltyMatrix = "dgCMatrix",
-                      formula = "formula", offset = "numeric", 
-                      family = "character", response = "numeric",
-                      fits = "list"),
+                      formula = "formula", design = "matrix",
+                      offset = "numeric", family = "character",
+                      response = "numeric", fits = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
                           beta = matrix(), se = list(),
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
+                          design = matrix(),
                           offset = numeric(), family = "nb", 
                           response = numeric(), fits = list()))
 
@@ -100,6 +103,13 @@ setClass("GenoGAMSetup",
     NULL
 }
 
+.validateGGSDesignType <- function(object) {
+    if(class(slot(object, "design")) != "matrix") {
+        return("'design' must be a matrix object")
+    }
+    NULL
+}
+
 .validateOffsetType <- function(object) {
     if(mode(slot(object, "offset")) != "numeric") {
         return("'offset' must be a numeric object")
@@ -133,7 +143,8 @@ setClass("GenoGAMSetup",
     c(.validateParamsType(object), .validateKnotsType(object),
       .validateDesignMatrixType(object), .validateBetaType(object),
       .validateSEType(object), .validatePenaltyMatrixType(object),
-      .validateFormulaType(object), .validateOffsetType(object),
+      .validateFormulaType(object), .validateGGSDesignType(object),
+      .validateOffsetType(object),
       .validateFamilyType(object), .validateResponseType(object),
       .validateFitsType(object), .validateParamsElements(object))
 }
@@ -190,7 +201,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
     knots <- .placeKnots(x = x, nknots = nknots)
 
     X <- .buildDesignMatrix(ggd, knots = knots, pos = x, order = order)
-
+    des <- .getDesignFromFormula(design(ggd), colData(ggd))
     ## Number of betas = number of knots
     ## Number of functions = Count the functions in the formula
     nbetas <- nknots
@@ -207,8 +218,8 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 
     ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, H = H,
                                           order = order, penorder = penorder),
-                            knots = knots, formula = design(ggd), 
-                            offset = offset, family = family,
+                            knots = knots, formula = design(ggd),
+                            design = des, offset = offset, family = family,
                             designMatrix = X, penaltyMatrix = S)
   
     return(ggsetup)
@@ -292,17 +303,24 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
   return(reducedArr)
 }
 
+#' Build design matrix from the data
 .buildDesignMatrix <- function(ggd, knots, pos, order) {
 
     ## build matrix
     x <- as(.bspline(pos, knots, order),"dgCMatrix")
-    formulaCols <- .getVars(design(ggd))
-    designCols <- as.vector(na.omit(formulaCols))
-    design <- as.matrix(colData(ggd)[,designCols])
-    if("s(x)" %in% names(formulaCols)) {
-        control <- rep(1, nrow(design))
-        design <- cbind(control, design)
-    }
+    design <- .getDesignFromFormula(design(ggd), colData(ggd))
     X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
     return(X)
+}
+
+.getDesignFromFormula <- function(formula, design) {
+    formulaCols <- .getVars(formula)
+    designCols <- as.vector(na.omit(formulaCols))
+    newDesign <- as.matrix(design[,designCols])
+
+    if("s(x)" %in% names(formulaCols)) {
+        control <- rep(1, nrow(newDesign))
+        newDesign <- cbind(control, newDesign)
+    }
+    return(newDesign)
 }

@@ -264,27 +264,43 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
        all(is.na(slot(setup, "beta")))) {
         return(list())
     }
-    
+
+    ## get design matrix and beta vector
     X <- slot(setup, "designMatrix")
     betas <- slot(setup, "beta")
-    
-    nSplines <- .nfun(setup)
+
+    ## get row and column indeces of the design matrix
+    ## for the respective fits
+    des <- slot(setup, "design")
+    nSplines <- ncol(des)
+    nSamples <- nrow(des)
     dims <- dim(X)
+    rows <- list(1:dims[1])
+    cols <- list(1:dims[2])
+
     if(nSplines > 1) {
-        rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
         cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
     }
-    else {
-        rows <- list(1:dims[1])
-        cols <- list(1:dims[2])
+    if(nSamples > 1) {
+        rows <- split(1:dims[1], cut(1:dims[1], nSamples, labels = 1:nSamples))
     }
-    fits <- lapply(1:nSplines, function(y) {
-        Xsub <- X[rows[[y]], cols[[y]]]
-        beta <- betas[cols[[y]], 1]
-        res <- as.vector(Xsub %*% beta)
-        if(!log) {
-            res <- exp(res)
-        }
+
+    ## compute the fits by column (splines) and row (samples)
+    ## of the design matrix. All fits of the same spline
+    ## are combined to a vector to have the same structure as
+    ## the response. Each spline is one element of the list, that
+    ## gets returned as the result.
+    fits <- lapply(1:nSplines, function(j) {
+        res <- sapply(1:nSamples, function(i) {
+            Xsub <- X[rows[[i]], cols[[j]]]
+            beta <- betas[cols[[j]], 1]
+            fit <- as.vector(Xsub %*% beta)
+            if(!log) {
+                fit <- exp(fit)
+            }
+            return(fit)
+        })
+        res <- as.vector(res)
         return(res)
     })
     varNames <- .makeNames(slot(setup, "formula"))
@@ -363,7 +379,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     d <- - mu * (1 + y/theta) / ((1 + mu/theta)^2)
     
     if(length(d) == 0) {
-        return(as(matrix(), "dtCMatrix"))
+        return(as(matrix(), "dgCMatrix"))
     }
     
     D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
@@ -382,23 +398,43 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' Compute basepair Standard deviation from Hessian
 #' @noRd
 .computeSE <- function(setup, H) {
+    ## get design matrix and invert Hessian
     X <- slot(setup, "designMatrix")
+
+    if(length(X) == 0 | length(H) == 1) {
+        return(list(numeric(0)))
+    }
     Hinv <- .invertHessian(H)*(-1)
-    
-    nSplines <- .nfun(setup)
+
+    ## get indeces of the design matrix and the Hessian
+    ## by row and column according to the design
+    des <- slot(setup, "design")
+    nSplines <- ncol(des)
+    nSamples <- nrow(des)
     dims <- dim(X)
+    rows <- list(1:dims[1])
+    cols <- list(1:dims[2])
+
     if(nSplines > 1) {
-        rows <- split(1:dims[1], cut(1:dims[1], nSplines, labels = 1:nSplines))
         cols <- split(1:dims[2], cut(1:dims[2], nSplines, labels = 1:nSplines))
     }
-    else {
-        rows <- list(1:dims[1])
-        cols <- list(1:dims[2])
+    if(nSamples > 1) {
+        rows <- split(1:dims[1], cut(1:dims[1], nSamples, labels = 1:nSamples))
     }
-    ses <- lapply(1:nSplines, function(y) {
-        Xsub <- X[rows[[y]], cols[[y]]]
-        HinvSub <- Hinv[cols[[y]],cols[[y]]]
-        res <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%t(Xsub)))
+
+    ## compute the standard error by column (splines) and row (samples)
+    ## of the design matrix and the Hessian. All standard errors of the
+    ## same spline are combined to a vector to have the same structure as
+    ## the response. Each spline is one element of the list, that
+    ## gets returned as the result.
+    ses <- lapply(1:nSplines, function(j) {
+        res <- sapply(1:nSamples, function(i) {
+            Xsub <- X[rows[[i]], cols[[j]]]
+            HinvSub <- Hinv[cols[[j]],cols[[j]]]
+            se <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%t(Xsub)))
+            return(se)
+        })
+        res <- as.vector(res)
         return(res)
     })
     varNames <- .makeNames(slot(setup, "formula"))
@@ -407,12 +443,19 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     return(ses)
 }
 
-##' transform the result list of GenoGAMSetup object into a list
-##' with two DataFrames representing the fits and standard errors
+##' transform the result list of GenoGAMSetup object into a DataFrame
+##' of either fits or standard errors
 ##' @noRd
 .transformResults <- function(x, relativeChunks, what = c("fits", "se")) {
+    if(length(relativeChunks) == 0) {
+        return(data.table::data.table())
+    }
 
     allData <- lapply(x, function(y) {
+        if(length(slot(y, what)) == 0) {
+            return(data.table::data.table())
+        }
+            
         s <- start(relativeChunks[slot(y, "params")$id])
         e <- end(relativeChunks[slot(y, "params")$id])
         dt <- data.table::as.data.table(slot(y, what))[s:e,]
