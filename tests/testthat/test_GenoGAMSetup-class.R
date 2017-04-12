@@ -7,10 +7,10 @@ test_that("GenoGAMSetup constructor works correctly", {
                           list(lambda = 0, theta = 0, H = 0,
                                order = 2, penorder = 2)))
     expect_true(length(slot(ggs, "knots")) == 0)
-    expect_true(all(dim(slot(ggs, "designMatrix")) == c(0, 0)))
-    expect_true(all(dim(slot(ggs, "beta")) == c(1, 1)))
+    expect_true(length(slot(ggs, "designMatrix")) == 0)
+    expect_true(length(slot(ggs, "beta")) == 0)
     expect_true(length(slot(ggs, "se")) == 0)
-    expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(0, 0)))
+    expect_true(length(slot(ggs, "penaltyMatrix")) == 0)
     expect_true(slot(ggs, "formula") == formula(~ 1))
     expect_true(length(slot(ggs, "offset")) == 0)
     expect_true(slot(ggs, "family") == "nb")

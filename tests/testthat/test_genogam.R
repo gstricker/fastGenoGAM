@@ -7,6 +7,12 @@ emptyCoords <- .getCoordinates(emptyGGD)
 ggs <- setupGenoGAM(ggd)
 emptyGGS <- GenoGAMSetup()
 
+settings <- GenoGAMSettings()
+control <- slot(settings, "optimControl")
+control$maxit <- control$betaMaxit
+control$betaMaxit <- NULL
+control$trace <- NULL
+
 test_that("The response vector is build correctly", {
     ## all combinations of different empty inputs
     res1 <- .buildResponseVector(emptyGGD, coords, 1)
@@ -45,14 +51,14 @@ test_that("The specific tile setup initializes correctly", {
     expect_true(params$theta == 0)
 
     res4 <- .initiate(emptyGGD, ggs, emptyCoords, 1)
-    params <- slot(res1, "params")
+    params <- slot(res4, "params")
     expect_true(length(slot(res1, "response")) == 0)
     expect_true(all(is.na(slot(res1, "beta"))))
     expect_true(params$lambda == dim(slot(res1, "designMatrix"))[2])
     expect_true(params$theta == 1)
     
     res5 <- .initiate(ggd, emptyGGS, emptyCoords, 1)
-    params <- slot(res1, "params")
+    params <- slot(res5, "params")
     expect_true(length(slot(res1, "response")) == 0)
     expect_true(all(is.na(slot(res1, "beta"))))
     expect_true(params$lambda == 0)
@@ -75,12 +81,11 @@ test_that("Fits are correctly computed", {
     slot(test_ggs, "beta") <- matrix(1, dim(slot(test_ggs, "designMatrix"))[2], 1)
     res3 <- .getFits(test_ggs)
     X <- as.matrix(slot(test_ggs, "designMatrix"))
-    fits1 <- rowSums(X[1:(dim(X)[1]/2), 1:(dim(X)[2]/2)])
-    fits2 <- rowSums(X[(dim(X)[1]/2 + 1):dim(X)[1], (dim(X)[2]/2 + 1):dim(X)[2]])
-    default <- rep(1, dim(X)[2]/2)
+    fits1 <- rowSums(X[1:dim(X)[1], 1:(dim(X)[2]/2)])
+    fits2 <- rowSums(X[1:dim(X)[1], (dim(X)[2]/2 + 1):dim(X)[2]])
     expect_true(length(res3) == 2)
-    expect_true(all.equal(res3[[1]], fits1, default))
-    expect_true(all.equal(res3[[2]], fits2, default))
+    expect_true(all.equal(res3[[1]], fits1))
+    expect_true(all.equal(res3[[2]], fits2))
     fitNames <- c("s(x)", paste("s(x)", colnames(colData(ggd)), sep = ":"))
     expect_true(all(names(res3) == fitNames))
 })
@@ -88,13 +93,13 @@ test_that("Fits are correctly computed", {
 test_that("Beta estimation work correct", {
     ## With empty input
     setup <- .initiate(emptyGGD, emptyGGS, coords, sample(5, 1))
-    expect_warning(emptyBetas <- .estimateParams(setup))
+    emptyBetas <- .estimateParams(setup, control = control)
     expect_true(length(emptyBetas$par) == 0)
     
     ## With normal input
     setup <- .initiate(ggd, ggs, coords, sample(5, 1))
-    betas1 <- .estimateParams(setup, maxit = 10000)
-    betas2 <- .estimateParams(setup, maxit = 10000)
+    betas1 <- .estimateParams(setup, control = control)
+    betas2 <- .estimateParams(setup, control = control)
     
     expect_true(all.equal(betas1$par, betas2$par))
     expect_true(all(c(betas1$convergence, betas2$convergence) == 0))
@@ -133,7 +138,7 @@ test_that("Hessian matrix computation is correct for empty spline", {
     ## with empty input
     setup <- .initiate(emptyGGD, emptyGGS, coords, sample(5, 1))
     hess <- .compute_hessian_negbin(setup)
-    expect_true(all(is.na(hess)))
+    expect_true(length(hess) == 0)
 
     inv <- .invertHessian(hess)
     expect_true(all(is.na(hess)))
@@ -144,15 +149,14 @@ test_that("Hessian matrix computation is correct for empty spline", {
 })
 
 test_that("Hessian matrix computation is correct for one spline", {
-
     ## Check hessian
     setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    X <- slot(setup, "designMatrix")
     slot(setup, "fits") <- list("s(x)" = rep(0, dim(X)[1]))
     slot(setup, "params")$lambda <- 0
     slot(setup, "params")$theta <- 1
     slot(setup, "response") <- rep(-5, dim(X)[1])
 
-    X <- slot(setup, "designMatrix")
     ## true Hessian with above inputs
     Htrue <- t(X) %*% X
     ## computed Hessian
@@ -207,13 +211,13 @@ test_that("Hessian matrix computation is correct for more than one spline", {
 
     ## Check hessian
     setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    X <- slot(setup, "designMatrix")
     slot(setup, "fits") <- list("s(x)" = rep(0, dim(X)[1]/2),
                                 "s(x):experiment" = rep(0, dim(X)[1]/2))
     slot(setup, "params")$lambda <- 0
     slot(setup, "params")$theta <- 1
     slot(setup, "response") <- rep(-5, dim(X)[1])
 
-    X <- slot(setup, "designMatrix")
     ## true Hessian with above inputs
     Htrue <- t(X) %*% X
     ## computed Hessian

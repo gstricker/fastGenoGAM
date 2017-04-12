@@ -150,7 +150,7 @@ GenoGAMSettings <- function(...) {
     cat("-------------------- Parallel backend -------------------\n")
     show(BiocParallel::registered()[[1]])
     cat("\n")
-    cat("-------------------- Cross Validation parameters --------\n")
+    cat("-------------------- Optimization parameters ------------\n")
     cat("Optimization method:", ggs@optimMethod, "\n")
     cat("Optimization control:\n")
     for(ii in 1:length(ggs@optimControl)) {

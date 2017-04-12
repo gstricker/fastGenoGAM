@@ -37,9 +37,9 @@ setClass("GenoGAMSetup",
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
-                          beta = matrix(), se = list(),
+                          beta = matrix(,0,0), se = list(),
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
-                          design = matrix(),
+                          design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
                           response = numeric(), fits = list()))
 
@@ -169,6 +169,21 @@ GenoGAMSetup <- function(...) {
     slot(ggs, "params") <- params
     return(ggs)
 }
+
+##' the dimension function
+##' @noRd
+setMethod("dim", "GenoGAMSetup", function(x) {
+    Xdim <- dim(slot(x, "designMatrix"))
+    designDim <- dim(slot(x, "design"))
+    blockDim <- c(Xdim[1]/max(1, designDim[1]), Xdim[2]/max(1, designDim[2]))
+    return(c(blockDim, designDim))
+})
+
+##' the length function
+##' @noRd
+setMethod("length", "GenoGAMSetup", function(x) {
+    return(prod(dim(x)))
+})
 
 #' Get number of functions from GenoGAMSetup
 .nfun <- function(ggs) {

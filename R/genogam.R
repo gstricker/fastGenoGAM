@@ -144,8 +144,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
         control <- slot(slot(data, "settings"), "optimControl")
         control$maxit <- control$betaMaxit
-        control$betaMaxit <- NULL
-        control$trace <- 1
+        control$betaMaxit <- control$trace <- NULL
         setup <- .initiate(data, init, coords, id)
         betas <- .estimateParams(setup, control)
 
@@ -322,6 +321,15 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     params <- slot(ggs, "params")
     S <- slot(ggs, "penaltyMatrix")
 
+    if(length(ggs) == 0) {
+        res <- list(par = numeric(),
+                    value = numeric(),
+                    counts = integer(),
+                    convergence = 1,
+                    message = "Not run")
+        return(res)
+    }
+
     if (distr == "nb") {    
         likelihood <- .likelihood_penalized_nb
         gradient <- .gradient_likelihood_penalized_nb
@@ -379,7 +387,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     d <- - mu * (1 + y/theta) / ((1 + mu/theta)^2)
     
     if(length(d) == 0) {
-        return(as(matrix(), "dgCMatrix"))
+        return(as(matrix(,0, 0), "dgCMatrix"))
     }
     
     D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
@@ -390,6 +398,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' Computation of the inverse of H
 #' @noRd
 .invertHessian <- function(H, tol = 0.0001) {
+    if(length(H) == 0) {
+        return(as(matrix(, 0, 0), "dgCMatrix"))
+    }
     Hinv <- invisible(Matrix::solve(H))
     Hinv[abs(Hinv) < tol] <- 0
     return(Hinv)
@@ -398,12 +409,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' Compute basepair Standard deviation from Hessian
 #' @noRd
 .computeSE <- function(setup, H) {
-    ## get design matrix and invert Hessian
-    X <- slot(setup, "designMatrix")
-
-    if(length(X) == 0 | length(H) == 1) {
+    if(length(setup) == 0 | length(H) == 0) {
         return(list(numeric(0)))
     }
+    
+    ## get design matrix and invert Hessian
+    X <- slot(setup, "designMatrix")
     Hinv <- .invertHessian(H)*(-1)
 
     ## get indeces of the design matrix and the Hessian
