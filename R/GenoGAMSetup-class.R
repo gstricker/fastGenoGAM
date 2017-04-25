@@ -171,7 +171,9 @@ GenoGAMSetup <- function(...) {
 }
 
 ##' the dimension function
-##' @noRd
+##' @param x A GenoGAMSetup object
+##' @return The four dimensions of the object (designMatrix rows, designMatrix
+##' columns, experiment design rows, experiment design columns)
 setMethod("dim", "GenoGAMSetup", function(x) {
     Xdim <- dim(slot(x, "designMatrix"))
     designDim <- dim(slot(x, "design"))
@@ -180,7 +182,8 @@ setMethod("dim", "GenoGAMSetup", function(x) {
 })
 
 ##' the length function
-##' @noRd
+##' @param x A GenoGAMSetup object
+##' @return The length of the object as the product of all dimensions
 setMethod("length", "GenoGAMSetup", function(x) {
     return(prod(dim(x)))
 })

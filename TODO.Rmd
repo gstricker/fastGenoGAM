@@ -2,4 +2,9 @@
 
 - Iterations for beta estimation are usually in the hundreds, sometimes even exceeding 1000 and taking up to 7 seconds. Look for better initialization of beta, beyond mean over the response vector.
 - maxiter cap seems to effect fit (obvious) but also to gluing at junction point
-- Quaility checks. Just like logging on different levels
+- Quality checks. Just like logging on different levels
+- Logging has to be output to files if threshold is debug
+- Plotting
+- differential binding
+- peak calling
+- export function

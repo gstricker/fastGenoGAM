@@ -63,6 +63,16 @@ test_that("The specific tile setup initializes correctly", {
     expect_true(all(is.na(slot(res1, "beta"))))
     expect_true(params$lambda == 0)
     expect_true(params$theta == 0)
+
+    ## from bug of empty regions. betas should be initialized as log of 0.001
+    ## instead of mean of the response
+    id <- sample(length(coords),1)
+    test_ggd <- ggd
+    assay(test_ggd)$input <- rep(0, length(test_ggd))
+    assay(test_ggd)$IP <- rep(0, length(test_ggd))
+    res6 <- .initiate(test_ggd, ggs, coords, id)
+    trueBeta <- log(0.001)
+    expect_true(all(slot(res6, "beta") == trueBeta))
 })
 
 test_that("Fits are correctly computed", {
@@ -187,24 +197,19 @@ test_that("Hessian matrix computation is correct for one spline", {
 
     ## add all SEs at same position
     seSums <- unique(se[[1]])
-    ## get the index breaks
-    quants <- round(quantile(1:length(seSums)))
-    ## get the indeces for the first quantile,
-    ## the centre half and the last quantile
-    data50 <- quants[2]:quants[4]
-    data25 <- quants[1]:(quants[2] - 1)
-    data100 <- (quants[4] + 1):quants[5]
+    ## get the element indices for the first and last 1% of data
+    quants <- round(quantile(1:length(seSums), probs = c(0, 0.01,0.99, 1)))
+    data1 <- quants[1]:(quants[2] - 1)
+    data100 <- (quants[3] + 1):quants[4]
 
-    ## compute the range of SE in the centre 50% of data
-    range50 <- diff(range(seSums[data50]))
-    ## compute the range of SE in the first quantile of data
-    range25 <- diff(range(seSums[data25]))
-    ## compute the range of SE in the last quantile of data
-    range100 <- diff(range(seSums[data100]))
-    ## compare the ranges against each other.
-    ## The SE should be higher at least at one of the borders,
-    ## hence have a higher range in the first and last quantile of data
-    expect_true(range25 > range50 | range100 > range50)
+    ## compute the differences of SE in the 1% quantile of data
+    diff1 <- diff(seSums[data1])
+    ## compute the differences of SE in the last 1% quantile of data
+    diff100 <- diff(seSums[data100])
+    ## compare the sum of the difference. The SE should grow at the borders
+    ## hence have a negative difference throughout the small intervals
+    ## close to the borders.
+    expect_true(sum(diff1) < 0 & sum(diff100) > 0)
 })
 
 test_that("Hessian matrix computation is correct for more than one spline", {
@@ -247,24 +252,19 @@ test_that("Hessian matrix computation is correct for more than one spline", {
 
     ## add all SEs at same position
     seSums <- unique(se[[1]]) + se[[2]][se[[2]] > 0]
-    ## get the index breaks
-    quants <- round(quantile(1:length(seSums)))
-    ## get the indeces for the first quantile,
-    ## the centre half and the last quantile
-    data50 <- quants[2]:quants[4]
-    data25 <- quants[1]:(quants[2] - 1)
-    data100 <- (quants[4] + 1):quants[5]
+    ## get the element indices for the first and last 1% of data
+    quants <- round(quantile(1:length(seSums), probs = c(0, 0.01,0.99, 1)))
+    data1 <- quants[1]:(quants[2] - 1)
+    data100 <- (quants[3] + 1):quants[4]
 
-    ## compute the range of SE in the centre 50% of data
-    range50 <- diff(range(seSums[data50]))
-    ## compute the range of SE in the first quantile of data
-    range25 <- diff(range(seSums[data25]))
-    ## compute the range of SE in the last quantile of data
-    range100 <- diff(range(seSums[data100]))
-    ## compare the ranges against each other.
-    ## The SE should be higher at least at one of the borders,
-    ## hence have a higher range in the first and last quantile of data
-    expect_true(range25 > range50 | range100 > range50)
+    ## compute the differences of SE in the 1% quantile of data
+    diff1 <- diff(seSums[data1])
+    ## compute the differences of SE in the last 1% quantile of data
+    diff100 <- diff(seSums[data100])
+    ## compare the sum of the difference. The SE should grow at the borders
+    ## hence have a negative difference throughout the small intervals
+    ## close to the borders.
+    expect_true(sum(diff1) < 0 & sum(diff100) > 0)
 })
 
 test_that("Data transformation works correct", {

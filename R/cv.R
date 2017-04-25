@@ -1,3 +1,8 @@
+## TODO: control parameter given to .doCV contains bethaMaxiter which has to
+## be passed to the loglik function. Make new argument betaControls in loglik function
+## and pass control there as well. Then within the function switch betaMaxiter to
+## maxiter and delete maxiter and trace, just like within genogam function
+
 ################################
 ## Cross Validation functions ##
 ################################
@@ -54,7 +59,7 @@
     }
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
                   ov = ov, method = method, control = control, 
-                  fixedpars = fixedpars, ...)
+                  fixedpars = fixedpars, betaControl = control, ...)
     params <- exp(pars$par)
 
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
@@ -80,7 +85,8 @@
 #' @param ... Other parameters
 #' @return The mean log-likelihood over all models
 #' @noRd
-.loglik <- function(pars, setup, CV_intervals, ov, fixedpars, ...){
+.loglik <- function(pars, setup, CV_intervals, ov, fixedpars,
+                    betaControl = list(maxit=100, fnscale=-1), ...){
 
     if(is.null(fixedpars$lambda)) {
         fixedpars$lambda <- exp(pars[["lambda"]])
@@ -99,7 +105,10 @@
     names(fullpred) <- names(setup)
     ids <- expand.grid(folds = 1:length(CV_intervals), tiles = 1:length(setup))
 
-    lambdaFun <- function(iter, ids, setup, CV_intervals) {
+    betaControl$maxit <- betaControl$betaMaxit
+    betaControl$betaMaxit <- betaControl$trace <- NULL
+
+    lambdaFun <- function(iter, ids, setup, CV_intervals, betaControl) {
 ##        suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
         id <- ids[iter,]
         
@@ -111,7 +120,7 @@
         slot(trainsetup, "response") <- trainY[-CV_intervals[[id$folds]]]
         slot(trainsetup, "offset") <- slot(trainsetup, "offset")[-CV_intervals[[id$folds]]]
                     
-        betas <- .estimateParams(trainsetup)
+        betas <- .estimateParams(trainsetup, control = betaControl)
             
         pred <- exp(testX %*% betas$par)
         return(pred)
@@ -123,7 +132,8 @@
     }
     
     cvs <- BiocParallel::bplapply(1:nrow(ids), lambdaFun, ids = ids,
-                                  setup = setup, CV_intervals = CV_intervals)
+                                  setup = setup, CV_intervals = CV_intervals,
+                                  betaControl = betaControl)
 
     for(ii in 1:length(cvs)) {
         id <- ids[ii,]

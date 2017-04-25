@@ -2,19 +2,6 @@
 ## The main modelling function ##
 #################################
 
-## lambda <- 266.836829
-## theta <- 2.415738
-## ## lambda = NULL
-## ## theta = NULL
-## family = "nb"
-## H = 0
-## bpknots = 20
-## kfolds = 10
-## intervalSize = 20
-## regions = 20
-## order = 2
-## m = 2
-
 ##' genogam
 ##'
 ##' The main modelling function.
@@ -119,7 +106,6 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         else ids <- 1:length(coords)
 
         control <- slot(settings, "optimControl")
-        control$betaMaxit <- NULL
         futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
         
         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
@@ -240,7 +226,10 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)
     numBetas <- dim(slot(setup, "designMatrix"))[2]
     if(length(slot(setup, "response")) != 0) {
-        slot(setup, "beta") <- matrix(log(mean(slot(setup, "response"), na.rm = TRUE)), numBetas, 1)
+        ## set mean response value to 0.001 if it is zero, i.e. in empty regions
+        ## necessary that the log value does not diverge to -Inf
+        meanResponse <- max(mean(slot(setup, "response"), na.rm = TRUE), 0.001)
+        slot(setup, "beta") <- matrix(log(meanResponse), numBetas, 1)
     }
         
     ## initialize lambda and theta
