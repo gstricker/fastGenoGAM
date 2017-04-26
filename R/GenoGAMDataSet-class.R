@@ -868,6 +868,10 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
     settings <- tileSettings(object)
     size <- settings$chunkSize*settings$numTiles
+    if(size > sum(width(dataRange(object)))) {
+        warning("The settings indicated a longer total genome size than actually present. it was trimmed accordingly.")
+        size <- sum(width(dataRange(object)))
+    }
     settings$chunkSize <- round(size/value)
     settings$tileSize <- value + 2*settings$overhangSize
     newIndex <- .makeTiles(settings)
