@@ -93,8 +93,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         }
         
         if(ncv < length(coords)) {
-            if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd))) {
-                rsums <- rowSums(sumMatrix[[1]])
+            if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd)) |
+               nrow(sumMatrix) < regions) {
+                rsums <- rowSums(sumMatrix)
                 ids <- order(rsums, decreasing = TRUE)[1:ncv]
             }
             else {
@@ -174,8 +175,6 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rowRanges(ggd),
                                                      assays = list(fits = combinedFits,
                                                                    se = combinedSEs))
-
-    ## SEE RIGHT: FIX ISSUE WITH LINE ABOVE (check computeSE function) AND THE NOTES FROM MATRIX PACKAGE!
     
     modelParams <- slot(ggs, "params")
     modelParams$cv <- cv
@@ -458,8 +457,28 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
             
         s <- start(relativeChunks[slot(y, "params")$id])
         e <- end(relativeChunks[slot(y, "params")$id])
-        dt <- data.table::as.data.table(slot(y, what))[s:e,]
-        return(dt)
+
+        ## go by column and subset by colData column
+        l <- lapply(1:length(slot(y, what)), function(z) {
+            
+            des <- slot(y, "design")
+            fits <- slot(y, "fits")
+            if(length(des) == 0 | length(fits) == 0) {
+                res <- list()
+            }
+            else {
+                tileLength <- length(fits[[z]])/nrow(des)
+                ## expand colData columns to full length and coerce to boolean
+                desVec <- matrix(as.logical(rep(des, each = tileLength)), ncol = ncol(des))
+                ## take the z list element (= column) and
+                ## subset by the z colData column
+                res <- slot(y, what)[[z]][desVec[,z]]
+                res <- res[s:e]
+            }
+            return(res)
+        })
+        names(l) <- names(slot(y, what))
+        return(data.table::as.data.table(l))
     })
 
     combinedData <- data.table::rbindlist(allData)

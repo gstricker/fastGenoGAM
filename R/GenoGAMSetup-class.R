@@ -335,6 +335,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
     formulaCols <- .getVars(formula)
     designCols <- as.vector(na.omit(formulaCols))
     newDesign <- as.matrix(design[,designCols])
+    colnames(newDesign) <- designCols
 
     if("s(x)" %in% names(formulaCols)) {
         control <- rep(1, nrow(newDesign))

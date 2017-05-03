@@ -296,7 +296,12 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
 #' returns NA if object is NULL and the object otherwise
 #' @noRd
 .check <- function(x) {
-    res <- ifelse(is.null(x), NA, x)
+    if(is.null(x)) {
+        res <- NA
+    }
+    else {
+        res <- x
+    }
     return(res)
 }
 
@@ -313,10 +318,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     cl <- class(gg)
     dims <- dim(gg)
     md <- unique(names(colData(gg)))
-    cnames <- colnames(gg)
-    seidx <- grep("se\\.", cnames)
-    tracks <- cnames[-seidx]
-    setracks <- cnames[seidx]
+    tracks <- colnames(gg)
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
     
@@ -353,7 +355,6 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     cat(paste0("Samples(", length(samples), "):"), samples, "\n")
     cat(paste0("Design variables(", length(md), "):"), md, "\n")
     cat(paste0("Smooth functions(", length(tracks), "):"), tracks, "\n")
-    cat(paste0("Pointwise SEs(", length(setracks), "):"), setracks, "\n")
     cat("Chromosomes:", chroms, "\n")
     
     cat("\n")

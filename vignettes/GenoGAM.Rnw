@@ -122,8 +122,9 @@ ggd
 ggd <- subset(ggd, seqnames == "chrXIV" & pos >= 305000 & pos <= 308000)
 
 ggd
-## compute model
-result <- genogam(ggd)
+
+## compute model without parameter estimation to save time in vignette
+result <- genogam(ggd, lambda = 4601, theta = 4.51)
 
 result
 @ 
@@ -175,7 +176,7 @@ We start by loading the experimental design from the tab-separated text file \te
 
 <<expdesign>>= 
 
-folder <- system.file("extdata/Set1", package='GenoGAM')
+folder <- system.file("extdata/Set1", package='fastGenoGAM')
 
 expDesign <- read.delim(
   file.path(folder, "experimentDesign.txt")
@@ -204,7 +205,7 @@ Four more parameters are required to build a \Robject{GenoGAMDataSet}:
 \subsubsection{Reading in data from files}
 
 We will now count sequencing fragment centers per genomic position and sample and store these counts into a \Rclass{GenoGAMDataSet}. By default \genogam{}
-reduces \chipseq{} data to fragment center counts rather than full base coverage so that each fragment is counted only once. This reduces artificial correlation between adjacent nucleotides. For single-end libraries, the fragment center is estimated by shifting the read end position by a constant (Details in the help on the constructor function \Rfunction{GenoGAMDataSet()}). We choose a knot spacing of 20bp, a chunk size of 1kb and and overhang of 15 knots, i.e 300bp. The \emph{experimentDesign} argument doesn't need to be a \Robject{data.frame}, but can be just the path to the experiment design file.
+reduces \chipseq{} data to fragment center counts rather than full base coverage so that each fragment is counted only once. This reduces artificial correlation between adjacent nucleotides. For single-end libraries, the fragment center is estimated by shifting the read end position by a constant (Details in the help on the constructor function \Rfunction{GenoGAMDataSet()}). We choose a knot spacing of 20bp, a chunk size of 1kb and and overhang of 15 knots, i.e 300bp. The \emph{experimentDesign} argument doesn't need to be a \Robject{data.frame}, but can be just the path to the experiment design file. Although the knot spacing won't play a role at this stage, it is already a good idea to define the overhang size in terms of it (see section 'How to choose chunk and overhang size' for more). 
 %%Additionally we filter the data for enriched regions only. A threshold is estimated from the data as the median + 3*MAD (Median Absolute Deviation) or can be supplied through the \emph{threshold} argument. Especially on large genomes such as human this can boost the computation time significantly.
 
 <<ggd>>= 
@@ -222,6 +223,7 @@ ggd <- GenoGAMDataSet(
 
 ggd
 @ 
+
 
 If not otherwise specified the BAM files are read with respect to the BAM file header. We can see that only one chromosome has been read in, chrXIV. Thus the dimension of the \Robject{GenoGAMDataSet} object states the length of the chromosome (for rows) and the number of columns, i.e. samples. The tiles are of size 1.6kb, which is the sum of the specified chunk size and twice the overhang. However the actual data covered by the BAM file is much smaller, so we reduce the \Robject{GenoGAMDataSet} object. The positions are obviously known by design. See the \emph{Settings} subsection below for methods to specify regions prior to reading.
 
@@ -327,159 +329,289 @@ getIndex(subggd)
 
 ## Note how the overhang size can not be zero between the last two tiles,
 ## as the chunk size is set to 1400 within a 3kb window. This will
-## have impact in the next call. 
+## have an impact in the next call. 
 getTileNumber(subggd) <- 1 
-## A warnings is issued as the settings indicate a longer total size.
+## A warnings is issued as the settings indicate a longer total size of the genome.
 getIndex(subggd)
 @ 
 
-\subsubsection{How to choose the chunk size}
+Additionally a number of useful metrics is defined on \Rclass{GenoGAMDataSet} on a a tile basis, e.g. the sum or the mean function.
+This also makes it possible to manually filter the regions.
 
-It shouldn't be below 1kb, but is otherwise unbound. However the bigger the size the longer it will take to compute the model. On the other hand the less chunks the less parallel processes are needed to compute the entire fit. It should also be noted, that the bigger the chunk, the less the fraction of the overhang on Since fitting the entire genome as one chunk is not feasible (hence the parallelization approach) there is a trade-off between number of chunks and 
+<<metrics>>=
 
+## return tile number to three
+getTileNumber(subggd) <- 3
 
-\textbf{Note:} genogam{} have a settings-class available but not open to the user, as it is not yet fully developed. The \Rfunction{GenoGAMDataSet} function however can take an argument \emph{settings} that would take such an object as input. The argument is there to allow for some specific workarounds
-if necessary. The most common one would be to load only a subset of the data from a BAM file for example defined by \emph{chromosome} names or supplying
-a \Robject{ScanBamParam} object from the \Rpackage{GenomicAlignments} package. The examples are not run.
+## the sum
+sum(subggd)
 
-<<settings, eval=FALSE>>=
-## specify specific chromosomes
-settings <- GenoGAM:::GenoGAMSettings(chromosomeList = c('chrI', 'chrII'))
+## or the mean
+mean(subggd)
 
-## specify parameters through ScanBamParam
-gr <- GRanges("chrI", IRanges(1,100000))
-params <- ScanBamParam(which = gr)
-settings <- GenoGAM:::GenoGAMSettings(bamParams = params)
+## A simple filter can be done based on this functionality. With the threshold
+## being 0.05 reads per bp it results in the same region plus the overhang on
+## both sides.
+totalMeans <- mean(ggd)
+idx <- which(rowMeans(totalMeans) > 0.05)
+new_subggd <- subsetByOverlaps(ggd, getIndex(ggd)[idx])
+getIndex(new_subggd)
 @ 
 
-\subsection{Modeling with smooth functions: the \Robject{design} parameters}
-\genogam{} models the logarithm of the rate of the count data as sums of smooth functions of the genomic position, denoted \Robject{x}. The \Robject{design} parameter is an R formula which allows encoding how the smooth functions depend on the experimental design. \genogam follows formula convention of the R package \Rpackage{mgcv}. A smooth function is denoted \Robject{s()}. For now, \genogam{} only supports smooth function that are cubic splines of the genomic position \Robject{x}. The \Robject{by} variable allows selecting to which samples the smooth contributes to (see also the 
-documentation of \Robject{gam.models} in the \Rpackage{mgcv}). For now, \genogam{} only allows \Robject{by} variables to be of value 0 or 1 (hence binary dummy encoding). Here by setting \Robject{'s(x, by=genotype)'} we encode the term "$ \text{genotype} \times f_\text{mutant/wt}(x)$" in Equation ~\ref{eq:mutantmodel}. 
+\subsubsection{How to choose chunk and overhang size}
 
-\textbf{Note:} As for other generalized additive models packages (\Rpackage{mgcv}, \Rpackage{gam}), \genogam{} use the natural logarithm as link function. This is different than other packages of the bioinformatics files such as \Rpackage{DESeq2} which works in base 2 logarithm. 
+The chunk size shouldn't be below 1kb, but is otherwise unbound. However the bigger the size the longer it will take to compute the model. On the other hand the less chunks the less parallel processes are needed to compute the entire fit. It should also be noted, that a lower number of chunks results in a lower number of overhangs, which are basically a repeated computation of the same region. Thus the total number of basepairs \emph{involved} in computing the model grows with lower chunk size. Since fitting the entire genome as one chunk is not feasible (hence the parallelization approach) there is a trade-off between number of chunks and chunk size. The default value is set to a reasonable size that gave empirically the best runtime results in practice. However this might be different on other systems. Especially if you have little memory, bigger chunks will result in bigger matrices and thus higher memory consumption.
 
+The overhang size is responsible for smooth connection of adjacent chunks. As the fit is dependent on the number of knots and their positions the overhang size is, too. Thus a sufficient number of knots should be selected and the size in basepairs computed from it by multiplying by the knot spacing. In our experience a sufficiently small relative error can already be achieved with around 5-7 knots. 
+
+\subsubsection{The Rclass{GenoGAMSettings} class}
+
+The parameters of the basic functionality of the entire \genogam{} pipeline, especially for those steps which involve other R packages, is stored in the \Rclass{GenoGAMSettings} class. The class has six slots:
+
+\begin{itemize}
+\item \emph{center}: Set this to FALSE, if you want to count entire fragments instead of only the midpoints.
+  
+\item \emph{chromosomeList}: If you want to restrict your dataset by chromosome.
+  
+\item \emph{bamParams}: This is the \Robject{ScanBamParam} object from the \Rpackage{Rsamtools} package. It can be useful to restrict the object to a specific set of regions defined through a \Robject{GRanges} object.
+  
+\item \emph{processFunction} Define a different process function for raw data. Not really useful for now.
+  
+\item \emph{optimMethod} One of the methods from the \Rfunction{optim} function. Applies to the cross validation step.
+  
+\item \emph{optimControl} A list of control parameters for the \Rfunction{optim} function. Important are the two \emph{maxit} elements. The \emph{maxit} element applies to the number of maximal iterations for the cross validation. The \emph{betaMaxit} element applies to the number of maximal iterations for the beta parameter estimation. Especially with varying chunk sizes (and thus varying number of betas) one might consider modifying the latter.
+
+\end{itemize}
+
+A couple of examples on how to use the parameters.
+
+<<settings, eval=FALSE>>=
+
+## change chromosome list
+settings <- GenoGAMSettings(chromosomeList = c("chrI", "chrII"))
+
+## This will print out an error from the internal check function. 
+## But still create an empty object. 
+temp <- GenoGAMDataSet(
+    experimentDesign = expDesign, directory = folder,
+    chunkSize = chunkSize, overhangSize = overhangSize,
+    design = ~ s(x) + s(x, by = genotype), settings = settings)
+temp
+
+## specify parameters through ScanBamParam 
+gr <- GRanges("chrXIV", IRanges(305001, 308000))
+params <- ScanBamParam(which = gr)
+settings <- GenoGAMSettings(bamParams = params)
+
+## read in only the single region we know has counts. No post-subsetting required
+temp <- GenoGAMDataSet(
+    experimentDesign = expDesign, directory = folder,
+    chunkSize = chunkSize, overhangSize = overhangSize,
+    design = ~ s(x) + s(x, by = genotype), settings = settings)
+temp
+
+## Count entire fragments
+slot(settings, "center") <- FALSE
+
+temp <- GenoGAMDataSet(
+    experimentDesign = expDesign, directory = folder,
+    chunkSize = chunkSize, overhangSize = overhangSize,
+    design = ~ s(x) + s(x, by = genotype), settings = settings)
+
+## no zero counts anymore due to high fragment coverage
+assay(temp)
+@ 
+
+\subsubsection{Modeling with smooth functions: the \Robject{design} parameters}
+\genogam{} models the logarithm of the rate of the count data as sums of smooth functions of the genomic position, denoted \Robject{x}. The \Robject{design} parameter is an R formula which allows encoding how the smooth functions depend on the experimental design. \genogam follows formula convention of the R package \Rpackage{mgcv}. A smooth function is denoted \Robject{s()}. For now, \genogam{} only supports smooth function that are cubic splines of the genomic position \Robject{x}. The \Robject{by} variable allows selecting to which samples the smooth contributes to.  \genogam{} only allows \Robject{by} variables to be of value 0 or 1 (hence binary dummy encoding). Here by setting \Robject{'s(x, by=genotype)'} we encode the term "$ \text{genotype} \times f_\text{mutant/wt}(x)$" in Equation ~\ref{eq:mutantmodel}. 
+
+ \textbf{Note:} As for other generalized additive models packages (\Rpackage{mgcv}, \Rpackage{gam}), \genogam{} use the natural logarithm as link function. This is different than other packages of the bioinformatics files such as \Rpackage{DESeq2} which works in base 2 logarithm. 
+
+ 
 \subsection{Size factor estimation}
 Sequencing libraries typically vary in sequencing depth. Such variations is controlled for in \genogam{} by adding a sample-specific constant to the right term of Equation ~\ref{eq:mutantmodel}. The estimation of these constants is performed by the function computeSizeFactor() as follows:
 
 <<sizeFactor>>= 
-ggd <- computeSizeFactors(ggd)
-sizeFactors(ggd)
+subggd <- computeSizeFactors(subggd)
+sizeFactors(subggd)
 @
 
-\textbf{Note:} The size factors in \genogam are in the natural logarithm scale. Also factor groups are identified automatically from the design. Given more complex design, this might fail. Or, maybe different factor groups are desired. In this case the groups can be provided separatelly through the \emph{factorGroups} argument. 
+\textbf{Note:} The size factors in \genogam{} are in the natural logarithm scale. Also factor groups are not identified automatically from the design, but are rather left to the user. By default all samples are treated as members of one factor group and thus size factors are computed together. If custom groups are required, it can be provided separatelly through the \emph{factorGroups} argument. 
 
-The additional function \Rfunction{qualityCheck} will perform a simple quality check of the data and plot the results into the folder \emph{qc}, which is created in the working directory if not present. So far it's only applicable to the \Rclass{GenoGAMDataSet} object and creates two plots: One showing the distribution of counts over all tiles and the second showing multiple scatterplots of the counts from different samples against each other before and after size factor normalization
+<<sf_groups>>=
+## clear size factors
+sizeFactors(subggd) <- rep(0, dim(subggd)[2])
+sizeFactors(subggd)
 
-<<qualityCheck, eval=FALSE>>=
-## the function is not run as it creates new plots each time, 
-## which are not very meaningful for such a small example
-qualityCheck(ggd)
+## compute new with factor groups
+groups <- list(c("wt_1", "wt_2"), c("mutant_1", "mutant_2"))
+subggd <- computeSizeFactors(subggd, factorGroups = groups)
+sizeFactors(subggd)
 @ 
 
+Note, how the size factors within a group now add up to zero in log space, which is always the case for groups consisting of two elements.
+
+% The additional function \Rfunction{qualityCheck} will perform a simple quality check of the data and plot the results into the folder \emph{qc}, which is created in the working directory if not present. So far it's only applicable to the \Rclass{GenoGAMDataSet} object and creates two plots: One showing the distribution of counts over all tiles and the second showing multiple scatterplots of the counts from different samples against each other before and after size factor normalization
+
+% <<qualityCheck, eval=FALSE>>=
+% ## the function is not run as it creates new plots each time, 
+% ## which are not very meaningful for such a small example
+% qualityCheck(ggd)
+% @ 
+
 \subsection{Model fitting}
+\subsubsection{The \Rfunction{genogam} function}
 A \genogam{} model requires two further parameters to be fitted: the regularization parameter, $\lambda$, and the dispersion parameter $\theta$. The regularization parameters $\lambda$ controls the amount of smoothing. The larger $\lambda$ is, the smoother the smooth functions are. The dispersion parameter $\theta$ controls how much the observed counts deviate from their expected value modeled by Equation ~\ref{eq:mutantmodel}. The dispersion captures biological and technical variation which one typically sees across replicate samples, but also errors of the model. In \genogam{}, the dispersion is modeled by assuming the counts to follow a negative binomial distribution with mean $\mu=\operatorname{E}(y)$ whose logarithm is modeled by Equation ~\ref{eq:mutantmodel} and with variance $v = \mu + \mu^2/\theta$.  
 
-If not provided, the parameters $\lambda$ and $\theta$ are obtained by cross-validation. This step is a bit time-consuming. For sake of going through this example quickly, we provide the values manually:
+If not provided, the parameters $\lambda$ and $\theta$ are obtained by cross-validation. This step is a bit time-consuming as it is non-linearly dependent on the data size. That is, the total time for parameter estimation varies much less than the time for model fitting, as the number of regions needed for cross-validation is rather low and at most twenty. Whereas the number of regions for the total model is only bound by genome size. Thus, for sake of going through this example quickly, we provide the values manually. Also we supply the knot spacing at this stage. If it differs from the one used to compute the overhang size, one might end up with too little knots for a sufficient overlap at the junction point of adjacent chunks.
 
 <<fitwocv>>= 
+
 ## fit model without parameters estimation
-fit <- genogam(ggd, 
-               lambda = 40954.1,
-               family = mgcv::nb(theta = 6.927986),
-               bpknots = bpk
-)
+fit <- genogam(subggd, lambda = 4601, theta = 4.51, bpknots = bpk)
 fit
 @
 
 
-\textbf{Remark on parameter estimation:} To estimate the parameters $\lambda$ and $\theta$ by cross-validation, call \Rfunction{genogam()} without setting their values. This will perform 10 fold cross-validation on each tile with initial parameter values and iterate until convergence, often for about 50 iterations. We recommend to do it for 20 to 40 different regions representative of your data (of 1.5kb each). This means that estimation of the parameters will require the equivalent of a \genogam{} fit with fixed $\lambda$ and $\theta$ on 30 Mb (1.5kb x10x40x50). For a genome like yeast (12Mb) the cross-validation thus can take more time than a genome-wide fit.
+\textbf{Remark on parameter estimation:} To estimate the parameters $\lambda$ and $\theta$ by cross-validation, call \Rfunction{genogam()} without setting their values. This will perform 10 fold cross-validation on each tile with initial parameter values and iterate until convergence, often for about 50 iterations. Doing it for a default of 20 different regions (which is the same as tiles in this case). Here, for a tile size of 1.6kb this means that estimation of the parameters will require the equivalent of a \genogam{} fit with fixed $\lambda$ and $\theta$ on 16 Mb (1.6kb x10x20x50). For a genome like yeast (12Mb) the cross-validation thus would take more time than a genome-wide fit. In order to avoid this the number of regions is lowered, such that on average cross-validation does not take longer than model fitting. In practice it this will never be triggered unless for small organisms, where even a lower number of regions would be sufficient.
 
 <<fitwithcv, eval=FALSE>>=
-fit_CV <- genogam(ggd,bpknots = bpk)
+fit_CV <- genogam(ggd, bpknots = bpk)
 @
 
 \textbf{Remark on parallel computing:}
 \genogam{} run parallel computations on multicore architecture (using the \Rpackage{BiocParallel} package). Computing time reduces almost linearly with the number of cores of the machine.
 
-\subsection{Plotting results}
-Count data and fits for a region of interest can be extracted using the function \Rfunction{view()}. Following the  \Rpackage{mgcv} and \Rpackage{gam} convention the names of the fit for the smooth function defined by the \Robject{by} variable follow the pattern \Robject{s(x):\{by-variable\}}. Here, the smooth function of interest $f_\text{mutant/wt}(x)$ is thus named \Robject{s(x):genotype}.
+\subsubsection{The \Rclass{GenoGAM} class}
 
-<<view>>=
-# extract count data into a data frame 
-df_data <- view(ggd)
-head(df_data)
+The results are stored in the \Rclass{GenoGAM} class. This class is build, just like \Rclass{GenoGAMDataSet}, on \Rclass{RangedSummarizedExperiment}. As such all respective methods are applicable, with a few exceptions:
 
-# extract fit into a data frame 
-df_fit <- view(fit)
-head(df_fit)
-@
+\begin{itemize}
+\item \Rfunction{getSettings} now gives access to the settings slot
+\item \Rfunction{getFamily} provides access to the distribution used
+\item \Rfunction{getParams} provides access to all parameters used during
+  computation as well as the tile settings
+\item \Rfunction{fits} and \Rfunction{se} return the pointwise fits and standard 
+  errors, respectively
+\end{itemize}
+  
+<<gg slots>>=
 
-If only a subset of the data supposed to be viewed it is best to use a \Rfunction{GRanges} object and supply it to the emph{ranges} argument.
-<<viewranges>>=
-gr <- GRanges("chrXIV", IRanges(306000, 308000))
-head(view(ggd, ranges = gr))
+## the model formula
+design(fit)
+
+## the size factors
+sizeFactors(fit)
+
+## the global model settings
+getSettings(fit)
+
+## the distribution used
+getFamily(fit)
+
+## the parameters used in the model and dataset
+getParams(fit)
+
+## the assay is actually a list of two elements, the fits and the
+## standard errors. Bur calling just assay returns the fits
+assays(fit)
+assay(fit)
+
+## separate functions are recommended to be used for access
+fits(fit)
+se(fit)
+
+## positions
+rowRanges(fit)
+
+## subsetting works just like in GenoGAMDataSet
+subfit <- subset(fit, pos < 306001)
+rowRanges(subfit)
+
+gr <- GRanges("chrXIV", IRanges(306001, 307000))
+subfit <- fit[gr]
+rowRanges(subfit)
 @ 
 
-The GenoGAM specific plot function will make use of the ggplot2 framework if available or fall back to base R otherwise. Note, that without any restrictions on positions or chromosomes it will attempt to plot all the data and throw an error if it is too big.
+% \subsection{Plotting results}
+% Count data and fits for a region of interest can be extracted using the function \Rfunction{view()}. Following the  \Rpackage{mgcv} and \Rpackage{gam} convention the names of the fit for the smooth function defined by the \Robject{by} variable follow the pattern \Robject{s(x):\{by-variable\}}. Here, the smooth function of interest $f_\text{mutant/wt}(x)$ is thus named \Robject{s(x):genotype}.
 
-In the count data, the peak of methylation in the two replicates of the wild type (first two panels) in the region 306,500-307,000 seems attenuated in the two replicates of the mutant (3rd and 4th panel). There are relatively more counts for the mutant in the region 305,500-306,500. The \genogam{} fit of the log-ratio (last panel, confidence band dotted) indicates that that these differences are significant. This redistribution of the methylation mark from the promoter (wild type) into the gene body (mutant) was reported by the authors of the study ~\cite{Thornton2014}. Additionally a smooth for the input is shown (second to last). Both smooths added together give the log-fit of the mutant data (not shown).
+% <<view>>=
+% # extract count data into a data frame 
+% df_data <- view(ggd)
+% head(df_data)
 
-<<plotfit,  fig.width=6.5, fig.height=8>>=
-plot(fit, ggd, scale = FALSE)
-@
+% # extract fit into a data frame 
+% df_fit <- view(fit)
+% head(df_fit)
+% @
 
-\subsection{Statistical testing}
-We test for each smooth and at each position $x$ the null hypothesis that it values 0 by a call to \Rfunction{computeSignificance()}. This gives us pointwise p-values. 
+% If only a subset of the data supposed to be viewed it is best to use a \Rfunction{GRanges} object and supply it to the emph{ranges} argument.
+% <<viewranges>>=
+% gr <- GRanges("chrXIV", IRanges(306000, 308000))
+% head(view(ggd, ranges = gr))
+% @ 
 
-<<signif>>=
-fit <- computeSignificance(fit)
-df_fit <- view(fit)
-head(df_fit)
-@
+% The GenoGAM specific plot function will make use of the ggplot2 framework if available or fall back to base R otherwise. Note, that without any restrictions on positions or chromosomes it will attempt to plot all the data and throw an error if it is too big.
 
-\subsection{Differential binding}
-If region-wise significance is needed, as in the case of differential binding, then we call \Rfunction{computeRegionSignificance()}. This returns the provided \Robject{GRanges} regions object updated by a p-value and FRD column.
+% In the count data, the peak of methylation in the two replicates of the wild type (first two panels) in the region 306,500-307,000 seems attenuated in the two replicates of the mutant (3rd and 4th panel). There are relatively more counts for the mutant in the region 305,500-306,500. The \genogam{} fit of the log-ratio (last panel, confidence band dotted) indicates that that these differences are significant. This redistribution of the methylation mark from the promoter (wild type) into the gene body (mutant) was reported by the authors of the study ~\cite{Thornton2014}. Additionally a smooth for the input is shown (second to last). Both smooths added together give the log-fit of the mutant data (not shown).
 
-<<regsignif>>=
-gr
-gr <- computeRegionSignificance(fit, regions = gr, what = 'genotype')
-gr
-@ 
+% <<plotfit,  fig.width=6.5, fig.height=8>>=
+% plot(fit, ggd, scale = FALSE)
+% @
 
-\subsection{Peak calling}
-The computed fit allows for easy peak calling of narrow and broad peaks via the \Rfunction{callPeaks()}. The resulting \Robject{data.table} provides a similar structure as the ENCODE narrowPeak and broadPeak format. Note, the \emph{score} is given as the negative natural logarithm of the p-values. Also peak borders are different from the usually computed peak borders of other methods. The borders are in fact a 95-\% confidence interval around the peak position. As this is not peak calling data, we use a high threshold do demonstrate the functionality.
+% \subsection{Statistical testing}
+% We test for each smooth and at each position $x$ the null hypothesis that it values 0 by a call to \Rfunction{computeSignificance()}. This gives us pointwise p-values. 
 
-<<peaks>>=
-peaks <- callPeaks(fit, smooth = "genotype", threshold = 1)
-peaks
+% <<signif>>=
+% fit <- computeSignificance(fit)
+% df_fit <- view(fit)
+% head(df_fit)
+% @
 
-peaks <- callPeaks(fit, smooth = "genotype", threshold = 1, 
-                   peakType = "broad", cutoff = 0.75)
-peaks
-@ 
+% \subsection{Differential binding}
+% If region-wise significance is needed, as in the case of differential binding, then we call \Rfunction{computeRegionSignificance()}. This returns the provided \Robject{GRanges} regions object updated by a p-value and FRD column.
 
-The function \Rfunction{writeToBEDFile} provides an easy way to write the peaks data.table to a \emph{narrowPeaks} or \emph{broadPeaks} file. The suffix will be determined automatically
-<<bed, eval=FALSE>>=
-writeToBEDFile(peaks, file = 'myPeaks')
-@ 
+% <<regsignif>>=
+% gr
+% gr <- computeRegionSignificance(fit, regions = gr, what = 'genotype')
+% gr
+% @ 
 
-\section{Computation statistics}
-At the moment the computation time for genome-wide analysis ranges from a couple of hours on yeast to a 2-3 days on human. The memory usage never exceeded
-4GByte per core. Usually it was around 2-3 GByte per core. We are also currently implementing an optimized model fitting procedure, that reduces computation time significantly. Unfortunately we were not able to include it into the package for this Bioconductor release, but are confident to be able to do it into the next release. Interested users should therefore check the developer version of \Biocpkg{GenoGAM} for updates.
+% \subsection{Peak calling}
+% The computed fit allows for easy peak calling of narrow and broad peaks via the \Rfunction{callPeaks()}. The resulting \Robject{data.table} provides a similar structure as the ENCODE narrowPeak and broadPeak format. Note, the \emph{score} is given as the negative natural logarithm of the p-values. Also peak borders are different from the usually computed peak borders of other methods. The borders are in fact a 95-\% confidence interval around the peak position. As this is not peak calling data, we use a high threshold do demonstrate the functionality.
 
-\section{Acknowledgments}
+% <<peaks>>=
+% peaks <- callPeaks(fit, smooth = "genotype", threshold = 1)
+% peaks
 
-We thank Alexander Engelhardt, Herv\'e Pag\`es, and Martin Morgan for input in the development of \genogam{}. 
+% peaks <- callPeaks(fit, smooth = "genotype", threshold = 1, 
+%                    peakType = "broad", cutoff = 0.75)
+% peaks
+% @ 
 
-\section{Session Info}
+% The function \Rfunction{writeToBEDFile} provides an easy way to write the peaks data.table to a \emph{narrowPeaks} or \emph{broadPeaks} file. The suffix will be determined automatically
+% <<bed, eval=FALSE>>=
+% writeToBEDFile(peaks, file = 'myPeaks')
+% @ 
 
-<<sessInfo, results="asis", echo=FALSE>>=
-toLatex(sessionInfo())
-@
+% \section{Computation statistics}
+% At the moment the computation time for genome-wide analysis ranges from a couple of hours on yeast to a 2-3 days on human. The memory usage never exceeded
+% 4GByte per core. Usually it was around 2-3 GByte per core. We are also currently implementing an optimized model fitting procedure, that reduces computation time significantly. Unfortunately we were not able to include it into the package for this Bioconductor release, but are confident to be able to do it into the next release. Interested users should therefore check the developer version of \Biocpkg{GenoGAM} for updates.
 
-<<resetOptions, results="hide", echo=FALSE>>=
-options(prompt="> ", continue="+ ")
-@ 
+% \section{Acknowledgments}
+
+% We thank Alexander Engelhardt, Herv\'e Pag\`es, and Martin Morgan for input in the development of \genogam{}. 
+
+% \section{Session Info}
+
+% <<sessInfo, results="asis", echo=FALSE>>=
+% toLatex(sessionInfo())
+% @
+
+% <<resetOptions, results="hide", echo=FALSE>>=
+% options(prompt="> ", continue="+ ")
+% @ 
 
 \bibliography{bibliog}
 
