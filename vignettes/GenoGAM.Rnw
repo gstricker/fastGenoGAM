@@ -149,11 +149,11 @@ The parallel backend is registered using the \Biocpkg{BiocParallel} package. See
 
 \textbf{IMPORTANT:} According to \href{https://support.bioconductor.org/p/70196/}{this} and \href{https://stat.ethz.ch/pipermail/r-devel/2015-July/071554.html}{this} posts on the Bioconductor support page and R-devel mailing list, the most important core feature of the \emph{multicore} backend, shared memory, is compromised by Rs own garbage collector, resulting in a replication of the entire workspace across all cores. Given that the amount of data in memory is big it might crash the entire system. \textbf{We highly advice to register the SnowParam backend} to avoid this \textbf{if working on a multicore machine}. This way the overhead is a little bigger, but only necessary data is copied to the workers keeping memory consumption relatively low. We never experienced a higher load than 4GB per core, usually it was around 2GB.
 
+On multicore machines by default the number of available cores - 2 are registered
+In order to see which parallel backend is currently registered, use the \Rfunction{registered} function. The first entry is the currently registered backend. We can also directly just take the first entry by subsetting:
 <<parallel>>=
 library(fastGenoGAM)
 
-## On multicore machines by default the number of available cores - 2 are registered
-In order to see which parallel backend is currently registered, use the \Rfunction{registered} function. The first entry is the currently registered backend. We can also directly just take the first entry by subsetting:
 BiocParallel::registered()[1]
 @ 
 
@@ -236,7 +236,7 @@ Subsetting works via the \Rfunction{subset} command or by \Robject{GRanges}. The
 ## Subsetting by subset command requires to know the column names
 rowRanges(ggd)
 
-## interest as we know them by design of this example
+## Here we know the positions by design of this example
 subggd <- subset(ggd, seqnames == "chrXIV" & pos >= 305001 & pos <= 308000)
 subggd
 
@@ -252,7 +252,7 @@ subggd
 
 Sometimes data comes in the form of a \Rclass{RangedSummarizedExperiment} or users like to read in the data themselves instead of using the package default. In this case the \Robject{GenoGAMDataSet} object can be built the same way.
 
-<<ggd>>= 
+<<se-ggd>>= 
 
 ## load the SummarizedExperiment object, a new variable "se" appears in the environment
 load(file.path(folder, "se.rda"))
@@ -275,7 +275,7 @@ A \Rclass{GenoGAMDataSet} stores the count data into a structure that index geno
 
 \vspace{1em}
 
-\begin{figure}
+\begin{figure}[!h]
 \centering
 \includegraphics[width=1\textwidth]{splines}
 \caption{An example spline. Displayed are ten cubic B-spline basis functions (of some only tails are seen at the borders) which multiplied by their respective coefficients and summed over at every position make up the complete spline (dark blue). The knots are depicted as dark-grey dots at the bottom-center of each basis function.}
@@ -295,10 +295,10 @@ rowRanges(subggd)
 getIndex(subggd)
 
 ## experiment design
-colData(ggd)
+colData(subggd)
 
 ## formula
-design(ggd)
+design(subggd)
 
 ## size factors, initially zero
 sizeFactors(subggd)
@@ -364,7 +364,7 @@ The chunk size shouldn't be below 1kb, but is otherwise unbound. However the big
 
 The overhang size is responsible for smooth connection of adjacent chunks. As the fit is dependent on the number of knots and their positions the overhang size is, too. Thus a sufficient number of knots should be selected and the size in basepairs computed from it by multiplying by the knot spacing. In our experience a sufficiently small relative error can already be achieved with around 5-7 knots. 
 
-\subsubsection{The Rclass{GenoGAMSettings} class}
+\subsubsection{The \Rclass{GenoGAMSettings} class}
 
 The parameters of the basic functionality of the entire \genogam{} pipeline, especially for those steps which involve other R packages, is stored in the \Rclass{GenoGAMSettings} class. The class has six slots:
 
@@ -385,7 +385,7 @@ The parameters of the basic functionality of the entire \genogam{} pipeline, esp
 
 A couple of examples on how to use the parameters.
 
-<<settings, eval=FALSE>>=
+<<settings>>=
 
 ## change chromosome list
 settings <- GenoGAMSettings(chromosomeList = c("chrI", "chrII"))
@@ -476,11 +476,31 @@ fit
 \textbf{Remark on parameter estimation:} To estimate the parameters $\lambda$ and $\theta$ by cross-validation, call \Rfunction{genogam()} without setting their values. This will perform 10 fold cross-validation on each tile with initial parameter values and iterate until convergence, often for about 50 iterations. Doing it for a default of 20 different regions (which is the same as tiles in this case). Here, for a tile size of 1.6kb this means that estimation of the parameters will require the equivalent of a \genogam{} fit with fixed $\lambda$ and $\theta$ on 16 Mb (1.6kb x10x20x50). For a genome like yeast (12Mb) the cross-validation thus would take more time than a genome-wide fit. In order to avoid this the number of regions is lowered, such that on average cross-validation does not take longer than model fitting. In practice it this will never be triggered unless for small organisms, where even a lower number of regions would be sufficient.
 
 <<fitwithcv, eval=FALSE>>=
-fit_CV <- genogam(ggd, bpknots = bpk)
+fit_CV <- genogam(subggd, bpknots = bpk)
 @
+
 
 \textbf{Remark on parallel computing:}
 \genogam{} run parallel computations on multicore architecture (using the \Rpackage{BiocParallel} package). Computing time reduces almost linearly with the number of cores of the machine.
+
+\subsubsection{Fitting in case of sparse data}
+
+A common problem, especially for larger organisms, is the sparsity of data due to low sequencing depth. If one would attempt to compute a genogam{} model fit on a large enough region with zero counts, the model would produce artifacts. An easy workaround was suggested by Wood et. al \cite{wood2006generalized}: Adding the identity matrix multiplied by a small enough $\epsilon$ to the penalization matrix in order to penalize the absolute counts. If $\epsilon$ is small enough it should shrink zero count regions to zero, while having little effect on the other regions. Hence getting rid of the artifacts and stabilizing the fitting process. In order to make use of this in \Rfunction{genogam}, use the \emph{H} parameter, which represents the $epsilon$ value, to pass a small enough value to the penalization matrix. It is zero by default and thus only the second differences are penalized.
+
+<<fitwithH>>=
+
+## a small H shrinks the fit a little bit
+fitHsmall <- genogam(subggd, lambda = 4601, theta = 4.51, bpknots = bpk, H = 0.00001)
+
+## compare fit with small H
+fits(fitHsmall)
+## and fit without H
+fits(fit)
+
+## if H is to big, the fit will shrink towards zero
+fitH <- genogam(subggd, lambda = 4601, theta = 4.51, bpknots = bpk, H = 0.8)
+fits(fitH)
+@ 
 
 \subsubsection{The \Rclass{GenoGAM} class}
 
@@ -513,7 +533,7 @@ getFamily(fit)
 getParams(fit)
 
 ## the assay is actually a list of two elements, the fits and the
-## standard errors. Bur calling just assay returns the fits
+## standard errors. But calling just assay returns the fits
 assays(fit)
 assay(fit)
 
@@ -599,19 +619,19 @@ rowRanges(subfit)
 % At the moment the computation time for genome-wide analysis ranges from a couple of hours on yeast to a 2-3 days on human. The memory usage never exceeded
 % 4GByte per core. Usually it was around 2-3 GByte per core. We are also currently implementing an optimized model fitting procedure, that reduces computation time significantly. Unfortunately we were not able to include it into the package for this Bioconductor release, but are confident to be able to do it into the next release. Interested users should therefore check the developer version of \Biocpkg{GenoGAM} for updates.
 
-% \section{Acknowledgments}
+\section{Acknowledgments}
 
-% We thank Alexander Engelhardt, Herv\'e Pag\`es, and Martin Morgan for input in the development of \genogam{}. 
+We thank Alexander Engelhardt, Herv\'e Pag\`es, and Martin Morgan for input in the development of \genogam{}. 
 
-% \section{Session Info}
+\section{Session Info}
 
-% <<sessInfo, results="asis", echo=FALSE>>=
-% toLatex(sessionInfo())
-% @
+<<sessInfo, results="asis", echo=FALSE>>=
+toLatex(sessionInfo())
+@
 
-% <<resetOptions, results="hide", echo=FALSE>>=
-% options(prompt="> ", continue="+ ")
-% @ 
+<<resetOptions, results="hide", echo=FALSE>>=
+options(prompt="> ", continue="+ ")
+@ 
 
 \bibliography{bibliog}
 
