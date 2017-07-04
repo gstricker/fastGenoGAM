@@ -222,6 +222,11 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
         return(new("GenoGAMDataSet"))
     }
 
+    if(overhangSize >= chunkSize/2) {
+        overhangSize <- round(chunkSize/2) - 1
+        warning("Overhang size exceeds the total size of the chunk. Adjusted to chunkSize/2 - 1")
+    }
+
     input <- paste0("Building GenoGAMDataSet with the following parameters:\n",
                     "  Class of experimentDesign: ", class(experimentDesign), "\n",
                     "  Chunk size: ", chunkSize, "\n",
@@ -387,7 +392,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     ## concatenate results into one list
     tiles <- do.call("c", tileList)
     GenomeInfoDb::seqlengths(tiles) <- GenomeInfoDb::seqlengths(l$chromosomes)
-    GenomeInfoDb::seqlevels(tiles, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(tiles)
+    GenomeInfoDb::seqlevels(tiles, pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(tiles)
 
     ## resize start and end tiles till correct tile size is reached
     startsToResize <- which(width(tiles) < l$tileSize & start(tiles) == 1)
@@ -953,7 +958,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
         index <- GenomicRanges::GRanges()
     }
     else {
-        GenomeInfoDb::seqlevels(rowRanges(se), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
+        GenomeInfoDb::seqlevels(rowRanges(se), pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(rowRanges(se))
         slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se)
         index <- .subsetIndex(se, getIndex(x))
     }
@@ -1007,7 +1012,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
         index <- GenomicRanges::GRanges()
     }
     else {
-        GenomeInfoDb::seqlevels(rowRanges(subse), force = TRUE) <- GenomeInfoDb::seqlevelsInUse(rowRanges(subse))
+        GenomeInfoDb::seqlevels(rowRanges(subse), pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(rowRanges(subse))
         slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(subse)
         index <- .subsetIndex(subse, getIndex(query))
     }

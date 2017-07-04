@@ -140,7 +140,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
             futile.logger::flog.warn("Beta estimation did not converge. This is not necessarily a problem, but can affect the fit and the correct assimilation of the tiles. If this is the case, try increase the 'betaMaxit' parameter in the 'optimControl' slot in the settings.")
         }
         
-        slot(setup, "beta") <- betas$par
+        slot(setup, "beta") <- betas
         slot(setup, "fits") <- .getFits(setup)
         
         H <- .compute_hessian_negbin(setup)
@@ -296,9 +296,44 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     return(fits)
 }
 
+#' The IRLS algorithm
+.irls_nb <- function(beta0, X, y, theta, lambda, S, offset, control = list(eps = 1e-6, maxiter = 1000)) {
+    beta <- beta0
+    beta_old <- beta - eps - 1
+    dif <- max(abs(beta - beta_old))
+    k <- 0
+    
+    while (dif > eps & k < maxiter){
+        futile.logger::flog.debug("Iteration: ", k, "\n")
+
+        eta <- offset + X %*% beta
+        mu <- exp(eta)
+        z <- 1/mu*(y - mu)+eta
+  
+        ## 1. Compute V 
+        v <- as.numeric(mu^2/Matrix::diag(mu+(mu)^2/theta))
+    
+        ## 2. Update weight matrix
+        W <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(v)))
+        
+        ## 3. Compute new value of beta
+        beta_old <- beta
+        H <- t(X) %*% W %*% X + 2*lambda * S
+        beta <- Matrix::solve(H, t(X) %*% W %*% z)
+
+        dif <- max(abs(beta - beta_old))
+
+        futile.logger::flog.debug("Maximal Parameter Difference: ", dif, "\n")
+        futile.logger::flog.debug("---------------------------\n")
+    
+        k <- k+1
+    }
+    return(beta)
+}
+
 #' estimate betas
 #' @noRd
-.estimateParams <- function(ggs, control = list(fnscale=-1, maxit = 100)) {
+.estimateParams <- function(ggs, control = list(eps = 1e-6, maxiter = 1000)) {
 
     betas <- slot(ggs, "beta")
 
@@ -310,51 +345,46 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     S <- slot(ggs, "penaltyMatrix")
 
     if(length(ggs) == 0) {
-        res <- list(par = numeric(),
-                    value = numeric(),
-                    counts = integer(),
-                    convergence = 1,
-                    message = "Not run")
+        res <- numeric()
         return(res)
     }
 
-    if (distr == "nb") {    
-        likelihood <- .likelihood_penalized_nb
-        gradient <- .gradient_likelihood_penalized_nb
+    if (distr == "nb") {
+        f <- .irls_nb
     }
-
-    res <- optim(betas, likelihood, gradient, X = X, y = y, offset = offset,
-                 theta = params$theta, lambda = params$lambda, S = S, 
-                 method = "L-BFGS-B", control = control)
+    
+    res <- f(betas, X = X, y = y, offset = offset,
+             theta = params$theta, lambda = params$lambda, S = S, 
+             control = control)
 
     return(res)
 }
 
-#' penalized Negative Binomial likelihood
-#' @noRd
-.likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-  n <- dim(X)[1]
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  aux1 <- theta + y
-  aux2 <- theta + mu
-  ## pull the log inside to use gamma and factorial in log space due to 
-  ## possibly very high numbers
-  l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
-  pen <- t(beta) %*% S %*% beta
-  return(l[1]-lambda*pen[1,1])
-}  
+## #' penalized Negative Binomial likelihood
+## #' @noRd
+## .likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+##   n <- dim(X)[1]
+##   eta <- offset + X%*%beta
+##   mu <- exp(eta)
+##   aux1 <- theta + y
+##   aux2 <- theta + mu
+##   ## pull the log inside to use gamma and factorial in log space due to 
+##   ## possibly very high numbers
+##   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
+##   pen <- t(beta) %*% S %*% beta
+##   return(l[1]-lambda*pen[1,1])
+## }  
 
-#' gradient of penalized negative Binomial likelihood
-#' @noRd
-.gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  z <- (y-mu)/(1+mu/theta)
-  res <- t(X)%*%z
-  pen <- S %*% beta
-  return (res[,1]-2*lambda*pen[,1])
-}
+## #' gradient of penalized negative Binomial likelihood
+## #' @noRd
+## .gradient_likelihood_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+##   eta <- offset + X%*%beta
+##   mu <- exp(eta)
+##   z <- (y-mu)/(1+mu/theta)
+##   res <- t(X)%*%z
+##   pen <- S %*% beta
+##   return (res[,1]-2*lambda*pen[,1])
+## }
 
 #' Compute the penalized Hessian for Negative Binomial
 #' @noRd

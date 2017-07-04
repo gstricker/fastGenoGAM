@@ -71,12 +71,12 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 setClass("GenoGAMSettings",
          slots = list(center = "logicalOrNULL", chromosomeList = "characterOrNULL",
              bamParams = "ScanBamParam", processFunction = "functionOrNULL", 
-             optimMethod = "character", optimControl = "list"),
+             optimMethod = "character", optimControl = "list", irlsControl = "list"),
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
-             optimControl = list(maxit = 50, fnscale = -1, trace = 1,
-                                 betaMaxit = 2000)))
+             optimControl = list(maxit = 50, fnscale = -1, trace = 1),
+             irlsControl = list(eps = 1e-6, maxiter = 1000)))
 
 ## Validity
 ## ========
@@ -104,10 +104,17 @@ setClass("GenoGAMSettings",
     NULL
 }
 
+.validateIRLSControlType <- function(object) {
+    if(class(object@irlsControl) != "list") {
+        return("'irlsControl' must be a list object")
+    }
+    NULL
+}
+
 ## general validate function
 .validateGenoGAMSettings <- function(object) {
     c(.validateBAMParamsType(object), .validateOptimMethodType(object),
-      .validateOptimControlType(object))
+      .validateOptimControlType(object) ,.validateIRLSControlType(object))
 }
 
 setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
@@ -156,6 +163,11 @@ GenoGAMSettings <- function(...) {
     for(ii in 1:length(ggs@optimControl)) {
         cat(paste0("  ", names(ggs@optimControl)[ii], ": ",
                    ggs@optimControl[[ii]], "\n"))
+    }
+    cat("IRLS control:\n")
+    for(ii in 1:length(ggs@irlsControl)) {
+        cat(paste0("  ", names(ggs@irlsControl)[ii], ": ",
+                   ggs@irlsControl[[ii]], "\n"))
     }
 }
 

@@ -301,7 +301,7 @@ asMates = TRUE for paired-end data", call. = FALSE)
         if(length(reads) == 0L) return(GRanges())
       
         ## ensure sequence levels are correct
-        GenomeInfoDb::seqlevels(reads, force = TRUE) <- GenomeInfoDb::seqlevelsInUse(reads)
+        GenomeInfoDb::seqlevels(reads, pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(reads)
         
         ans <- do.call(processFUN, c(list(reads), args))
         return(ans)
