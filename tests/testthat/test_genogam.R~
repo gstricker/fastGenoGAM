@@ -8,7 +8,10 @@ ggs <- setupGenoGAM(ggd)
 emptyGGS <- GenoGAMSetup()
 
 settings <- GenoGAMSettings()
-control <- slot(settings, "IRLSControl")
+control <- slot(settings, "optimControl")
+control$maxit <- control$betaMaxit
+control$betaMaxit <- NULL
+control$trace <- NULL
 
 test_that("The response vector is build correctly", {
     ## all combinations of different empty inputs
@@ -113,33 +116,33 @@ test_that("Beta estimation work correct", {
     expect_true(length(betas1$par) == length(slot(setup, "beta")))
 })
 
-## test_that("Negative binomial log-likelihood and gradient give correct results", {
-##     setup <- .initiate(ggd, ggs, coords, sample(5, 1))
-##     X <- slot(setup, "designMatrix")
-##     S <- slot(setup, "penaltyMatrix")
-##     theta <- 1
-##     lambda <- 0
-##     y <- matrix(1, dim(X)[1], 1)
-##     betas <- rep(0, dim(X)[2])
-##     offset <- rep(0, dim(X)[1])
+test_that("Negative binomial log-likelihood and gradient give correct results", {
+    setup <- .initiate(ggd, ggs, coords, sample(5, 1))
+    X <- slot(setup, "designMatrix")
+    S <- slot(setup, "penaltyMatrix")
+    theta <- 1
+    lambda <- 0
+    y <- matrix(1, dim(X)[1], 1)
+    betas <- rep(0, dim(X)[2])
+    offset <- rep(0, dim(X)[1])
 
-##     ## true loglik with input from above
-##     loglik <- -2*dim(X)[1]*log(2)
-##     ## computed loglik
-##     res <- .likelihood_penalized_nb(betas, X, y, offset, theta, lambda, S)
-##     expect_true(all.equal(loglik, res))
+    ## true loglik with input from above
+    loglik <- -2*dim(X)[1]*log(2)
+    ## computed loglik
+    res <- .likelihood_penalized_nb(betas, X, y, offset, theta, lambda, S)
+    expect_true(all.equal(loglik, res))
 
-##     ## return warnings due to inappropriate theta
-##     expect_warning(invalid <- .likelihood_penalized_nb(betas, X, y, offset, theta = 0, lambda, S))
-##     expect_true(is.nan(invalid))
+    ## return warnings due to inappropriate theta
+    expect_warning(invalid <- .likelihood_penalized_nb(betas, X, y, offset, theta = 0, lambda, S))
+    expect_true(is.nan(invalid))
 
-##     newY <- matrix(3, dim(X)[1], 1)
-##     ## true gradient
-##     grad <- colSums(as.matrix(X))
-##     ## computed gradients
-##     res <- .gradient_likelihood_penalized_nb(betas, X, newY, offset, theta, lambda, S)
-##     expect_true(all.equal(grad, res))
-## })
+    newY <- matrix(3, dim(X)[1], 1)
+    ## true gradient
+    grad <- colSums(as.matrix(X))
+    ## computed gradients
+    res <- .gradient_likelihood_penalized_nb(betas, X, newY, offset, theta, lambda, S)
+    expect_true(all.equal(grad, res))
+})
 
 test_that("Hessian matrix computation is correct for empty spline", {
     ## with empty input

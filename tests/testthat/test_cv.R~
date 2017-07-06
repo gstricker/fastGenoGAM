@@ -24,7 +24,7 @@ test_that("The likelihood function computes correctly", {
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  control = slot(settings, "optimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll < 0)
@@ -33,20 +33,20 @@ test_that("The likelihood function computes correctly", {
     fixedpars[] <- lapply(initpars, exp)
     ll_fixed <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  control = slot(settings, "optimControl"),
                   fixedpars = fixedpars)
     expect_true(all.equal(ll, ll_fixed))
 
     fixedpars$lambda <- NULL
     ll_fixed_one <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  control = slot(settings, "optimControl"),
                   fixedpars = fixedpars)
     expect_true(all.equal(ll, ll_fixed, ll_fixed_one))
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = 0, method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  control = slot(settings, "optimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll < 0)
@@ -54,7 +54,7 @@ test_that("The likelihood function computes correctly", {
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getTileSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "IRLSControl"),
+                  control = slot(settings, "optimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll == 0)

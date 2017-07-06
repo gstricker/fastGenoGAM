@@ -107,6 +107,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         else ids <- 1:length(coords)
 
         control <- slot(settings, "optimControl")
+        irlsControl <- slot(settings, "irlsControl")
         futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
         
         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
@@ -114,7 +115,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                                      intervalSize = intervalSize,
                                      fn = .loglik, 
                                      method = slot(settings, "optimMethod"),
-                                     control = control) 
+                                     control = control,
+                                     irlsControl = irlsControl) 
 
         names(params) <- c("lambda", "theta")
         slot(ggs, "params")$lambda <- params["lambda"]
@@ -129,18 +131,16 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     lambdaFun <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
-        control <- slot(slot(data, "settings"), "optimControl")
-        control$maxit <- control$betaMaxit
-        control$betaMaxit <- control$trace <- NULL
+        irlsControl <- slot(slot(data, "settings"), "irlsControl")
         setup <- .initiate(data, init, coords, id)
-        betas <- .estimateParams(setup, control)
+        betas <- .estimateParams(setup, irlsControl)
 
-        futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$counts[1], "iterations"))
-        if(betas$convergence == 1) {
-            futile.logger::flog.warn("Beta estimation did not converge. This is not necessarily a problem, but can affect the fit and the correct assimilation of the tiles. If this is the case, try increase the 'betaMaxit' parameter in the 'optimControl' slot in the settings.")
+        futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
+        if(betas$converged == FALSE) {
+            futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'irlsControl' slot in the settings might help, but should be done at own risk.")
         }
         
-        slot(setup, "beta") <- betas
+        slot(setup, "beta") <- betas$par
         slot(setup, "fits") <- .getFits(setup)
         
         H <- .compute_hessian_negbin(setup)
@@ -299,11 +299,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' The IRLS algorithm
 .irls_nb <- function(beta0, X, y, theta, lambda, S, offset, control = list(eps = 1e-6, maxiter = 1000)) {
     beta <- beta0
-    beta_old <- beta - eps - 1
+    beta_old <- beta - control$eps - 1
     dif <- max(abs(beta - beta_old))
     k <- 0
+    converged <- TRUE
     
-    while (dif > eps & k < maxiter){
+    while (dif > control$eps & k < control$maxiter){
         futile.logger::flog.debug("Iteration: ", k, "\n")
 
         eta <- offset + X %*% beta
@@ -328,7 +329,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     
         k <- k+1
     }
-    return(beta)
+
+    if(k == control$maxiter) {
+        converged <- FALSE
+    }
+    res <- list(par = beta, converged = converged, iterations = k + 1)
+    return(res)
 }
 
 #' estimate betas

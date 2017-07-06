@@ -68,6 +68,9 @@ See ?optim for a complete list.}
 \item{\code{optimControl}}{List of control settings for the optim function.
 Almost all parameters are supported, with a couple of exceptions. See
 details. For a complete list of parameters see ?optim.}
+
+\item{\code{irlsControl}}{List of control settings for the IRLS algorithm. Mainly
+the threshold parameter 'eps' and the maximum iterations parameter 'maxiter'}
 }}
 
 \examples{

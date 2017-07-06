@@ -123,7 +123,7 @@
                     
         betas <- .estimateParams(trainsetup, control = irlsControl)
             
-        pred <- exp(testX %*% betas)
+        pred <- exp(testX %*% betas$par)
         return(pred)
     }
     

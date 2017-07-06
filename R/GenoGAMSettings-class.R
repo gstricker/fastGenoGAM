@@ -29,7 +29,9 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' See ?optim for a complete list.
 #' @slot optimControl List of control settings for the optim function.
 #' Almost all parameters are supported, with a couple of exceptions. See
-#' details. For a complete list of parameters see ?optim. 
+#' details. For a complete list of parameters see ?optim.
+#' @slot irlsControl List of control settings for the IRLS algorithm. Mainly
+#' the threshold parameter 'eps' and the maximum iterations parameter 'maxiter'
 #' @details Center can have three values: TRUE, FALSE, NULL. TRUE will
 #' trigger the center function, FALSE will trigger the use of the entire
 #' fragment. NULL should be used in case a custom process function is used.
