@@ -43,7 +43,7 @@ setClass("GenoGAMSetup",
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
-                          response = Rle(integer()), fits = list()))
+                          response = S4Vectors::Rle(integer()), fits = list()))
 
 ## Validity
 ## ========
@@ -285,7 +285,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
     
     S <- Matrix::Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
     for (i in 1:order) {
-        S <- diff(S) ## twice the difference   
+        S <- Matrix::diff(S) ## twice the difference   
     }
     S <- t(S)%*%S ## square
     design <- diag(nfun)

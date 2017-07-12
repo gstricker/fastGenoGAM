@@ -214,7 +214,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     y <- assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
     
     Y <- unname(unlist(as.data.frame(y)))
-    return(Rle(Y))
+    return(S4Vectors::Rle(Y))
 }
 
 #' initiates GenoGAMSetup with tile specific data
