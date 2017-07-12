@@ -214,7 +214,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     y <- assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
     
     Y <- unname(unlist(as.data.frame(y)))
-    return(Y)
+    return(Rle(Y))
 }
 
 #' initiates GenoGAMSetup with tile specific data
@@ -225,10 +225,14 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)
     numBetas <- dim(slot(setup, "designMatrix"))[2]
     if(length(slot(setup, "response")) != 0) {
-        ## set mean response value to 0.001 if it is zero, i.e. in empty regions
-        ## necessary that the log value does not diverge to -Inf
-        meanResponse <- max(mean(slot(setup, "response"), na.rm = TRUE), 0.001)
-        slot(setup, "beta") <- matrix(log(meanResponse), numBetas, 1)
+        ## set betas to the runmedian of the response
+        means <- IRanges::runmed(slot(setup, "response"), 11, endrule = "median")
+        ## take 250 values at equidistant positions
+        ks <- as.integer(seq(1, length(means), length.out = numBetas))
+        ## set all zero values to 1, because of log
+        betas <- means[ks]
+        betas[which(betas == 0)] <- 1
+        slot(setup, "beta") <- matrix(log(betas), numBetas, 1)
     }
         
     ## initialize lambda and theta

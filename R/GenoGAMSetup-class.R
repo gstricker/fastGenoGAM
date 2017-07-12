@@ -2,6 +2,8 @@
 ## Setup class ##
 #################
 
+setClassUnion("numericOrRle", c("numeric", "Rle"))
+
 #' GenoGAMSEtup class
 #'
 #' A class to embody the setup for a GenoGAM fit
@@ -33,7 +35,7 @@ setClass("GenoGAMSetup",
                       se = "list", penaltyMatrix = "dgCMatrix",
                       formula = "formula", design = "matrix",
                       offset = "numeric", family = "character",
-                      response = "numeric", fits = "list"),
+                      response = "numericOrRle", fits = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
@@ -41,7 +43,7 @@ setClass("GenoGAMSetup",
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
-                          response = numeric(), fits = list()))
+                          response = Rle(integer()), fits = list()))
 
 ## Validity
 ## ========
@@ -125,8 +127,9 @@ setClass("GenoGAMSetup",
 }
 
 .validateResponseType <- function(object) {
-    if(mode(slot(object, "response")) != "numeric") {
-        return("'response' must be a numeric object")
+    if(mode(slot(object, "response")) != "numeric" &
+       class(slot(object, "response")) != "Rle") {
+        return("'response' must be either a numeric or an Rle object")
     }
     NULL
 }
