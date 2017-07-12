@@ -214,7 +214,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     y <- assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
     
     Y <- unname(unlist(as.data.frame(y)))
-    return(S4Vectors::Rle(Y))
+    return(as.integer(Y))
 }
 
 #' initiates GenoGAMSetup with tile specific data
@@ -309,7 +309,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     converged <- TRUE
     
     while (dif > control$eps & k < control$maxiter){
-        futile.logger::flog.debug("Iteration: ", k, "\n")
+        futile.logger::flog.debug(paste0("Iteration: ", k, "\n"))
 
         eta <- offset + X %*% beta
         mu <- exp(eta)
@@ -323,13 +323,13 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         
         ## 3. Compute new value of beta
         beta_old <- beta
-        H <- t(X) %*% W %*% X + 2*lambda * S
-        beta <- Matrix::solve(H, t(X) %*% W %*% z)
+        H <- Matrix::t(X) %*% W %*% X + 2*lambda * S
+        beta <- Matrix::solve(H, Matrix::t(X) %*% W %*% z)
 
         dif <- max(abs(beta - beta_old))
 
-        futile.logger::flog.debug("Maximal Parameter Difference: ", dif, "\n")
-        futile.logger::flog.debug("---------------------------\n")
+        futile.logger::flog.debug(paste0("Maximal Parameter Difference: ", dif, "\n"))
+        futile.logger::flog.debug(paste0("---------------------------\n"))
     
         k <- k+1
     }
@@ -337,7 +337,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     if(k == control$maxiter) {
         converged <- FALSE
     }
-    res <- list(par = beta, converged = converged, iterations = k + 1)
+    res <- list(par = as.numeric(beta), converged = converged, iterations = k + 1)
     return(res)
 }
 
@@ -367,6 +367,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
              theta = params$theta, lambda = params$lambda, S = S, 
              control = control)
 
+    if(length(res) == 0) {
+        res <- list(par = numeric(), converged = FALSE, iterations = 0)
+    }
     return(res)
 }
 
@@ -419,7 +422,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     }
     
     D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
-    res <- t(X) %*% D %*% X - 2*lambda*S 
+    res <- Matrix::t(X) %*% D %*% X - 2*lambda*S 
     return (res)
 }
 
@@ -470,7 +473,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         res <- sapply(1:nSamples, function(i) {
             Xsub <- X[rows[[i]], cols[[j]]]
             HinvSub <- Hinv[cols[[j]],cols[[j]]]
-            se <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%t(Xsub)))
+            se <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%Matrix::t(Xsub)))
             return(se)
         })
         res <- as.vector(res)
@@ -523,7 +526,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     combinedData <- data.table::rbindlist(allData)
     varNames <- colnames(combinedData)
-    combinedData <- DataFrame(combinedData)
+    combinedData <- S4Vectors::DataFrame(combinedData)
     colnames(combinedData) <- varNames
 
     return(combinedData)

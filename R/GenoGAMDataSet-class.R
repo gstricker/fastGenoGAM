@@ -83,7 +83,7 @@ setClass("GenoGAMDataSet",
       .validateChromosomes(object))
 }
 
-setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
+S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 
 
 ## Constructor
@@ -422,7 +422,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 .normalizeConfig <- function(config, directory) {
     
     if(is(config, "character")) {
-        config <- fread(config, header = TRUE, data.table = FALSE)
+        config <- data.table::fread(config, header = TRUE, data.table = FALSE)
     }
 
     config$ID <- as.factor(config$ID)
@@ -502,7 +502,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     }
     
     ## make colData
-    colData <- DataFrame(config)[,-c(1:3), drop = FALSE]
+    colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]
     rownames(colData) <- config$ID
 
     

@@ -71,7 +71,7 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
     factors <- as.factor(factors)
     dds <- DESeq2::DESeqDataSetFromMatrix(
         countData = countMatrix,
-        colData = DataFrame(condition = factors),
+        colData = S4Vectors::DataFrame(condition = factors),
         design = ~condition)
     dds <- DESeq2::estimateSizeFactors(dds)
     return(dds)

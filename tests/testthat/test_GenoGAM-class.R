@@ -54,7 +54,7 @@ test_that("Subset on GenoGAM class works correctly", {
     expect_true(start(subrange) == 101)
     expect_true(end(subrange) == 1000)
     
-    subgg <- subset(subgg, pos >= 901)
+    subgg <- GenomicRanges::subset(subgg, pos >= 901)
     subrange <- range(rowRanges(subgg))
     expect_true(all(dim(subgg) == c(100, dim(subgg)[2])))
     expect_true(start(subrange) == 901)

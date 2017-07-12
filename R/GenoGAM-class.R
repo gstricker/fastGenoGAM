@@ -43,7 +43,7 @@ setClass("GenoGAM",
          prototype = prototype(family = "nb",
                                design = ~ s(x),
                                sizeFactors = numeric(),
-                               factorialDesign = DataFrame(),
+                               factorialDesign = S4Vectors::DataFrame(),
                                params = list(),
                                settings = GenoGAMSettings(),
                                smooths = data.table::data.table()))
@@ -110,7 +110,7 @@ setClass("GenoGAM",
       .validateSmoothsType(object))
 }
 
-setValidity2("GenoGAM", .validateGenoGAM)
+S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
 
 
 ## Constructor

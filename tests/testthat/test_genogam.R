@@ -8,7 +8,7 @@ ggs <- setupGenoGAM(ggd)
 emptyGGS <- GenoGAMSetup()
 
 settings <- GenoGAMSettings()
-control <- slot(settings, "IRLSControl")
+control <- slot(settings, "irlsControl")
 
 test_that("The response vector is build correctly", {
     ## all combinations of different empty inputs
@@ -68,7 +68,7 @@ test_that("The specific tile setup initializes correctly", {
     assay(test_ggd)$input <- rep(0, length(test_ggd))
     assay(test_ggd)$IP <- rep(0, length(test_ggd))
     res6 <- .initiate(test_ggd, ggs, coords, id)
-    trueBeta <- log(0.001)
+    trueBeta <- log(1)
     expect_true(all(slot(res6, "beta") == trueBeta))
 })
 

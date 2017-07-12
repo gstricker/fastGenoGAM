@@ -119,7 +119,7 @@ setClass("GenoGAMSettings",
       .validateOptimControlType(object) ,.validateIRLSControlType(object))
 }
 
-setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
+S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
 
 ## Constructor
 ## ==========

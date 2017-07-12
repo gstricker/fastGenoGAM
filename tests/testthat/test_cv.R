@@ -54,7 +54,7 @@ test_that("The likelihood function computes correctly", {
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getTileSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "IRLSControl"),
+                  irlsControl = slot(settings, "irlsControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll == 0)

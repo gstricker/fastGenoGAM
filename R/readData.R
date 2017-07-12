@@ -110,7 +110,7 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
         chromosomeLengths <- chromosomeLengths[names(chromosomeLengths) %in% chromosomeList]
         if(length(chromosomeLengths) == 0) {
             futile.logger::flog.error("The data does not match the region specification in the bamParams settings.")
-            return(DataFrame())
+            return(S4Vectors::DataFrame())
         }
     }
     ## get other parameters
@@ -144,7 +144,7 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
                 elem[[chrom]]
             })
             names(temp) <- names(rawData)
-            temp <- DataFrame(temp)
+            temp <- S4Vectors::DataFrame(temp)
             return(temp)
         })
         names(ans) <- names(chromosomeLengths)
@@ -159,7 +159,7 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     else {
         ans <- lapply(rawData, unlist)
         names(ans) <- names(rawData)
-        ans <- DataFrame(ans)
+        ans <- S4Vectors::DataFrame(ans)
     }
 
     futile.logger::flog.info("Finished reading in data")
