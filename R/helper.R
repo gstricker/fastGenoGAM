@@ -20,6 +20,21 @@
     return(vars)
 }
 
+#' helper function to help fill a list of parameters
+#' with the defaults if some are missing
+.fillParameters <- function(l, ...) {
+    params <- c(...)
+    allin <- names(params) %in% names(l)
+    if(!all(allin)) {
+        for(elem in names(params)) {
+            if(is.null(l[[elem]])) {
+                l[[elem]] <- params[[elem]]
+            }
+        }
+    }
+    return(l)
+}
+
 ## #' #' Update Formula with a specific penalization parameter lambda
 ## #' Not used at the moment
 ## #'

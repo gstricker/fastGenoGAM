@@ -33,7 +33,8 @@ setClass("GenoGAMSetup",
                       se = "list", penaltyMatrix = "dgCMatrix",
                       formula = "formula", design = "matrix",
                       offset = "numeric", family = "character",
-                      response = "numeric", fits = "list"),
+                      response = "numeric", fits = "list",
+                      control = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, H = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
@@ -41,7 +42,8 @@ setClass("GenoGAMSetup",
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
-                          response = integer(), fits = list()))
+                          response = integer(), fits = list(),
+                          control = list()))
 
 ## Validity
 ## ========
@@ -133,10 +135,19 @@ setClass("GenoGAMSetup",
 
 .validateFitsType <- function(object) {
     if(mode(slot(object, "fits")) != "list") {
-        return("'list' must be a numeric object")
+        return("'fits' must be a list object")
     }
     NULL
 }
+
+.validateControlType <- function(object) {
+    if(mode(slot(object, "control")) != "list") {
+        return("'control' must be a list object")
+    }
+    NULL
+}
+
+
 
 ## general validate function
 .validateGenoGAMSetup <- function(object) {
@@ -144,9 +155,9 @@ setClass("GenoGAMSetup",
       .validateDesignMatrixType(object), .validateBetaType(object),
       .validateSEType(object), .validatePenaltyMatrixType(object),
       .validateFormulaType(object), .validateGGSDesignType(object),
-      .validateOffsetType(object),
-      .validateFamilyType(object), .validateResponseType(object),
-      .validateFitsType(object), .validateParamsElements(object))
+      .validateOffsetType(object), .validateFamilyType(object),
+      .validateResponseType(object), .validateFitsType(object),
+      .validateParamsElements(object), .validateControlType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
@@ -156,16 +167,8 @@ S4Vectors::setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
 GenoGAMSetup <- function(...) {
     ggs <- new("GenoGAMSetup", ...)
     params <- slot(ggs, "params")
-    coreParams <- c("lambda", "theta", "H", "order", "penorder")
-    allin <- coreParams  %in% names(params)
-    if(!all(allin)) {
-        coreValues <- list(lambda = 0, theta = 0, H = 0, order = 2, penorder = 2)
-        for(elem in coreParams) {
-            if(is.null(params[[elem]])) {
-                params[[elem]] <- coreValues[[elem]]
-            }
-        }
-    }
+    coreValues <- c(lambda = 0, theta = 0, H = 0, order = 2, penorder = 2)
+    params <- .fillParameters(l = params, coreValues)
     slot(ggs, "params") <- params
     return(ggs)
 }

@@ -73,12 +73,12 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 setClass("GenoGAMSettings",
          slots = list(center = "logicalOrNULL", chromosomeList = "characterOrNULL",
              bamParams = "ScanBamParam", processFunction = "functionOrNULL", 
-             optimMethod = "character", optimControl = "list", irlsControl = "list"),
+             optimMethod = "character", optimControl = "list", estimControl = "list"),
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
              optimControl = list(maxit = 50, fnscale = -1, trace = 1),
-             irlsControl = list(eps = 1e-6, maxiter = 1000)))
+             estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)))
 
 ## Validity
 ## ========
@@ -106,9 +106,9 @@ setClass("GenoGAMSettings",
     NULL
 }
 
-.validateIRLSControlType <- function(object) {
+.validateEstimControlType <- function(object) {
     if(class(object@irlsControl) != "list") {
-        return("'irlsControl' must be a list object")
+        return("'estimControl' must be a list object")
     }
     NULL
 }
@@ -116,7 +116,7 @@ setClass("GenoGAMSettings",
 ## general validate function
 .validateGenoGAMSettings <- function(object) {
     c(.validateBAMParamsType(object), .validateOptimMethodType(object),
-      .validateOptimControlType(object) ,.validateIRLSControlType(object))
+      .validateOptimControlType(object) ,.validateEstimControlType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
@@ -132,7 +132,21 @@ S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
 #' @rdname GenoGAMSettings-class
 #' @export
 GenoGAMSettings <- function(...) {
-    return(new("GenoGAMSettings", ...)) 
+    ggs <- new("GenoGAMSettings", ...)
+
+    ## check if all optim params are there
+    params <- slot(ggs, "optimControl")
+    optimControl = list(maxit = 50, fnscale = -1, trace = 1)
+    params <- .fillParameters(l = params, optimControl)
+    slot(ggs, "optimControl") <- params
+
+    ## check if all estimation algo params are there
+    params <- slot(ggs, "estimControl")
+    estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
+    params <- .fillParameters(l = params, estimControl)
+    slot(ggs, "estimControl") <- params
+
+    return(ggs)
 }
 
 ## Cosmetics
@@ -166,10 +180,10 @@ GenoGAMSettings <- function(...) {
         cat(paste0("  ", names(ggs@optimControl)[ii], ": ",
                    ggs@optimControl[[ii]], "\n"))
     }
-    cat("IRLS control:\n")
-    for(ii in 1:length(ggs@irlsControl)) {
-        cat(paste0("  ", names(ggs@irlsControl)[ii], ": ",
-                   ggs@irlsControl[[ii]], "\n"))
+    cat("Parameter estimation control:\n")
+    for(ii in 1:length(ggs@estimControl)) {
+        cat(paste0("  ", names(ggs@estimControl)[ii], ": ",
+                   ggs@estimControl[[ii]], "\n"))
     }
 }
 

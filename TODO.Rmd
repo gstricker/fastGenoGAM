@@ -6,6 +6,6 @@
 - differential binding
 - peak calling
 - export function
-- initial construction of the design matrix takes too much memory for big chunks: Optimize the spline.design function (maybe copy and implement with sparse matrix)
 - suppressWarnings does not work in tile construction if parallel backend is Snow
-- check computaton of SEs, might be very memory intense
+- optimize estimation of parameters (linesearch algorithm, see Nocedal algorithm 3.5 and 3.6, maybe C implementations might be of use in some parts)
+- family function to avoid 'if(family == nb)' and then specifying the respective functions
