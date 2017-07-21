@@ -73,16 +73,16 @@ offer a subset based on tiles.
 
 # subset by overlaps
 ggd <- makeTestGenoGAMDataSet()
-rowRanges(ggd)
-gr <- GRanges("chrXIV", IRanges(306200,307800))
-res <- subsetByOverlaps(ggd, gr)
-rowRanges(res)
+SummarizedExperiment::rowRanges(ggd)
+gr <- GenomicRanges::GRanges("chrXIV", IRanges(306200,307800))
+res <- IRanges::subsetByOverlaps(ggd, gr)
+SummarizedExperiment::rowRanges(res)
 
 # Subset by logical statement
 ggd <- makeTestGenoGAMDataSet()
-rowRanges(ggd)
+SummarizedExperiment::rowRanges(ggd)
 res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
-rowRanges(res)
+SummarizedExperiment::rowRanges(res)
 }
 \references{
 Allen's Interval Algebra: James F. Allen: Maintaining knowledge

@@ -165,7 +165,7 @@ test_that("Hessian matrix computation is correct for one spline", {
     slot(setup, "response") <- rep(-5, dim(X)[1])
 
     ## true Hessian with above inputs
-    Htrue <- t(X) %*% X
+    Htrue <- Matrix::t(X) %*% X
     ## computed Hessian
     res <- .compute_hessian_negbin(setup)
     expect_true(all.equal(Htrue@x, res@x))
@@ -221,7 +221,7 @@ test_that("Hessian matrix computation is correct for more than one spline", {
     slot(setup, "response") <- rep(-5, dim(X)[1])
 
     ## true Hessian with above inputs
-    Htrue <- t(X) %*% X
+    Htrue <- Matrix::t(X) %*% X
     ## computed Hessian
     res <- .compute_hessian_negbin(setup)
     expect_true(all.equal(Htrue@x, res@x))

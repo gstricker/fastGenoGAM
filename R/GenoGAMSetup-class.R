@@ -307,18 +307,23 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 #' build a block matrix from a template submatrix and a design matrix
 #' @noRd
 .blockMatrixFromDesignMatrix <- function(template, design) {
-  ## create 4-dim array by 'inserting' the template into the desing matrix
-  arr <- array(template, c(dim(template),dim(design)))
-  dims <- dim(arr)
-  multP <- c(3,4,1,2)
-  reduceP <- c(3,1,4,2)
-  ## permute array for correct multiplication
-  multArr <- aperm(arr, multP)*as.vector(design)
-  ## permute array for correct reduction
-  reducedArr <- aperm(multArr, reduceP)
-  ## reduce 4-dim array to 2-dim matrix
-  dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
-  return(reducedArr)
+  ## ## create 4-dim array by 'inserting' the template into the desing matrix
+  ## arr <- array(template, c(dim(template),dim(design)))
+  ## dims <- dim(arr)
+  ## multP <- c(3,4,1,2)
+  ## reduceP <- c(3,1,4,2)
+  ## ## permute array for correct multiplication
+  ## multArr <- aperm(arr, multP)*as.vector(design)
+  ## ## permute array for correct reduction
+  ## reducedArr <- aperm(multArr, reduceP)
+  ## ## reduce 4-dim array to 2-dim matrix
+  ## dim(reducedArr) <- c(nrow(template)*nrow(design), ncol(template)*ncol(design))
+  ## return(reducedArr)
+
+    ## use kronecker product for matrices instead of own function
+    ## very memory efficient
+    res <- design %x% template
+    return(res)
 }
 
 #' Build design matrix from the data

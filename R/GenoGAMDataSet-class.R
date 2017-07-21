@@ -184,7 +184,7 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' ggd
 #' 
 #' ## Read data of particular range
-#' region <- GRanges("chrXIV", IRanges(305000, 308000))
+#' region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
 #' params <- Rsamtools::ScanBamParam(which = region)
 #' settings <- GenoGAMSettings(bamParams = params)
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -202,10 +202,10 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #'
 #' # Build from SummarizedExperiment
 #' 
-#' gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
+#' gr <- GenomicRanges::GPos(GRanges("chr1", IRanges(1, 10000)))
 #' seqlengths(gr) <- 1e6
-#' df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
-#' se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
+#' df <- S4Vectors::DataFrame(colA = 1:10000, colB = round(runif(10000)))
+#' se <- SummarizedExperiment::SummarizedExperiment(rowRanges = gr, assays = list(df))
 #' ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
 #'                       design = ~ s(x) + s(x, by = experiment))
 #' ggd
@@ -334,7 +334,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
 
     ## deal with overlapping ranges to reduce complexity and redundancy
     l$chromosomes <- GenomicRanges::reduce(l$chromosomes)
-    lambdaFun <- function(y, sl) {
+    .local <- function(y, sl) {
 
         ## load package for SnowParam or BatchJobs backend
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
@@ -387,7 +387,7 @@ GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
     }
 
     ## run lambda function
-    tileList <- BiocParallel::bplapply(l$chromosomes, lambdaFun, sl = l)
+    tileList <- BiocParallel::bplapply(l$chromosomes, .local, sl = l)
 
     ## concatenate results into one list
     tiles <- do.call("c", tileList)
@@ -928,16 +928,16 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' 
 #' # subset by overlaps
 #' ggd <- makeTestGenoGAMDataSet()
-#' rowRanges(ggd)
-#' gr <- GRanges("chrXIV", IRanges(306200,307800))
-#' res <- subsetByOverlaps(ggd, gr)
-#' rowRanges(res)
+#' SummarizedExperiment::rowRanges(ggd)
+#' gr <- GenomicRanges::GRanges("chrXIV", IRanges(306200,307800))
+#' res <- IRanges::subsetByOverlaps(ggd, gr)
+#' SummarizedExperiment::rowRanges(res)
 #'
 #' # Subset by logical statement
 #' ggd <- makeTestGenoGAMDataSet()
-#' rowRanges(ggd)
+#' SummarizedExperiment::rowRanges(ggd)
 #' res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
-#' rowRanges(res)
+#' SummarizedExperiment::rowRanges(res)
 #' @references
 #' Allen's Interval Algebra: James F. Allen: Maintaining knowledge
 #' about temporal intervals. In: Communications of the ACM.

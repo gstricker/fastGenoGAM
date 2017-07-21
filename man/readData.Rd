@@ -82,7 +82,7 @@ df <- readData(config, settings = settings)
 df
 
 ## Read data of particular range
-region = GRanges("chrXIV", IRanges(305000, 308000))
+region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 df <- readData(config, settings = settings)

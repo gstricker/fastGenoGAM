@@ -128,7 +128,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     
     futile.logger::flog.info("Fitting model")
 
-    lambdaFun <- function(id, data, init, coords) {
+    .local <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
         irlsControl <- slot(slot(data, "settings"), "irlsControl")
@@ -156,7 +156,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     }
 
     ids <- 1:length(coords)
-    res <- BiocParallel::bplapply(ids, lambdaFun, 
+    res <- BiocParallel::bplapply(ids, .local, 
                                   data = ggd, init = ggs, coords = coords)
 
     futile.logger::flog.info("Done")
@@ -172,7 +172,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     combinedSEs <- .transformResults(res, relativeChunks, what = "se")
         
     ## build GenoGAM object
-    se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rowRanges(ggd),
+    se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
                                                      assays = list(fits = combinedFits,
                                                                    se = combinedSEs))
     
@@ -211,7 +211,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     }
     
     tile <- coords[id,]
-    y <- assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
+    y <- SummarizedExperiment::assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
     
     Y <- unname(unlist(as.data.frame(y)))
     return(as.integer(Y))
@@ -224,6 +224,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     ## initiate response vector and betas
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)
     numBetas <- dim(slot(setup, "designMatrix"))[2]
+    
     if(length(slot(setup, "response")) != 0) {
         ## set betas to the runmedian of the response
         means <- IRanges::runmed(slot(setup, "response"), 11, endrule = "median")
@@ -355,7 +356,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     S <- slot(ggs, "penaltyMatrix")
 
     if(length(ggs) == 0) {
-        res <- numeric()
+        res <- list(par = matrix(0,0,0), converged = FALSE, iterations = 0)
         return(res)
     }
 
@@ -367,9 +368,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
              theta = params$theta, lambda = params$lambda, S = S, 
              control = control)
 
-    if(length(res) == 0) {
-        res <- list(par = numeric(), converged = FALSE, iterations = 0)
-    }
+    res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
     return(res)
 }
 

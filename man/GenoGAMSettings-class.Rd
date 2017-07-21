@@ -84,8 +84,8 @@ chromosomeList <- c('chr1', 'chr2')
 GenoGAMSettings(center = center, chromosomeList = chromosomeList)
 
 ## Specify ranges
-gr <- GRanges("chr1", IRanges(1, 10000))
-bamParams <- ScanBamParam(which = gr)
+gr <- GenomicRanges::GRanges("chr1", IRanges(1, 10000))
+bamParams <- Rsamtools::ScanBamParam(which = gr)
 GenoGAMSettings(bamParams = bamParams, center = TRUE)
 }
 \author{

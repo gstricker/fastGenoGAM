@@ -248,7 +248,7 @@ ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
 ggd
 
 ## Read data of particular range
-region <- GRanges("chrXIV", IRanges(305000, 308000))
+region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -266,10 +266,10 @@ ggd
 
 # Build from SummarizedExperiment
 
-gr <- GPos(GRanges("chr1", IRanges(1, 10000)))
+gr <- GenomicRanges::GPos(GRanges("chr1", IRanges(1, 10000)))
 seqlengths(gr) <- 1e6
-df <- DataFrame(colA = 1:10000, colB = round(runif(10000)))
-se <- SummarizedExperiment(rowRanges = gr, assays = list(df))
+df <- S4Vectors::DataFrame(colA = 1:10000, colB = round(runif(10000)))
+se <- SummarizedExperiment::SummarizedExperiment(rowRanges = gr, assays = list(df))
 ggd <- GenoGAMDataSet(se, chunkSize = 2000, overhangSize = 250, 
                       design = ~ s(x) + s(x, by = experiment))
 ggd

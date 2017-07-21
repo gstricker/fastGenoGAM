@@ -1,10 +1,11 @@
-# To explore
+# To implement
 
-- Iterations for beta estimation are usually in the hundreds, sometimes even exceeding 1000 and taking up to 7 seconds. Look for better initialization of beta, beyond mean over the response vector.
-- maxiter cap seems to effect fit (obvious) but also to gluing at junction point
 - Quality checks. Just like logging on different levels
 - Logging has to be output to files if threshold is debug
 - Plotting
 - differential binding
 - peak calling
 - export function
+- initial construction of the design matrix takes too much memory for big chunks: Optimize the spline.design function (maybe copy and implement with sparse matrix)
+- suppressWarnings does not work in tile construction if parallel backend is Snow
+- check computaton of SEs, might be very memory intense

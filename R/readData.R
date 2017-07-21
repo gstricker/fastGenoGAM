@@ -72,7 +72,7 @@
 #' df
 #' 
 #' ## Read data of particular range
-#' region = GRanges("chrXIV", IRanges(305000, 308000))
+#' region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
 #' params <- Rsamtools::ScanBamParam(which = region)
 #' settings <- GenoGAMSettings(bamParams = params)
 #' df <- readData(config, settings = settings)
@@ -280,7 +280,7 @@ asMates = TRUE for paired-end data", call. = FALSE)
     futile.logger::flog.debug("The following regions will be read in:")
     futile.logger::flog.debug(show(regions))
     
-    lambdaFun <- function(chromName, chromosomeCoords, asMates, path, indexFile,
+    .local <- function(chromName, chromosomeCoords, asMates, path, indexFile,
                           params, processFUN, args) {
         ## load package for SnowParam or BatchJobs backend
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
@@ -308,7 +308,7 @@ asMates = TRUE for paired-end data", call. = FALSE)
     }
     
     ## run BAM reading in parallel. 
-    res <- BiocParallel::bplapply(names(chromosomeLengths), lambdaFun,
+    res <- BiocParallel::bplapply(names(chromosomeLengths), .local,
                                   chromosomeCoords = regions, asMates = asMates, 
                                   path = path, indexFile = indexFile, params = params,
                                   processFUN = processFUN, args = args)

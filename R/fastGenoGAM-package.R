@@ -4,7 +4,8 @@
 #' @import BiocParallel
 #' @import GenomicRanges
 #' @import methods
-#' @importFrom stats runif rnbinom as.formula dnbinom optim
+#' @import IRanges
+#' @importFrom stats runif rnbinom as.formula dnbinom optim na.omit
 #' @importFrom futile.logger flog.info
 #' @importFrom futile.logger flog.warn
 #' @importFrom futile.logger flog.error

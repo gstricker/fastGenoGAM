@@ -411,7 +411,7 @@ setMethod("show", "GenoGAM", function(object) {
 ## #' @return A data.frame of the selected data.
 ## #' @examples
 ## #' gg <- makeTestGenoGAM()
-## #' gr <- GRanges("chrI", IRanges(1,40))
+## #' gr <- GenomicRanges::GRanges("chrI", IRanges(1,40))
 ## #' head(view(gg, gr))
 ## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 ## #' @rdname GenoGAM-view
