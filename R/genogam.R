@@ -72,7 +72,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
                         H = H, bpknots = bpknots, order = order,
-                        penorder = m)
+                        penorder = m, control = slot(settings, "estimControl"))
 
     futile.logger::flog.info("Done")
     ## Cross Validation
@@ -131,20 +131,18 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     .local <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
-        irlsControl <- slot(slot(data, "settings"), "irlsControl")
         setup <- .initiate(data, init, coords, id)
-        betas <- .estimateParams(setup, irlsControl)
+        betas <- .estimateParams(setup)
 
         futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
         if(betas$converged == FALSE) {
-            futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'irlsControl' slot in the settings might help, but should be done at own risk.")
+            futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'estimControl' slot in the settings might help, but should be done at own risk.")
         }
         
         slot(setup, "beta") <- betas$par
         slot(setup, "fits") <- .getFits(setup)
         
-        H <- .compute_hessian_negbin(setup)
-        slot(setup, "se") <- .computeSE(setup, H)
+        slot(setup, "se") <- .compute_SE(setup)
         
         slot(setup, "designMatrix") <- new("dgCMatrix")
         slot(setup, "penaltyMatrix") <- new("dgCMatrix")

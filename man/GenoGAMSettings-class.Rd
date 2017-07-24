@@ -69,8 +69,7 @@ See ?optim for a complete list.}
 Almost all parameters are supported, with a couple of exceptions. See
 details. For a complete list of parameters see ?optim.}
 
-\item{\code{irlsControl}}{List of control settings for the IRLS algorithm. Mainly
-the threshold parameter 'eps' and the maximum iterations parameter 'maxiter'}
+\item{\code{estimControl}}{List of control settings for the parameter estimation algorithm.}
 }}
 
 \examples{

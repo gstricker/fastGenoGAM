@@ -1,8 +1,11 @@
 context("Testing Cross Validation functionality")
 
 ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+settings <- GenoGAMSettings()
+control <- slot(settings, "estimControl")
 ggs <- setupGenoGAM(ggd, lambda = NULL, theta = NULL, family = "nb",
-                    H = 0, bpknots = 20, order = 2, penorder = 2)
+                    H = 0, bpknots = 20, order = 2, penorder = 2,
+                    control = control)
 folds <- 10
 iv <- 20
 
@@ -24,7 +27,7 @@ test_that("The likelihood function computes correctly", {
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  estimControl = slot(settings, "estimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll < 0)
@@ -33,20 +36,20 @@ test_that("The likelihood function computes correctly", {
     fixedpars[] <- lapply(initpars, exp)
     ll_fixed <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  estimControl = slot(settings, "estimControl"),
                   fixedpars = fixedpars)
     expect_true(all.equal(ll, ll_fixed))
 
     fixedpars$lambda <- NULL
     ll_fixed_one <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getOverhangSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  estimControl = slot(settings, "estimControl"),
                   fixedpars = fixedpars)
     expect_true(all.equal(ll, ll_fixed, ll_fixed_one))
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = 0, method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  estimControl = slot(settings, "estimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll < 0)
@@ -54,7 +57,7 @@ test_that("The likelihood function computes correctly", {
 
     ll <- .loglik(pars = initpars, setup = list(setup), CV_intervals = cv,
                   ov = getTileSize(ggd), method = slot(settings, "optimMethod"),
-                  irlsControl = slot(settings, "irlsControl"),
+                  estimControl = slot(settings, "estimControl"),
                   fixedpars = fixedpars)
     
     expect_true(ll == 0)

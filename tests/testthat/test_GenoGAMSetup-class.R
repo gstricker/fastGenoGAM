@@ -16,9 +16,11 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(slot(ggs, "family") == "nb")
     expect_true(length(slot(ggs, "response")) == 0)
     expect_true(length(slot(ggs, "fits")) == 0)
+    expect_true(length(slot(ggs, "control")) == 6)
 
     mat <- matrix(1:9, 3, 3)
     k <- 10
+    control <- list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
     ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, H = 0.05),
                         knots = list(1:k), designMatrix = as(mat, "dgCMatrix"),
                         beta = mat, se = list(runif(k)),
@@ -39,6 +41,7 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(slot(ggs, "family") == "myFamily")
     expect_true(all(slot(ggs, "response") == 1:10))
     expect_true(length(slot(ggs, "fits")[[1]]) == k)
+    expect_true(length(slot(ggs, "control")) == length(control))
 })
 
 test_that("Knots are placed correctly", {

@@ -2,6 +2,9 @@
 ## Setup class ##
 #################
 
+#' @include helper.R
+NULL
+
 #' GenoGAMSEtup class
 #'
 #' A class to embody the setup for a GenoGAM fit
@@ -43,7 +46,7 @@ setClass("GenoGAMSetup",
                           design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
                           response = integer(), fits = list(),
-                          control = list()))
+                          control = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)))
 
 ## Validity
 ## ========
@@ -170,6 +173,12 @@ GenoGAMSetup <- function(...) {
     coreValues <- c(lambda = 0, theta = 0, H = 0, order = 2, penorder = 2)
     params <- .fillParameters(l = params, coreValues)
     slot(ggs, "params") <- params
+
+    ## check if all estimation algo params are there
+    params <- slot(ggs, "control")
+    estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
+    params <- .fillParameters(l = params, estimControl)
+    slot(ggs, "control") <- params
     return(ggs)
 }
 
@@ -213,7 +222,8 @@ setMethod("length", "GenoGAMSetup", function(x) {
 
 #' Constructor function
 #' @noRd
-setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb", bpknots = 20, order = 2, penorder = 2) {
+setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
+                         bpknots = 20, order = 2, penorder = 2, control = list()) {
 
     ## knot placement    
     positions <- ranges(getIndex(ggd))[1]
@@ -241,7 +251,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
                                           order = order, penorder = penorder),
                             knots = knots, formula = design(ggd),
                             design = des, offset = offset, family = family,
-                            designMatrix = X, penaltyMatrix = S)
+                            designMatrix = X, penaltyMatrix = S, control = control)
   
     return(ggsetup)
 }

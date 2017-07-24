@@ -15,6 +15,7 @@ test_that("The GenoGAMSettings validation works correctly", {
     expect_error(GenoGAMSettings(center = 10))
     expect_error(GenoGAMSettings(chromosomeList = 10))
     expect_error(GenoGAMSettings(processFunction = 10))
+    expect_error(GenoGAMSettings(estimControlFunction = 10))
 })
 
 test_that("The GenoGAMSettings assignment works correctly", {
@@ -28,7 +29,7 @@ test_that("The GenoGAMSettings assignment works correctly", {
 
     params <- list(a = 1, b = "2")
     ggs <- GenoGAMSettings(optimControl = params)
-    expect_identical(params, slot(ggs, "optimControl"))
+    expect_true(all(!(params %in% names(slot(ggs, "optimControl")))))
     
     params <- TRUE
     ggs <- GenoGAMSettings(center = params)
@@ -41,4 +42,8 @@ test_that("The GenoGAMSettings assignment works correctly", {
     params <- identity
     ggs <- GenoGAMSettings(processFunction = params)
     expect_identical(params, slot(ggs, "processFunction"))
+
+    params <- list(a = 1, b = "2")
+    ggs <- GenoGAMSettings(estimControl = params)
+    expect_true(all(!(params %in% names(slot(ggs, "estimControl")))))
 })

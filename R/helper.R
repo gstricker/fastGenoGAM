@@ -25,6 +25,16 @@
 .fillParameters <- function(l, ...) {
     params <- c(...)
     allin <- names(params) %in% names(l)
+
+    ## has to be done after the 'allin', since if all params in l
+    ## are not valid, %in% would match an empty list and not fill
+    ## it with the default values
+    wrong_params <- names(l) %in% names(params)
+    if(sum(!wrong_params) > 0) {
+        futile.logger::flog.warn("Some supplied parameters aren't valid and won't be used")
+        l <- l[wrong_params]
+    }
+    
     if(!all(allin)) {
         for(elem in names(params)) {
             if(is.null(l[[elem]])) {

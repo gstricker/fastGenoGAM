@@ -18,14 +18,14 @@
 #' @param fn The log-likelihood function to be used
 #' @param method The optim method
 #' @param control Other control parameters according to optim
-#' @param irlsControl Control parameters according to irls method
+#' @param estimControl Control parameters according to parameter estimation method
 #' @param ... Possibly other parameters
 #' @return The optimized params (They are initially part of the setup object)
 #' @noRd
 .doCrossValidation <- function(ggd, setup, coords, id, folds, intervalSize,
                                fn, method = "Nelder-Mead",
                                control = list(maxit=100, fnscale=-1),
-                               irlsControl = list(eps = 1e-6, maxiter = 1000), ...) {
+                               estimControl = list(eps = 1e-6, maxiter = 1000), ...) {
     
     setups <- vector("list", length(id))
     for (ii in 1:length(id)) {
@@ -52,8 +52,12 @@
                     "  Interval size: ", intervalSize, "\n",
                     "  Optim method: ", method, "\n",
                     "  Maximal iterations: ", control$maxit, "\n",
-                    "  Maximal IRLS iterations: ", irlsControl$maxiter, "\n",
-                    "  IRLS threshold: ", irlsControl$eps, "\n",
+                    "  Maximal L-BFGS iterations: ", estimControl$maxiter, "\n",
+                    "  L-BFGS epsilon: ", estimControl$eps, "\n",
+                    "  L-BFGS alpha: ", estimControl$alpha, "\n",
+                    "  L-BFGS rho: ", estimControl$rho, "\n",
+                    "  L-BFGS c: ", estimControl$c, "\n",
+                    "  L-BFGS m: ", estimControl$m, "\n",
                     "  Parameters to optimize: ", paste(names(initpars), collapse = ","), "\n",
                     "  Value of fixed parameters: ", paste(fixedpars, collapse = ", "), "\n")
     futile.logger::flog.debug(input)
@@ -63,7 +67,7 @@
     }
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
                   ov = ov, method = method, control = control, 
-                  fixedpars = fixedpars, irlsControl = irlsControl, ...)
+                  fixedpars = fixedpars, estimControl = estimControl, ...)
     params <- exp(pars$par)
 
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
@@ -90,7 +94,7 @@
 #' @return The mean log-likelihood over all models
 #' @noRd
 .loglik <- function(pars, setup, CV_intervals, ov, fixedpars,
-                    irlsControl = list(eps = 1e-6, maxiter = 1000), ...){
+                    estimControl, ...){
 
     if(is.null(fixedpars$lambda)) {
         fixedpars$lambda <- exp(pars[["lambda"]])
@@ -109,8 +113,8 @@
     names(fullpred) <- names(setup)
     ids <- expand.grid(folds = 1:length(CV_intervals), tiles = 1:length(setup))
 
-    lambdaFun <- function(iter, ids, setup, CV_intervals, irlsControl) {
-##        suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
+    .local <- function(iter, ids, setup, CV_intervals, estimControl) {
+        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
         id <- ids[iter,]
         
         trainsetup <- setup[[id$tiles]]
@@ -121,7 +125,7 @@
         slot(trainsetup, "response") <- trainY[-CV_intervals[[id$folds]]]
         slot(trainsetup, "offset") <- slot(trainsetup, "offset")[-CV_intervals[[id$folds]]]
                     
-        betas <- .estimateParams(trainsetup, control = irlsControl)
+        betas <- .estimateParams(trainsetup)
             
         pred <- exp(testX %*% betas$par)
         return(pred)
@@ -132,9 +136,9 @@
         slot(setup[[ii]], "params")$lambda <- fixedpars$lambda
     }
     
-    cvs <- BiocParallel::bplapply(1:nrow(ids), lambdaFun, ids = ids,
+    cvs <- BiocParallel::bplapply(1:nrow(ids), .local, ids = ids,
                                   setup = setup, CV_intervals = CV_intervals,
-                                  irlsControl = irlsControl)
+                                  estimControl = estimControl)
 
     for(ii in 1:length(cvs)) {
         id <- ids[ii,]

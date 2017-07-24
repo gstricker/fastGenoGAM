@@ -1,3 +1,8 @@
+## NOTE: All estimation and optimization is performed on the negative log-likelihood,
+## as we are targeting a minimization problem (as is usually done in numerical optimization).
+## The log-likelihood, the gradient and the hessian should usually be pre-multiplies by (-1)
+## to get their normal form as derived on paper.
+
 #' The IRLS algorithm
 ## .irls_nb <- function(beta0, X, y, theta, lambda, S, offset, control = list(eps = 1e-6, maxiter = 1000)) {
 ##     beta <- beta0
@@ -66,7 +71,7 @@
     }
 
     
-    H <- do.call(.compute_hessian, c(list(betas, X, offset, S, lambda, hf), args))
+    H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, hf), args))
     
     res <- .lbfgs(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
                   offset = offset, theta = params$theta,
@@ -107,6 +112,10 @@
 #' Compute basepair Standard deviation from Hessian
 #' @noRd
 .compute_SE <- function(setup){
+    if(length(setup) == 0) {
+        return(numeric())
+    }
+    
     params <- slot(setup, "params")
     theta <- params$theta
     lambda <- params$lambda
@@ -194,6 +203,29 @@
     }
     Hinv <- invisible(Matrix::solve(H))
     return(Hinv)
+}
+
+.computeDirection <- function(H, gradk, s, y, ro, len) {
+    q <- gradk
+    if(len == 0) {
+        r <- Matrix::solve(H, q, sparse = TRUE)
+        return(r)
+    }
+
+    alpha <- numeric(len)
+    
+    for(ii in len:1) {
+        alpha[ii] <- ro[ii] * crossprod(s[,ii], q)
+        q <- q - alpha[ii] * y[,ii]
+    }
+
+    r <- Matrix::solve(H, q, sparse = TRUE)
+    
+    for(jj in 1:len) {
+        beta <- as.numeric(ro[jj] * crossprod(y[,jj], r))
+        r <- r + s[,jj] * (alpha[jj] - beta)
+    }
+    return(r)
 }
 
 #' compute approximate Hessian
