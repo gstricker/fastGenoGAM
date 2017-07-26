@@ -9,3 +9,8 @@
 - suppressWarnings does not work in tile construction if parallel backend is Snow
 - optimize estimation of parameters (linesearch algorithm, see Nocedal algorithm 3.5 and 3.6, maybe C implementations might be of use in some parts)
 - family function to avoid 'if(family == nb)' and then specifying the respective functions
+
+
+- demonstrate that default tolerance in hessian inversion works
+- length of tiles
+- cross-validation (use same regions for given lambda/theta with different tile size; scatterplot fits)

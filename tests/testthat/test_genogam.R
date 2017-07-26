@@ -124,7 +124,7 @@ test_that("Negative binomial log-likelihood and gradient give correct results", 
     offset <- rep(0, dim(X)[1])
 
     ## true loglik with input from above
-    loglik <- 2*dim(X)[1]*log(2)
+    loglik <- (2*dim(X)[1]*log(2))/dim(X)[1]
     ## computed loglik
     res <- .ll_penalized_nb(betas, X, y, offset, theta, lambda, S)
     expect_true(all.equal(loglik, res))
@@ -135,7 +135,7 @@ test_that("Negative binomial log-likelihood and gradient give correct results", 
 
     newY <- matrix(3, dim(X)[1], 1)
     ## true gradient
-    grad <- (-1) * colSums(as.matrix(X))
+    grad <- (-1/dim(X)[1]) * colSums(as.matrix(X))
     ## computed gradients
     res <- .gr_ll_penalized_nb(betas, X, newY, offset, theta, lambda, S)
     expect_true(all.equal(grad, res))

@@ -107,7 +107,6 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         else ids <- 1:length(coords)
 
         control <- slot(settings, "optimControl")
-        irlsControl <- slot(settings, "irlsControl")
         futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
         
         params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
@@ -115,8 +114,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                                      intervalSize = intervalSize,
                                      fn = .loglik, 
                                      method = slot(settings, "optimMethod"),
-                                     control = control,
-                                     irlsControl = irlsControl) 
+                                     control = control) 
 
         names(params) <- c("lambda", "theta")
         slot(ggs, "params")$lambda <- params["lambda"]

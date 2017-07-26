@@ -84,6 +84,7 @@
 ## 
 
 #' penalized Negative Binomial likelihood
+#' The likelihood is divided by N to make lambda length independent
 #' @noRd
 .ll_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
   n <- dim(X)[1]
@@ -95,16 +96,17 @@
   ## possibly very high numbers
   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
   pen <- t(beta) %*% S %*% beta
-  return(-l[1]+lambda*pen[1,1])
+  return(-1/n * l[1] + lambda*pen[1,1])
 }  
 
 #' gradient of penalized negative Binomial likelihood
+#' the gradients are divided by N to make lambda length independent
 #' @noRd
 .gr_ll_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
   eta <- offset + X%*%beta
   mu <- exp(eta)
   z <- (y-mu)/(1+mu/theta)
-  res <- Matrix::t(X)%*%z
+  res <- (Matrix::t(X)%*%z)/length(y)
   pen <- S %*% beta
   return (-res[,1]+2*lambda*pen[,1])
 }
@@ -195,13 +197,44 @@
     return(d)
 }
 
+## #' Computation of the inverse of H
+## #' @noRd
+## .invertHessian <- function(H, tol = 0.0001) {
+##     if(length(H) == 0) {
+##         return(as(matrix(, 0, 0), "dgCMatrix"))
+##     }
+##     Hinv <- invisible(Matrix::solve(H))
+##     return(Hinv)
+## }
+
+
+
 #' Computation of the inverse of H
 #' @noRd
 .invertHessian <- function(H, tol = 0.0001) {
+
     if(length(H) == 0) {
         return(as(matrix(, 0, 0), "dgCMatrix"))
     }
-    Hinv <- invisible(Matrix::solve(H))
+
+    C <- Cholesky(H)
+    
+    res <- lapply(1:ncol(H), function(k) {
+        ek = rep(0, nrow(H))
+        ek[k] = 1
+        s = Matrix::solve(C,ek)
+        keep <- which(abs(s@x) > tol)
+        x <- s@x[keep]
+        i <- keep - 1
+        j <- rep(k - 1, length(keep))
+        return(list(x = x, i = i, j = j))
+    })
+
+    x <- unlist(sapply(res, function(m) m$x))
+    i <- unlist(sapply(res, function(m) m$i))
+    j <- unlist(sapply(res, function(m) m$j))
+    Hinv <- Matrix::sparseMatrix(i = i, j = j, x = x, index1 = FALSE)
+
     return(Hinv)
 }
 

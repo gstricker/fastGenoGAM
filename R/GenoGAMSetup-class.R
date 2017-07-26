@@ -292,8 +292,10 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 #' Courtesy to Simon Wood (mgcv). Slightly changed
 #' @noRd
 .buildSMatrix <- function(p, order, nfun) {
-    
-    S <- Matrix::Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
+
+    ##initialize a diagonal identity matrix
+    S <- Matrix::bandSparse(p, k = 0, diag = c(list(rep(1, p))))
+    ## S <- Matrix::Matrix(diag(p), sparse = TRUE) 
     for (i in 1:order) {
         S <- Matrix::diff(S) ## twice the difference   
     }
@@ -307,8 +309,10 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 #' Courtesy to Simon Wood (mgcv)
 #' @noRd
 .buildIMatrix <- function(p, epsilon) {
-  I = Matrix::Matrix(diag(p), sparse = TRUE) ##initialize a diagonal identity matrix
-  return(epsilon*I)
+
+    ##initialize a diagonal identity matrix
+    I <- Matrix::bandSparse(p, k = 0, diag = c(list(rep(1, p)))) 
+    return(epsilon*I)
 }
 
 #B spline basis

@@ -24,8 +24,7 @@
 #' @noRd
 .doCrossValidation <- function(ggd, setup, coords, id, folds, intervalSize,
                                fn, method = "Nelder-Mead",
-                               control = list(maxit=100, fnscale=-1),
-                               estimControl = list(eps = 1e-6, maxiter = 1000), ...) {
+                               control = list(maxit=100, fnscale=-1), ...) {
     
     setups <- vector("list", length(id))
     for (ii in 1:length(id)) {
@@ -45,7 +44,7 @@
         initpars$theta <- log(slot(setups[[1]], "params")[["theta"]])
     }
     fixedpars <- list(lambda = par$lambda, theta = par$theta)
-
+    estimControl <- slot(setup, "control")
     input <- paste0("Performing Cross-Validation with the following parameters:\n",
                     "  Tile indeces: ", paste(id, collapse = ","), "\n",
                     "  Number of folds: ", folds, "\n",
@@ -67,7 +66,7 @@
     }
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
                   ov = ov, method = method, control = control, 
-                  fixedpars = fixedpars, estimControl = estimControl, ...)
+                  fixedpars = fixedpars, ...)
     params <- exp(pars$par)
 
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
@@ -93,8 +92,7 @@
 #' @param ... Other parameters
 #' @return The mean log-likelihood over all models
 #' @noRd
-.loglik <- function(pars, setup, CV_intervals, ov, fixedpars,
-                    estimControl, ...){
+.loglik <- function(pars, setup, CV_intervals, ov, fixedpars, ...){
 
     if(is.null(fixedpars$lambda)) {
         fixedpars$lambda <- exp(pars[["lambda"]])
@@ -113,7 +111,7 @@
     names(fullpred) <- names(setup)
     ids <- expand.grid(folds = 1:length(CV_intervals), tiles = 1:length(setup))
 
-    .local <- function(iter, ids, setup, CV_intervals, estimControl) {
+    .local <- function(iter, ids, setup, CV_intervals) {
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
         id <- ids[iter,]
         
@@ -137,8 +135,7 @@
     }
     
     cvs <- BiocParallel::bplapply(1:nrow(ids), .local, ids = ids,
-                                  setup = setup, CV_intervals = CV_intervals,
-                                  estimControl = estimControl)
+                                  setup = setup, CV_intervals = CV_intervals)
 
     for(ii in 1:length(cvs)) {
         id <- ids[ii,]
