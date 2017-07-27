@@ -72,21 +72,23 @@
 
     
     H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, hf), args))
-    
+
+    ## fact argument needed to normalize likelihood with respect to data points
     res <- .lbfgs(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
                   offset = offset, theta = params$theta,
-                  lambda = params$lambda, S = S, control = control)
+                  lambda = params$lambda, S = S, fact = dim(X)[1], control = control)
 
     res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
     return(res)
 }
 
-## 
+## NOTE: Likelihood and gradient have to have the same arguments, because
+## arguments passed through the ellipse are passed to both functions. If
+## they differ R will throw an error of unused parameter
 
 #' penalized Negative Binomial likelihood
-#' The likelihood is divided by N to make lambda length independent
 #' @noRd
-.ll_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
+.ll_penalized_nb <- function(beta, X, y, offset, theta, lambda, S, fact = 1){
   n <- dim(X)[1]
   eta <- offset + X%*%beta
   mu <- exp(eta)
@@ -96,7 +98,7 @@
   ## possibly very high numbers
   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
   pen <- t(beta) %*% S %*% beta
-  return(-1/n * l[1] + lambda*pen[1,1])
+  return(-1/fact * l[1] + lambda*pen[1,1])
 }  
 
 #' gradient of penalized negative Binomial likelihood
@@ -106,7 +108,7 @@
   eta <- offset + X%*%beta
   mu <- exp(eta)
   z <- (y-mu)/(1+mu/theta)
-  res <- (Matrix::t(X)%*%z)/length(y)
+  res <- Matrix::t(X)%*%z
   pen <- S %*% beta
   return (-res[,1]+2*lambda*pen[,1])
 }
@@ -299,7 +301,7 @@
 #' used and a linear system is solved via a direct solver is solved to obtain the
 #' respective values. (see Nocedal, p. 178)
 #' @noRd
-.lbfgs <- function(x0, H0, f, gr, control = list(), ...) {
+.lbfgs <- function(x0, H0, f, gr, control = list(), fact = 1, ...) {
     ## If list is empty then replace with the proper settings
     if(length(control) == 0) {
         control <- list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
@@ -344,7 +346,7 @@
 
         ## update ll and gradient
         lllast <- llk
-        llk <- f(xnext, ...)
+        llk <- f(xnext, fact = fact, ...)
         lldiff <- abs(llk - lllast)
         gradNext <- matrix(gr(beta = xnext, ...), ncol = 1)
         normGrad <- sqrt(as.numeric(crossprod(gradNext)))

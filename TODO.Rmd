@@ -9,6 +9,7 @@
 - suppressWarnings does not work in tile construction if parallel backend is Snow
 - optimize estimation of parameters (linesearch algorithm, see Nocedal algorithm 3.5 and 3.6, maybe C implementations might be of use in some parts)
 - family function to avoid 'if(family == nb)' and then specifying the respective functions
+- store only the original B matrix and move the creation of design matrix X by colData to init step
 
 
 - demonstrate that default tolerance in hessian inversion works
