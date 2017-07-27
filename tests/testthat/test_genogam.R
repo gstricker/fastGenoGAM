@@ -165,6 +165,10 @@ test_that("Hessian matrix computation is correct for empty spline", {
     inv <- .invertHessian(hess)
     expect_true(all.equal(hess, inv))
 
+    ## matrix inversion for a too high tolerance
+    inv <- .invertHessian(hess, tol = 10)
+    expect_true(length(inv) == 0)
+
     se <- .compute_SE(setup)
     expect_true(length(se) == 0)
 })

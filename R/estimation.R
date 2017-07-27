@@ -235,6 +235,10 @@
     x <- unlist(sapply(res, function(m) m$x))
     i <- unlist(sapply(res, function(m) m$i))
     j <- unlist(sapply(res, function(m) m$j))
+
+    if(length(x) == 0 | length(i) == 0 | length(j) == 0) {
+        return(as(matrix(, 0, 0), "dgCMatrix"))
+    }
     Hinv <- Matrix::sparseMatrix(i = i, j = j, x = x, index1 = FALSE)
 
     return(Hinv)
