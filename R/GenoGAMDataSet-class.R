@@ -212,10 +212,36 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @name GenoGAMDataSet
 #' @rdname GenoGAMDataSet-class
 #' @export
-GenoGAMDataSet <- function(experimentDesign, chunkSize, overhangSize, design,
+GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangSize = NULL,
                            directory = ".", settings = NULL, hdf5 = FALSE, ...) {
 
     futile.logger::flog.info("Creating GenoGAMDataSet")
+
+    if(is.null(chunkSize)) {
+        ## set optimal chunk length if not provided
+        ## based on number of cores, samples and splines
+        
+        workers <- BiocParallel::registered()[[1]]$workers
+        ## maximal chunk size to work with and use only 1GB per core
+        posPerGB <- 75000
+        ## we don't want to exceed this number of GByte per core
+        GBlimit <- 4
+        ## determine number of splines and samples
+        if(class(experimentDesign) == "data.frame") {
+            nsamples <- nrow(experimentDesign)
+        }
+        else {
+            nsamples <- count.fields(experimentDesign)[1]
+        }
+        nsplines <- length(.getVars(design))
+        
+        chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
+    }
+
+    if(is.null(overhangSize)) {
+        ## overhang size not bigger than half of the chunk
+        overhangSize <- min(1000, chunkSize/2 - 1)
+    }
 
     if(missing(experimentDesign)) {
         futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")

@@ -42,7 +42,7 @@
 ##' @export
 genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                     bpknots = 20, kfolds = 10, intervalSize = 20, 
-                    regions = 20, order = 2, m = 2) {
+                    regions = 20, regionSize = 4000, order = 2, m = 2) {
 
     futile.logger::flog.info("Initializing the model")
 
@@ -63,7 +63,6 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     futile.logger::flog.debug(show(slot(ggd, "settings")))
     
     settings <- slot(ggd, "settings")
-    tileSettings <- tileSettings(ggd)
     check <- .checkSettings(ggd)
     coords <- .getCoordinates(ggd)
     chunks <- .getChunkCoords(coords)
@@ -80,13 +79,27 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     if(is.null(lambda) | is.null(theta)) {
         futile.logger::flog.info("Estimating hyperparameters")
+
+        ## check correct region size
+        if(regionSize < 2*getOverhangSize(ggd)) {
+            futile.logger::flog.warning("region size too small for cross validation, set to twice the overhang size.")
+            regionSize <- 2*getOverhangSize(ggd)
+        }
+
+        ## backup original tile index
+        index_backup <- getIndex(ggd)
+
+        ## make new tile index
+        metadata(slot(ggd, "index"))$chunkSize <- regionSize
+        newTiles <- .makeTiles(tileSettings(ggd))
+        slot(ggd, "index") <- newTiles
         
         ## get the tile ids for CV
         sumMatrix <- sum(ggd)
         ## ncv set to a number, such that CV does not compute more models than
         ## the actual genogam run. 
-        ## 50 is the average expected number of iterations
-        ncv <- min(regions, ceiling(length(coords)/(kfolds*50)))
+        ## 40 is the average expected number of iterations
+        ncv <- min(regions, ceiling(length(coords)/(kfolds*40)))
 
         if(ncv < regions) {
             futile.logger::flog.debug(paste("Reducing the number of regions to", ncv))
@@ -119,7 +132,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         names(params) <- c("lambda", "theta")
         slot(ggs, "params")$lambda <- params["lambda"]
         slot(ggs, "params")$theta <- params["theta"]
-                
+
+        ## set back the original tile index
+        slot(ggd, "index") <- index_backup
         cv <- TRUE
         futile.logger::flog.info("Done")
     }
