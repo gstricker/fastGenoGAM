@@ -219,7 +219,7 @@
         return(as(matrix(, 0, 0), "dgCMatrix"))
     }
 
-    C <- Cholesky(H)
+    C <- Matrix::Cholesky(H)
     
     res <- lapply(1:ncol(H), function(k) {
         ek = rep(0, nrow(H))

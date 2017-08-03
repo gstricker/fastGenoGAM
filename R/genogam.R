@@ -93,19 +93,23 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         metadata(slot(ggd, "index"))$chunkSize <- regionSize
         newTiles <- .makeTiles(tileSettings(ggd))
         slot(ggd, "index") <- newTiles
+        new_ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
+                                H = H, bpknots = bpknots, order = order,
+                                penorder = m, control = slot(settings, "estimControl"))
+        new_coords <- .getCoordinates(ggd)
         
         ## get the tile ids for CV
         sumMatrix <- sum(ggd)
         ## ncv set to a number, such that CV does not compute more models than
         ## the actual genogam run. 
         ## 40 is the average expected number of iterations
-        ncv <- min(regions, ceiling(length(coords)/(kfolds*40)))
+        ncv <- min(regions, ceiling(length(new_coords)/(kfolds*40)))
 
         if(ncv < regions) {
             futile.logger::flog.debug(paste("Reducing the number of regions to", ncv))
         }
         
-        if(ncv < length(coords)) {
+        if(ncv < length(new_coords)) {
             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd)) |
                nrow(sumMatrix) < regions) {
                 rsums <- rowSums(sumMatrix)
@@ -117,12 +121,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                 ids <- order(pvals)[1:ncv]
             }
         }
-        else ids <- 1:length(coords)
+        else ids <- 1:length(new_coords)
 
         control <- slot(settings, "optimControl")
         futile.logger::flog.debug(paste("Selected the following regions:", paste(ids, collapse = ",")))
         
-        params <- .doCrossValidation(ggd, setup = ggs, coords = coords, 
+        params <- .doCrossValidation(ggd, setup = new_ggs, coords = new_coords, 
                                      id = ids, folds = kfolds, 
                                      intervalSize = intervalSize,
                                      fn = .loglik, 
@@ -133,8 +137,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         slot(ggs, "params")$lambda <- params["lambda"]
         slot(ggs, "params")$theta <- params["theta"]
 
-        ## set back the original tile index
+        ## set back the original tile index and delete other objects
         slot(ggd, "index") <- index_backup
+        rm("new_ggs", "new_coords")
+        gc()
+        
         cv <- TRUE
         futile.logger::flog.info("Done")
     }

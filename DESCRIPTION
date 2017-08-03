@@ -58,6 +58,7 @@ Collate:
     'GenoGAMSettings-class.R'
     'GenoGAM-class.R'
     'GenoGAMDataSet-class.R'
+    'GenoGAMDataSetList-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'
     'cv.R'

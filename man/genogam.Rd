@@ -6,7 +6,7 @@
 \usage{
 genogam(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
   bpknots = 20, kfolds = 10, intervalSize = 20, regions = 20,
-  order = 2, m = 2)
+  regionSize = 4000, order = 2, m = 2)
 }
 \arguments{
 \item{ggd}{The GenoGAMDataSet object to be fitted}

@@ -28,6 +28,7 @@ NULL
 #' (Negative Binomial) is available.
 #' @slot response The response vector
 #' @slot fits The vector of fits
+#' @slot control A list of parameters to control the parameter estimation
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @noRd
 setClass("GenoGAMSetup",

@@ -213,7 +213,12 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @rdname GenoGAMDataSet-class
 #' @export
 GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangSize = NULL,
-                           directory = ".", settings = NULL, hdf5 = FALSE, ...) {
+                           directory = ".", settings = NULL, hdf5 = FALSE, split = hdf5, ...) {
+
+    if(missing(experimentDesign)) {
+        futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")
+        return(new("GenoGAMDataSet"))
+    }
 
     futile.logger::flog.info("Creating GenoGAMDataSet")
 
@@ -223,7 +228,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         
         workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 75000
+        posPerGB <- 60000
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4
         ## determine number of splines and samples
@@ -243,11 +248,6 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         overhangSize <- min(1000, chunkSize/2 - 1)
     }
 
-    if(missing(experimentDesign)) {
-        futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")
-        return(new("GenoGAMDataSet"))
-    }
-
     if(overhangSize >= chunkSize/2) {
         overhangSize <- round(chunkSize/2) - 1
         warning("Overhang size exceeds the total size of the chunk. Adjusted to chunkSize/2 - 1")
@@ -260,6 +260,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                     "  Design: ", paste(as.character(design, collapse= " ")), "\n",
                     "  Directory: ", directory, "\n",
                     "  HDF5: ", hdf5, "\n",
+                    "  Split: ", split, "\n",
                     "  Specific Settings: ")
     futile.logger::flog.debug(input)
     futile.logger::flog.debug(show(settings))
@@ -285,7 +286,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                                         design = design,
                                         directory = directory,
                                         settings = settings, 
-                                        hdf5 = hdf5, ...)
+                                        hdf5 = hdf5,
+                                        split = split, ...)
     }
 
     futile.logger::flog.info("GenoGAMDataSet created")
@@ -299,7 +301,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 .GenoGAMDataSetFromSE <- function(se, chunkSize, overhangSize,
                                     design, settings, ...) {
 
-    gr <- rowRanges(se)@pos_runs
+    gr <- .extractGR(rowRanges(se))
 
     ## check for overlapping ranges
     if(sum(countOverlaps(gr)) > length(gr)) {
@@ -426,6 +428,9 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     endsToResize <- which(width(tiles) < l$tileSize)
     suppressWarnings(tiles[endsToResize] <- resize(tiles[endsToResize], width = l$tileSize, fix = "end"))
     tiles <- IRanges::trim(tiles)
+
+    ## remove duplicate tiles if present
+    tiles <- unique(tiles)
     
     ## add 'id' column, check element and put settings in metadata
     S4Vectors::mcols(tiles)$id <- 1:length(tiles)
@@ -466,11 +471,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 #'
 #' @noRd
 .GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize,
-                                    design, directory, settings, hdf5, ...) {
+                                    design, directory, settings, hdf5, split = FALSE, ...) {
 
     ## initialize some variables
     args <- list()
-    split <- FALSE
         
     ## normalize config object
     config <- .normalizeConfig(config, directory)
@@ -483,7 +487,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ## get chromosomeLengths to check if a split of data along the chromosomes is necessary
     header <- Rsamtools::scanBamHeader(config$file[1])
     chroms <- header[[1]]$targets
-    totalLength <- sum(chroms)
+    nsamples <- nrow(config)
+    totalLength <- sum(chroms)*nsamples
 
     ## split if data vectors are to big
     if(totalLength > 2^31 | hdf5) {
@@ -494,10 +499,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
     if(length(bamParamsWhich) != 0) {
         gr <- GenomicRanges::GRanges(bamParamsWhich)
-        gp <- GenomicRanges::GPos(gr)
-        lengths <- chroms[GenomeInfoDb::seqlevels(GRanges(bamParamsWhich))]
-        if(!is.na(lengths)){
-            GenomeInfoDb::seqlengths(gp) <- lengths
+        lengths <- chroms[GenomeInfoDb::seqlevels(GenomicRanges::GRanges(bamParamsWhich))]
+
+        if(all(!is.na(lengths))){
+            GenomeInfoDb::seqlengths(gr) <- lengths
         }
         else {
             futile.logger::flog.error("The data does not match the region specification in the bamParams settings.")
@@ -507,23 +512,22 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     else {
         starts <- rep(1, length(chroms))
         ends <- chroms
-        chromLengths <- GenomicRanges::GRanges(names(chroms),
+        gr <- GenomicRanges::GRanges(names(chroms),
                                                IRanges::IRanges(starts, ends))
-        gp <- GenomicRanges::GPos(chromLengths)
-        GenomeInfoDb::seqlengths(gp) <- chroms
+        GenomeInfoDb::seqlengths(gr) <- chroms
     }
     futile.logger::flog.debug("Following row ranges created:")
-    futile.logger::flog.debug(show(gp@pos_runs))
+    futile.logger::flog.debug(show(gr))
 
     ## make tiles
-    l <- list(chromosomes = gp@pos_runs,
+    l <- list(chromosomes = gr,
               chunkSize = chunkSize,
               overhangSize = overhangSize)
     tiles <- .makeTiles(l)
 
     ## read data
     countData <- readData(config, hdf5 = hdf5, split = split, settings = settings, ...)
-    if(nrow(countData) == 0) {
+    if(length(countData) == 0) {
         return(new("GenoGAMDataSet"))
     }
     
@@ -538,22 +542,36 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     
     ## update chromosome list
     if(is.null(slot(settings, "chromosomeList"))) {
-        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gp)
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
     }
 
+    ## finally build object
+    ## if split make sure to keep the seqinfo same for all list elements,
+    ## as this will make it easily possible to merge them later if necessary
     if(split) {
-        ## do something with a list of GenoGAMDataSets
+        splitid <- gr
+        splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+        selist <- lapply(names(countData), function(id) {
+            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                                       assays = list(countData[[id]]),
+                                       colData = colData)
+            return(se)
+        })
+        names(selist) <- names(countData)
+        ggd <- new("GenoGAMDataSetList", settings = settings,
+                   design = design, sizeFactors = sf, index = tiles,
+                   ggd = selist, id = splitid)
     }
     else {
-        se <- SummarizedExperiment(rowRanges = gp,
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr),
                                    assays = list(countData),
                                    colData = colData)
         ggd <- new("GenoGAMDataSet", se, settings = settings,
                    design = design, sizeFactors = sf, index = tiles)
-
-        ## check if everything was set fine
-        correct <- checkObject(ggd)
     }
+
+    ## check if everything was set fine
+    correct <- checkObject(ggd)
     
     return(ggd)
 }
@@ -769,7 +787,7 @@ setGeneric("dataRange", function(object) standardGeneric("dataRange"))
 ##' @describeIn GenoGAMDataSet The actual underlying GRanges showing
 ##' the range of the data.
 setMethod("dataRange", "GenoGAMDataSet", function(object) {
-    rowRanges(object)@pos_runs
+    .extractGR(rowRanges(object))
 })
 
 ##' @export 
@@ -1003,7 +1021,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 #' @return A GRanges object representing the index
 #' @noRd
 .subsetIndex <- function(se, index) {
-    gpCoords <- rowRanges(se)@pos_runs
+    gpCoords <- .extractGR(rowRanges(se))
     l <- S4Vectors::metadata(index)
     l$chromosomes <- gpCoords
     minWidth <- min(width(gpCoords))

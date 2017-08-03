@@ -174,10 +174,13 @@ test_that("Settings checking functions work correctly", {
 
 test_that("Accessors return the right slots", {
     test_ggd <- ggd
+    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(test_ggd))),
+                                 IRanges::ranges(rowRanges(test_ggd))@pos_runs)
+    seqinfo(dr) <- seqinfo(rowRanges(test_ggd))
 
     expect_identical(getIndex(test_ggd), slot(test_ggd, "index"))
     expect_identical(tileSettings(test_ggd), metadata(slot(test_ggd, "index")))
-    expect_identical(dataRange(test_ggd), rowRanges(test_ggd)@pos_runs)
+    expect_identical(dataRange(test_ggd), dr)
     expect_identical(getChromosomes(test_ggd), metadata(slot(test_ggd, "index"))$chromosomes)
     expect_identical(getTileSize(test_ggd), metadata(slot(test_ggd, "index"))$tileSize)
     expect_identical(getChunkSize(test_ggd), metadata(slot(test_ggd, "index"))$chunkSize)
@@ -227,23 +230,39 @@ test_that("The subsetting methods work correct", {
     getOverhangSize(ggd) <- 0
     gr <- GRanges("chrXIV", IRanges(306501,307500))
     seqlengths(gr) <- seqlengths(ggd)
-    
+
     res <- subsetByOverlaps(ggd, gr)
-    expect_identical(gr, rowRanges(res)@pos_runs)
+    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
+                                 IRanges::ranges(rowRanges(res))@pos_runs)
+    seqinfo(dr) <- seqinfo(rowRanges(res))
+    
+    expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
     test_gr <- GRanges("chrXIV", IRanges(305000,306999))
     seqlengths(test_gr) <- seqlengths(ggd)
     res <- subset(ggd, seqnames == "chrXIV" & pos < 307000)
-    expect_identical(test_gr, rowRanges(res)@pos_runs)
+    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
+                                 IRanges::ranges(rowRanges(res))@pos_runs)
+    seqinfo(dr) <- seqinfo(rowRanges(res))
+    
+    expect_identical(test_gr, dr)
     expect_equal(getTileNumber(res), 2)
 
     res <- ggd[gr]
-    expect_identical(gr, rowRanges(res)@pos_runs)
+    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
+                                 IRanges::ranges(rowRanges(res))@pos_runs)
+    seqinfo(dr) <- seqinfo(rowRanges(res))
+    
+    expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
     res <- ggd[[1]]
-    expect_identical(granges(getIndex(ggd)[1]), rowRanges(res)@pos_runs)
+    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
+                                 IRanges::ranges(rowRanges(res))@pos_runs)
+    seqinfo(dr) <- seqinfo(rowRanges(res))
+    
+    expect_identical(granges(getIndex(ggd)[1]), dr)
     expect_equal(getTileNumber(res), 1)
 
     gr <- GRanges("chrXIV", IRanges(300501,301500))

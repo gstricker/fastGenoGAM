@@ -34,8 +34,9 @@
 \alias{getTileNumber<-,GenoGAMDataSet,numeric-method}
 \title{GenoGAMDataSet}
 \usage{
-GenoGAMDataSet(experimentDesign, chunkSize, overhangSize, design,
-  directory = ".", settings = NULL, hdf5 = FALSE, ...)
+GenoGAMDataSet(experimentDesign, design, chunkSize = NULL,
+  overhangSize = NULL, directory = ".", settings = NULL, hdf5 = FALSE,
+  split = hdf5, ...)
 
 \S4method{getIndex}{GenoGAMDataSet}(object)
 
@@ -76,13 +77,13 @@ a data.frame specifying the experiment design or a RangedSummarizedExperiment
 object with the GPos class being the rowRanges. See details for the structure
 of the experimentDesign.}
 
+\item{design}{A formula object. See details for its structure.}
+
 \item{chunkSize}{An integer specifying the size of one chunk in bp.}
 
 \item{overhangSize}{An integer specifying the size of the overhang in bp.
 As the overhang is taken to be symmetrical, only the overhang of one side
 should be provided.}
-
-\item{design}{A formula object. See details for its structure.}
 
 \item{directory}{The directory from which to read the data. By default
 the current working directory is taken.}

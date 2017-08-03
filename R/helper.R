@@ -45,6 +45,13 @@
     return(l)
 }
 
+.extractGR <- function(gp) {
+    res <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(gp)), IRanges::ranges(gp)@pos_runs)
+    GenomeInfoDb::seqinfo(res) <- GenomeInfoDb::seqinfo(gp)
+    return(res)
+}
+
+
 ## #' #' Update Formula with a specific penalization parameter lambda
 ## #' Not used at the moment
 ## #'
