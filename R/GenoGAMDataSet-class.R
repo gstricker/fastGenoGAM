@@ -1014,13 +1014,29 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 
 #' Method to subset the index of GenoGAMDataSet
 #'
-#' Subsetting the indeces of GenomicTiles based on a SummarizedExperiment.
+#' Subsetting the indeces of GenoGAMDataSet based on a SummarizedExperiment.
 #'
 #' @param x A SummarizedExperiment object.
 #' @param index The index of the GenoGAMDataSet object to be subsetted.
 #' @return A GRanges object representing the index
 #' @noRd
 .subsetIndex <- function(se, index) {
+
+    res <- NULL
+    
+    if(class(se) == "RangedSummarizedExperiment") {
+        res <- .subsetIndexGDD(se, index)
+    }
+
+    if(class(se) == "list") {
+        res <- .subsetIndexGDDL(se, index)
+    }
+
+    return(res)
+}
+    
+
+.subsetIndexGDD <- function(se, index) {
     gpCoords <- .extractGR(rowRanges(se))
     l <- S4Vectors::metadata(index)
     l$chromosomes <- gpCoords
@@ -1036,6 +1052,26 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 }
 
 .subsetByOverlaps <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+                   type = c("any", "start", "end", "within", "equal"),
+                   invert = FALSE, ...) {
+
+    res <- NULL
+    
+    if(class(query) == "GenoGAMDataSet") {
+        res <- .subsetByOverlapsGDD(query, subject, maxgap = 0L, minoverlap = 1L,
+                                    type = c("any", "start", "end", "within", "equal"),
+                                    invert = FALSE, ...)
+    }
+    if(class(query) == "GenoGAMDataSetList") {
+        res <- .subsetByOverlapsGDDL(query, subject, maxgap = 0L, minoverlap = 1L,
+                                    type = c("any", "start", "end", "within", "equal"),
+                                    invert = FALSE, ...)
+    }
+
+    return(res)
+}
+
+.subsetByOverlapsGDD <- function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
     if(any((width(subject) %% 2) == 1)) {
@@ -1090,7 +1126,6 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
     return(ggd)
 })
 
-
 ## Tile computation
 ## ================
 
@@ -1098,6 +1133,23 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
 #' @param x The GenoGAMDataSet object
 #' @return An integerList with the row numbers for each tile
 .getCoordinates <- function(x) {
+
+    l <- NULL
+    
+    if(class(x) == "GenoGAMDataSet") {
+        l <- .getCoordinatesGGD(x)
+    }
+    if(class(x) == "GenoGAMDataSetList") {
+        l <- .getCoordinatesGGDL(x)
+    }
+
+    return(l)
+}
+
+#' Function to retrieve the row coordinates as a list
+#' @param x The GenoGAMDataSet object
+#' @return An integerList with the row numbers for each tile
+.getCoordinatesGGD <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
     if(sum(seqlengths(x)) == length(x)) {

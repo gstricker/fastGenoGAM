@@ -51,6 +51,55 @@
     return(res)
 }
 
+## helper function to subset by coordinates
+.subsetByCoords <- function(x, i) {
+    
+    if(length(i) > (2^31 - 1)) {
+        stop("Subset to big for short integer vector. Please select a smaller region")
+    }
+
+    ## dealing with list objects (mostly from GenoGAMDataSetList)
+    if(class(x) == "list") {
+        ## build mapping function
+        len <- cumsum(sapply(x, NROW))
+        .map <- stepfun(x = len, y = 1:(length(len) + 1), right = TRUE)
+
+        ## map to correct list elements and rows
+        ## make by name, as the list elements are supposed to be
+        ## named in this application
+        mapped_i <- .map(i)
+        table_i <- table(mapped_i)
+
+        ## initialize return object
+        res <- vector("list", length(table_i))
+            
+        ## retrieve data
+        ## for(chr in names(table_i)) {
+        for(jj in 1:length(table_i)) {
+            rows <- i[1]:(i[1] + table_i[jj] - 1)
+            res[[jj]] <- x[[jj]][rows, ]
+            i <- i[-(1:table_i[jj])]
+            i <- i - i[1] + 1
+        }
+
+        ## check if everything went correct
+        if(length(i) != 0) {
+            warning("Subsetting by coordinates did not finish correctly, check the function or the coordinates")
+        }
+
+        res <- switch(class(res[[1]]),
+                      GPos = do.call("c", res),
+                      GRanges = do.call("c", res),
+                      data.frame = do.call("rbind", res),
+                      DataFrame = do.call("rbind", res))
+    }
+
+    ## for all non-list objects
+    else {
+        res <- x[i, ]
+    }
+    return(res)
+}
 
 ## #' #' Update Formula with a specific penalization parameter lambda
 ## #' Not used at the moment
@@ -124,4 +173,3 @@
 ##     names(res) <- names(gtiles)
 ##     return(res)
 ## }
-    

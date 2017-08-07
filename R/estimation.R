@@ -164,7 +164,7 @@
         res <- sapply(1:nSamples, function(i) {
             Xsub <- X[rows[[i]], cols[[j]]]
             HinvSub <- Hinv[cols[[j]],cols[[j]]]
-            se <- sqrt(Matrix::diag(Xsub%*%HinvSub%*%Matrix::t(Xsub)))
+            se <- sqrt(Matrix::rowSums((Xsub%*%HinvSub) * Xsub))
             return(se)
         })
         res <- as.vector(res)
@@ -232,9 +232,9 @@
         return(list(x = x, i = i, j = j))
     })
 
-    x <- unlist(sapply(res, function(m) m$x))
-    i <- unlist(sapply(res, function(m) m$i))
-    j <- unlist(sapply(res, function(m) m$j))
+    x <- unlist(lapply(res, function(m) m$x))
+    i <- unlist(lapply(res, function(m) m$i))
+    j <- unlist(lapply(res, function(m) m$j))
 
     if(length(x) == 0 | length(i) == 0 | length(j) == 0) {
         return(as(matrix(, 0, 0), "dgCMatrix"))
