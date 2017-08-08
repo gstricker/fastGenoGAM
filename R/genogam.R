@@ -229,7 +229,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     }
     
     tile <- coords[id,]
-    y <- SummarizedExperiment::assay(ggd)[IRanges::start(tile):IRanges::end(tile),]
+    y <- .subsetByCoords(x = assay(ggd), i = IRanges::start(tile):IRanges::end(tile))
     
     Y <- unname(unlist(as.data.frame(y)))
     return(as.integer(Y))

@@ -351,13 +351,16 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     if(l$chunkSize < 1000) stop("Chunk size must be equal or greater than 1000")
     if(length(l$chromosomes) == 0) stop("Chromosome list should contain at least one entry")
 
+    ## tiles should be not bigger than any pre-specified region
+    l$tileSize <- min(l$chunkSize + 2*l$overhangSize, min(width(l$chromosomes)))
+    
     input <- paste0("Building Tiles with the following parameters:\n",
                     "  Chunk size: ", l$chunkSize, "\n",
                     "  Overhang size: ", l$overhangSize, "\n",
-                    "  Chromosomes: ", l$chromosomes, "\n")
+                    "  Chromosomes: \n")
     futile.logger::flog.debug(input)
+    futile.logger::flog.debug(show(l$chromosomes))
 
-    l$tileSize <- l$chunkSize + 2*l$overhangSize
     futile.logger::flog.debug(paste0("GenoGAMDataSet: Tile size computed to be ", l$tileSize))
 
     ## deal with overlapping ranges to reduce complexity and redundancy
@@ -1025,18 +1028,18 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     res <- NULL
     
     if(class(se) == "RangedSummarizedExperiment") {
-        res <- .subsetIndexGDD(se, index)
+        res <- .subsetIndexGGD(se, index)
     }
 
     if(class(se) == "list") {
-        res <- .subsetIndexGDDL(se, index)
+        res <- .subsetIndexGGDL(se, index)
     }
 
     return(res)
 }
     
 
-.subsetIndexGDD <- function(se, index) {
+.subsetIndexGGD <- function(se, index) {
     gpCoords <- .extractGR(rowRanges(se))
     l <- S4Vectors::metadata(index)
     l$chromosomes <- gpCoords
@@ -1051,27 +1054,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     return(indx)
 }
 
-.subsetByOverlaps <- function(query, subject, maxgap = 0L, minoverlap = 1L,
-                   type = c("any", "start", "end", "within", "equal"),
-                   invert = FALSE, ...) {
-
-    res <- NULL
-    
-    if(class(query) == "GenoGAMDataSet") {
-        res <- .subsetByOverlapsGDD(query, subject, maxgap = 0L, minoverlap = 1L,
-                                    type = c("any", "start", "end", "within", "equal"),
-                                    invert = FALSE, ...)
-    }
-    if(class(query) == "GenoGAMDataSetList") {
-        res <- .subsetByOverlapsGDDL(query, subject, maxgap = 0L, minoverlap = 1L,
-                                    type = c("any", "start", "end", "within", "equal"),
-                                    invert = FALSE, ...)
-    }
-
-    return(res)
-}
-
-.subsetByOverlapsGDD <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGD <- function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
     if(any((width(subject) %% 2) == 1)) {
@@ -1107,7 +1090,7 @@ setMethod("subsetByOverlaps", c("GenoGAMDataSet", "GRanges"),
           function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
-              res <- .subsetByOverlaps(query = query, subject = subject,
+              res <- .subsetByOverlapsGGD(query = query, subject = subject,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)
               return(res)
@@ -1180,13 +1163,33 @@ setMethod("[[", c("GenoGAMDataSet", "numeric"), function(x, i) {
     ir <- IRanges(start, end)
     return(ir)
 }
-    
+
 #' compute metrics for each tile
 #' @param x The GenoGAMDataSet object
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
 .MetricsFun <- function(x, what, na.rm = FALSE) {
+
+    res <- NULL
+    
+    if(class(x) == "GenoGAMDataSet") {
+        res <- .MetricsFunGGD(x, what, na.rm = na.rm)
+    }
+
+    if(class(x) == "GenoGAMDataSetList") {
+        res <- .MetricsFunGGDL(x, what, na.rm = na.rm)
+    }
+
+    return(res)
+}
+    
+#' compute metrics for each tile
+#' @param x The GenoGAMDataSet object
+#' @param what A character naming the metric
+#' @param na.rm Should NAs be ignored
+#' @return The metric value
+.MetricsFunGGD <- function(x, what, na.rm = FALSE) {
 
     l <- .getCoordinates(x)
 

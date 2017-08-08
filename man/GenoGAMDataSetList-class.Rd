@@ -31,8 +31,11 @@
 \alias{length,GenoGAMDataSetList-method}
 \alias{seqlengths,GenoGAMDataSetList-method}
 \alias{seqlevels,GenoGAMDataSetList-method}
+\alias{seqlevelsInUse,GenoGAMDataSetList-method}
 \alias{colData,GenoGAMDataSetList-method}
 \alias{rowRanges,GenoGAMDataSetList-method}
+\alias{assay,GenoGAMDataSetList,ANY-method}
+\alias{assays,GenoGAMDataSetList-method}
 \alias{colnames,GenoGAMDataSetList-method}
 \alias{getIndex,GenoGAMDataSetList-method}
 \alias{tileSettings,GenoGAMDataSetList-method}
@@ -58,9 +61,15 @@ GenoGAMDataSetList(...)
 
 \S4method{seqlevels}{GenoGAMDataSetList}(x)
 
+\S4method{seqlevelsInUse}{GenoGAMDataSetList}(x)
+
 \S4method{colData}{GenoGAMDataSetList}(x, ...)
 
 \S4method{rowRanges}{GenoGAMDataSetList}(x, ...)
+
+\S4method{assay}{GenoGAMDataSetList,ANY}(x, i, ...)
+
+\S4method{assays}{GenoGAMDataSetList}(x, ..., withDimnames = TRUE)
 
 \S4method{colnames}{GenoGAMDataSetList}(x)
 
@@ -116,11 +125,19 @@ GenoGAMDataSetList is the constructor function for the GenoGAMDataSetList-class.
 
 \item \code{seqlevels}: The seqlevels of the object
 
+\item \code{seqlevelsInUse}: The seqlevelsInUse of the object
+
 \item \code{colData}: get colData from the first element of the
 SummarizedExperiment list
 
-\item \code{rowRanges}: get colData from the first element of the
-SummarizedExperiment list
+\item \code{rowRanges}: get a list of rowRanges from the
+GenoGAMDataSetList object
+
+\item \code{assay}: get a list of assays from the
+GenoGAMDataSetList object
+
+\item \code{assays}: get a list of list of assays from the
+GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
 
 \item \code{colnames}: get colnames from the first element of the
 SummarizedExperiment list

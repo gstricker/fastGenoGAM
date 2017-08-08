@@ -95,7 +95,6 @@ GenoGAMDataSetList <- function(...) {
     return(new("GenoGAMDataSetList", ...))
 }
 
-
 #' Make an example /code{GenoGAMDataSet}
 #'
 #' @param sim Use simulated data (TRUE) or test data from a real experiment
@@ -158,7 +157,10 @@ setMethod("checkObject", "GenoGAMDataSetList", function(object) {
 
 #' @describeIn GenoGAMDataSetList Get the dimension of the object
 setMethod("dim", "GenoGAMDataSetList", function(x) {
-    dims <- sapply(ggd@ggd, dim)
+    dims <- sapply(x@ggd, dim)
+    if(length(dims) == 0) {
+        return(c(0, 0))
+    }
     res <- c(sum(dims[1,]), max(dims[2,]))
     return(res)
 })
@@ -170,18 +172,39 @@ setMethod("length", "GenoGAMDataSetList", function(x) {
 
 #' @describeIn GenoGAMDataSetList The seqlengths of the object
 setMethod("seqlengths", "GenoGAMDataSetList", function(x) {
-    return(GenomeInfoDb::seqlengths(rowRanges(x)[[1]]))
+    if(length(rowRanges(x)) > 0) {
+        return(GenomeInfoDb::seqlengths(rowRanges(x)[[1]]))
+    }
+
+    integer()
 })
 
 #' @describeIn GenoGAMDataSetList The seqlevels of the object
 setMethod("seqlevels", "GenoGAMDataSetList", function(x) {
-    return(GenomeInfoDb::seqlevels(rowRanges(x)[[1]]))
+    if(length(rowRanges(x)) > 0) {
+        return(GenomeInfoDb::seqlevels(rowRanges(x)[[1]]))
+    }
+
+    character()
+})
+
+#' @describeIn GenoGAMDataSetList The seqlevelsInUse of the object
+setMethod("seqlevelsInUse", "GenoGAMDataSetList", function(x) {
+    if(length(rowRanges(x)) > 0) {
+        return(names(rowRanges(x)))
+    }
+
+    character()
 })
 
 ##' @describeIn GenoGAMDataSetList get colData from the first element of the
 ##' SummarizedExperiment list
 setMethod("colData", "GenoGAMDataSetList", function(x, ...) {
-    return(colData(x@ggd[[1]]))
+    if(length(x@ggd) == 0) {
+        return(DataFrame())
+    }
+    
+    colData(x@ggd[[1]])
 })
 
 ##' @describeIn GenoGAMDataSetList get a list of rowRanges from the
@@ -196,10 +219,20 @@ setMethod("assay", "GenoGAMDataSetList", function(x, ...) {
     lapply(x@ggd, assay)
 })
 
+##' @describeIn GenoGAMDataSetList get a list of list of assays from the
+##' GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
+setMethod("assays", "GenoGAMDataSetList", function(x, ...) {
+    lapply(x@ggd, assays)
+})
+
 ##' @describeIn GenoGAMDataSetList get colnames from the first element of the
 ##' SummarizedExperiment list
 setMethod("colnames", "GenoGAMDataSetList", function(x) {
-    return(colnames(x@ggd[[1]]))
+    if(length(x@ggd) == 0) {
+        return(NULL)
+    }
+        
+    colnames(x@ggd[[1]])
 })
 
 ##' @describeIn GenoGAMDataSetList accessor to the index slot
@@ -400,45 +433,41 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     ## subset all SummarizedExperiments
     se <- lapply(x@ggd, function(se) {
         res <- subset(se, ...)
-        if(length(res) == 0) {
-            res <- NULL
-        }
         return(res)
     })
 
-    ## reduce the list to !NULL
-    se <- se[!vapply(se, is.null, logical(1))]
+    ## reduce the list to non-empty. However in order to mimic what happens
+    ## if the complete subset is zero, we have to keep the result, as we might
+    ## need it later. Otherwise it will be an empty list, which is not how
+    ## SummarizedExperiment and GenoGAMDataSet deals with it. On the other hand
+    ## we don't want to carry a bunch of empty SEs around if they are not needed anyway.
+    reduced_se <- se[as.logical(vapply(se, length, integer(1)))]
 
-    ## Check dimensions
-    dims <- sapply(se, dim)
-    dims <- c(sum(dims[1,]), max(dims[2,]))
-
-    ## make index slot
-    ## make empty index if data is empty otherwise trim accordingly
-    if(any(dims == 0)) {
+    if(length(reduced_se) == 0) {
+        reduced_se <- se[1]
         index <- GenomicRanges::GRanges()
     }
     else {
-        se <- lapply(se, function(y) {
+        reduced_se <- lapply(reduced_se, function(y) {
             ## set correct seqinfo
-            GenomeInfoDb::seqlevels(rowRanges(y), pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(rowRanges(y))
+            GenomeInfoDb::seqlevels(rowRanges(y), pruning.mode="coarse") <- names(reduced_se)
             return(y)
         })
-        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se[[1]])
-        index <- .subsetIndex(se, getIndex(x))
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(reduced_se[[1]])
+        index <- .subsetIndex(reduced_se, getIndex(x))
     }
 
     ## make id slot
-    splitid <- .rowRangesFromList(se)
+    splitid <- .rowRangesFromList(reduced_se)
     splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
-    
+
     ggd <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               ggd = se, id = splitid)
+               ggd = reduced_se, id = splitid)
     return(ggd)
 })
 
-.subsetIndexGDDL <- function(se, index) {
+.subsetIndexGGDL <- function(se, index) {
     ## get the data range
     gpCoords <- .rowRangesFromList(se)
    
@@ -456,7 +485,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
 }
 
 #' underlying function to subset by overlaps
-.subsetByOverlapsGDDL <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGDL <- function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
 
@@ -475,39 +504,37 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
         res <- subsetByOverlaps(se, subject, maxgap = maxgap,
                                 minoverlap = minoverlap,
                                 type=type, invert = invert, ...)
-        if(length(res) == 0) {
-            res <- NULL
-        }
         return(res)
     })
 
-    ## reduce the list to !NULL
-    se <- se[!vapply(se, is.null, logical(1))]
+    ## reduce the list to non-empty. However in order to mimic what happens
+    ## if the complete subset is zero, we have to keep the result, as we might
+    ## need it later. Otherwise it will be an empty list, which is not how
+    ## SummarizedExperiment and GenoGAMDataSet deals with it. On the other hand
+    ## we don't want to carry a bunch of empty SEs around if they are not needed anyway.
+    reduced_se <- se[as.logical(vapply(se, length, integer(1)))]
 
-    ## Check dimensions
-    dims <- sapply(se, dim)
-    dims <- c(sum(dims[1,]), max(dims[2,]))
-    
-    if(any(dim(se) == 0)) {
+    if(length(reduced_se) == 0) {
+        reduced_se <- se[1]
         index <- GenomicRanges::GRanges()
     }
     else {
-        se <- lapply(se, function(y) {
+        reduced_se <- lapply(reduced_se, function(y) {
             ## set correct seqinfo
-            GenomeInfoDb::seqlevels(rowRanges(y), pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(rowRanges(y))
+            GenomeInfoDb::seqlevels(rowRanges(y), pruning.mode="coarse") <- names(reduced_se)
             return(y)
         })
-        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(se[[1]])
-        index <- .subsetIndex(se, getIndex(query))
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(reduced_se[[1]])
+        index <- .subsetIndex(reduced_se, getIndex(query))
     }
 
     ## make id slot
-    splitid <- .rowRangesFromList(se)
+    splitid <- .rowRangesFromList(reduced_se)
     splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
     
     ggd <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               ggd = se, id = splitid)
+               ggd = reduced_se, id = splitid)
     
     return(ggd)
 }
@@ -517,7 +544,7 @@ setMethod("subsetByOverlaps", c("GenoGAMDataSetList", "GRanges"),
           function(query, subject, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
-              res <- .subsetByOverlapsGDDL(query = query, subject = subject,
+              res <- .subsetByOverlapsGGDL(query = query, subject = subject,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)
               return(res)
@@ -569,121 +596,129 @@ setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
     return(coords)
 }
 
-## #' Function to establish chunk coordinates
-## #' @param x A IRanges object as the output of .getCoordinates
-## #' @return The same object as x but with not overlapping ranges
-## #' which were cut at the center of the overhang
-## .getChunkCoords <- function(x) {
-##     if(length(x) == 0) {
-##         return(x)
-##     }
+#' compute metrics for each tile
+#' @param x The GenoGAMDataSet object
+#' @param what A character naming the metric
+#' @param na.rm Should NAs be ignored
+#' @return The metric value
+.MetricsFunGGDL <- function(x, what, na.rm = FALSE) {
+
+    gr <- getIndex(x)
+    data <- assay(x)
+    grl <- IRanges::splitAsList(gr, seqnames(gr))
+                    
+    res <- sapply(colnames(x), function(y) {
+        l <- unlist(lapply(names(data), function(d) {
+            df <- data[[d]][[y]]
+            by <- IRanges::ranges(grl[[d]])
+            rle <- IRanges::extractList(df, by)
+            eval(call(what, rle, na.rm = na.rm))
+        }))
+        return(l)
+    })
     
-##     start <- c(start(x[1]), ceiling((end(x[-length(x)]) + start(x[-1]))/2))
-##     end <- c((start[-1] - 1), end(x[length(x)]))
-##     ir <- IRanges(start, end)
-##     return(ir)
-## }
-    
-## #' compute metrics for each tile
-## #' @param x The GenoGAMDataSet object
-## #' @param what A character naming the metric
-## #' @param na.rm Should NAs be ignored
-## #' @return The metric value
-## .MetricsFun <- function(x, what, na.rm = FALSE) {
+    if(!is(res, "matrix")) {
+        if(is(res, "list") & is.null(dim(res))) {
+            res <- matrix()
+        }
+        else {
+            res <- t(matrix(res))
+        }
+    }
 
-##     l <- .getCoordinates(x)
+    colnames(res) <- colnames(x)
+    rownames(res) <- getIndex(x)$id
+    return(res)
+}
 
-##     res <- sapply(colnames(x), function(y) {
-##         rle <- IRanges::extractList(assay(x)[[y]], l)
-##         eval(call(what, rle, na.rm = na.rm))
-##     })
-    
-##     if(!is(res, "matrix")) {
-##         if(is(res, "list") & is.null(dim(res))) {
-##             res <- matrix()
-##         }
-##         else {
-##             res <- t(matrix(res))
-##         }
-##     }
+#' Computing metrics
+#'
+#' Computing metrics on each tile of the GenoGAMDataSetList object.
+#' All metrics from the Summary generics group, as well as
+#' mean, var, sd, median, mad and IQR are supported.
+#'
+#' @param x A GenoGAMDataSetList object
+#' @param ... Additional arguments
+#' @param na.rm Should NAs be dropped. Otherwise the result is NA
+#' @return A matrix with the specified metric computed per tile per column
+#' of the assay data.
+#' @examples
+#' ggd <- makeTestGenoGAMDataSetList()
+#' sum(ggd)
+#' min(ggd)
+#' max(ggd)
+#' mean(ggd)
+#' var(ggd)
+#' sd(ggd)
+#' median(ggd)
+#' mad(ggd)
+#' IQR(ggd)
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @rdname GenoGAMDataSetList-metrics
+setMethod("Summary", "GenoGAMDataSetList", function(x, ..., na.rm = FALSE) {
 
-##     colnames(res) <- colnames(x)
-##     rownames(res) <- getIndex(x)$id
-##     return(res)
-## }
+    gr <- getIndex(x)
+    data <- assay(x)
+    grl <- IRanges::splitAsList(gr, seqnames(gr))
 
-## #' Computing metrics
-## #'
-## #' Computing metrics on each tile of the GenoGAMDataSet object.
-## #' All metrics from the Summary generics group, as well as
-## #' mean, var, sd, median, mad and IQR are supported.
-## #'
-## #' @param x A GenoGAMDataSet object
-## #' @param ... Additional arguments
-## #' @param na.rm Should NAs be dropped. Otherwise the result is NA
-## #' @return A matrix with the specified metric computed per tile per column
-## #' of the assay data.
-## #' @examples
-## #' ggd <- makeTestGenoGAMDataSet()
-## #' sum(ggd)
-## #' min(ggd)
-## #' max(ggd)
-## #' mean(ggd)
-## #' var(ggd)
-## #' sd(ggd)
-## #' median(ggd)
-## #' mad(ggd)
-## #' IQR(ggd)
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("Summary", "GenoGAMDataSet", function(x, ..., na.rm = FALSE) {
-##     l <- .getCoordinates(x)
-        
-##     res <- sapply(colnames(x), function(y) {
-##         rle <- IRanges::extractList(assay(x)[[y]], l)
-##         (getFunction(.Generic))(rle, na.rm = na.rm)
-##     })
+    res <- sapply(colnames(x), function(y) {
+        l <- unlist(lapply(names(data), function(d) {
+            df <- data[[d]][[y]]
+            by <- IRanges::ranges(grl[[d]])
+            rle <- IRanges::extractList(df, by)
+            (getFunction(.Generic))(rle, na.rm = na.rm)
+        }))
+        return(l)
+    })
 
-##     if(!is(res, "matrix")) {
-##         if(is(res, "list") & is.null(dim(res))) {
-##             res <- matrix()
-##         }
-##         else {
-##             res <- t(matrix(res))
-##         }
-##     }
+    if(!is(res, "matrix")) {
+        if(is(res, "list") & is.null(dim(res))) {
+            res <- matrix()
+        }
+        else {
+            res <- t(matrix(res))
+        }
+    }
 
-##     colnames(res) <- colnames(x)
-##     rownames(res) <- getIndex(x)$id
-##     return(res)
-## })
+    colnames(res) <- colnames(x)
+    rownames(res) <- getIndex(x)$id
+    return(res)
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("mean", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "mean")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("mean", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "mean")
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("var", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "var")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("var", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "var")
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("sd", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "sd")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("sd", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "sd")
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("median", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "median")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("median", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "median")
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("mad", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "mad")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("mad", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "mad")
+})
 
-## #' @rdname GenoGAMDataSet-metrics
-## setMethod("IQR", "GenoGAMDataSet", function(x) {
-##     .MetricsFun(x, "IQR")
-## })
+#' @rdname GenoGAMDataSet-metrics
+setMethod("IQR", "GenoGAMDataSetList", function(x) {
+    .MetricsFun(x, "IQR")
+})
+
+## Cosmetics
+## =========
+
+## Show method for GenomicTiles.
+setMethod("show", "GenoGAMDataSetList", function(object) {
+    .showGenoGAMDataSet(object)
+})
