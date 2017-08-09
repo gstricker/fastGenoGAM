@@ -122,18 +122,17 @@ test_that("Accessors return the right slots in line with GenoGAMDataSet", {
     expect_identical(getChunkSize(ggd), getChunkSize(ggdl))
     expect_identical(getOverhangSize(ggd), getOverhangSize(ggdl))
     expect_identical(getTileNumber(ggd), getTileNumber(ggdl))
-    expect_identical(design(ggd), design(ggdl))
+    expect_true(design(ggd) == design(ggdl))
     expect_true(all(sizeFactors(ggd) == sizeFactors(ggdl)))
     expect_true(length(ggd) == length(ggdl))
     expect_true(all(dim(ggd) == dim(ggdl)))
     expect_true(all(seqlengths(ggd) == seqlengths(ggdl)))
     expect_true(all(seqlevels(ggd) == seqlevels(ggdl)))
     expect_identical(colData(ggd), colData(ggdl))
-    expect_identical(rowRanges(ggd), rowRanges(ggdl)[[1]])
+    expect_identical(rowRanges(ggd), do.call("c", rowRanges(ggdl))[[1]])
     expect_identical(assay(ggd), assay(ggdl)[[1]])
     expect_identical(assays(ggd), assays(ggdl)[[1]])
     expect_true(all(colnames(ggd) == colnames(ggdl)))
-    expect_identical(rowRanges(ggd), rowRanges(ggdl))
 
     expect_error(design(ggdl) <- ~ s(x) + s(by = myColumn))
     getChunkSize(ggdl) <- 2000
@@ -141,7 +140,7 @@ test_that("Accessors return the right slots in line with GenoGAMDataSet", {
     getTileSize(ggdl) <- 3400
     expect_equal(getTileNumber(ggdl), 1)
     getOverhangSize(ggdl) <- 500
-    expect_equal(median(width(getIndex(ggdl))), 4000)
+    expect_equal(median(width(getIndex(ggdl))), 3001)
     getTileNumber(ggdl) <- 3
     expect_equal(getChunkSize(ggdl), getChunkSize(ggd))
 })
@@ -277,125 +276,124 @@ test_that("Metric computation works correct in case of one tile", {
     
     ## make ggd and select random tile
     ggdl <- test_ggdl
-    getOverhangSize(ggdl) <- 0
     getTileNumber(ggdl) <- 1
     
     ## for sum
     res <- sum(ggdl)
     test_res <- sapply(assay(ggdl)[[1]], sum)
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(all(res == test_res))
 
     ## for mean
-    res <- as.vector(mean(ggd))
-    test_res <- as.vector(sapply(assay(ggd), mean))
+    res <- as.vector(mean(ggdl))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], mean))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(all.equal(res, test_res))
 
     ## for var
-    res <- as.vector(var(ggd))
-    test_res <- as.vector(sapply(assay(ggd), var))
+    res <- as.vector(var(ggdl))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], var))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))
 
     ## for sd
-    res <- as.vector(sd(ggd))
-    test_res <- as.vector(sapply(assay(ggd), sd))
+    res <- as.vector(sd(ggdl))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], sd))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))
 
     ## for median
-    res <- as.vector(median(ggd))
-    test_res <- as.vector(sapply(assay(ggd), median))
+    res <- as.vector(median(ggdl))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], median))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))
 
     ## for mad
-    res <- as.vector(mad(ggd))
-    test_res <- as.vector(sapply(assay(ggd), mad))
+    res <- as.vector(mad(ggdl))
+    test_res <- as.vector(sapply(assay(ggd)[[1]], mad))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))
 
     ## for IQR
-    res <- as.vector(IQR(ggd))
-    test_res <- as.vector(sapply(assay(ggd), IQR))
+    res <- as.vector(IQR(ggdl))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], IQR))
     
-    expect_true(all(dim(res) == c(length(getIndex(ggd)), ncol(assay(ggd)))))
+    expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))
 })
 
 
 test_that("Metric computation works correct in case of empty GenoGAMDataSet", {
     ## make ggd and select random tile
-    ggd <- GenoGAMDataSet()
+    ggdl <- GenoGAMDataSetList()
     
     ## for sum
-    res <- sum(ggd)
+    res <- sum(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for mean
-    res <- mean(ggd)
+    res <- mean(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for var
-    res <- var(ggd)
+    res <- var(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for sd
-    res <- sd(ggd)
+    res <- sd(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for median
-    res <- median(ggd)
+    res <- median(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for mad
-    res <- mad(ggd)
+    res <- mad(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 
     ## for IQR
-    res <- IQR(ggd)
+    res <- IQR(ggdl)
     expect_true(all(dim(res) == c(1,1)))
 })
 
 ## test .getCoordinates (with and without gaps) and .getChunkCoords here
 test_that("Coordinate and Chunk transformation work correctly", {
     ## empty input
-    emptyGGD <- GenoGAMDataSet()
-    emptyCoords <- .getCoordinates(emptyGGD)
+    emptyGGDL <- GenoGAMDataSetList()
+    emptyCoords <- .getCoordinates(emptyGGDL)
     emptyChunks <- .getChunkCoords(emptyCoords)
     expect_true(length(emptyCoords) == 0)
     expect_true(length(emptyChunks) == 0)
 
     ## normal input without overhang
-    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
-    getOverhangSize(ggd) <- 0
-    index <- getIndex(ggd)
-    coords <- .getCoordinates(ggd)
+    ggdl <- makeTestGenoGAMDataSetList()
+    getOverhangSize(ggdl) <- 0
+    index <- getIndex(ggdl)
+    coords <- .getCoordinates(ggdl)
     chunks <- .getChunkCoords(coords)
     
     expect_true(length(coords) == length(index))
-    expect_true(width(range(coords)) == length(rowRanges(ggd)))
+    expect_true(width(range(coords)) == sum(width(dataRange(ggdl))))
     expect_true(all(width(coords) == width(index)))
 
     expect_true(length(chunks) == length(index))
-    expect_true(width(range(chunks)) == length(rowRanges(ggd)))
+    expect_true(width(range(chunks)) == sum(width(dataRange(ggdl))))
     expect_true(all(width(chunks) == width(index)))
 
     ## normal input with overhang
-    ggd <- makeTestGenoGAMDataSet(sim = TRUE)
-    coords <- .getCoordinates(ggd)
-    index <- getIndex(ggd)
+    ggdl <- makeTestGenoGAMDataSetList()
+    coords <- .getCoordinates(ggdl)
+    index <- getIndex(ggdl)
 
     expect_error(.getCoordinates())
     expect_true(length(coords) == length(index))
-    expect_true(width(range(coords)) == length(rowRanges(ggd)))
+    expect_true(width(range(coords)) == sum(width(dataRange(ggdl))))
     expect_true(all(width(coords) == width(index)))
 
     chunks <- .getChunkCoords(coords)
@@ -408,9 +406,11 @@ test_that("Coordinate and Chunk transformation work correctly", {
     expect_true(width(chunks[2]) == width(chunks[length(chunks) - 1]))
 
     ## The rest should be of size = chunkSize
-    numEqualChunks <- length(which(width(chunks) == getChunkSize(ggd)))
-    expect_true(numEqualChunks == (length(chunks) - 4))
+    numEqualChunks <- length(which(width(chunks) == getChunkSize(ggdl)))
+    ## 3*4 because we have 4 chunks (the first and last two beeing different)
+    ## and that across 3 chromosomes, so it repeats three times
+    expect_true(numEqualChunks == (length(chunks) - 3*4))
 
     ## But on average they should always be exactly chunkSize
-    expect_true(all.equal(mean(width(chunks)), getChunkSize(ggd)))
+    expect_true(all.equal(mean(width(chunks)), getChunkSize(ggdl)))
 })

@@ -128,7 +128,7 @@ makeTestGenoGAMDataSetList <- function() {
     id$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(gr)))
 
     ## make tiles
-    l <- list(chromosomes = gr,
+    l <- list(chromosomes = .extractGR(gr),
               chunkSize = 2000,
               overhangSize = 250)
     tiles <- .makeTiles(l)
@@ -363,7 +363,7 @@ setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSetList", "numeric
 setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
-                     size <- settings$chunkSize*settings$numTiles
+                     size <- min(width(settings$chromosomes))
                      if(size > sum(width(dataRange(object)))) {
                          warning("The settings indicated a longer total genome size than actually present. it was trimmed accordingly.")
                          size <- sum(width(dataRange(object)))
@@ -596,6 +596,24 @@ setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
     return(coords)
 }
 
+## #' Function to retrieve the row coordinates as a list
+## #' @param x The GenoGAMDataSet object
+## #' @return An integerList with the row numbers for each tile
+.getListedCoordinates <- function(x) {
+
+    rr <- rowRanges(x)
+    lcoords <- lapply(rr, function(y) {
+        ov <- IRanges::findOverlaps(y, getIndex(x))
+        sh <- S4Vectors::subjectHits(ov)
+        qh <- S4Vectors::queryHits(ov)
+        l <- range(IRanges::splitAsList(qh, sh))
+        l <- IRanges::IRanges(l[,1], l[,2])
+        return(l)
+    })
+    return(lcoords)
+}
+
+
 #' compute metrics for each tile
 #' @param x The GenoGAMDataSet object
 #' @param what A character naming the metric
@@ -603,14 +621,13 @@ setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
 #' @return The metric value
 .MetricsFunGGDL <- function(x, what, na.rm = FALSE) {
 
-    gr <- getIndex(x)
+    l <- .getListedCoordinates(x)
     data <- assay(x)
-    grl <- IRanges::splitAsList(gr, seqnames(gr))
                     
     res <- sapply(colnames(x), function(y) {
         l <- unlist(lapply(names(data), function(d) {
             df <- data[[d]][[y]]
-            by <- IRanges::ranges(grl[[d]])
+            by <- l[[d]]
             rle <- IRanges::extractList(df, by)
             eval(call(what, rle, na.rm = na.rm))
         }))
@@ -657,14 +674,13 @@ setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
 #' @rdname GenoGAMDataSetList-metrics
 setMethod("Summary", "GenoGAMDataSetList", function(x, ..., na.rm = FALSE) {
 
-    gr <- getIndex(x)
+    l <- .getListedCoordinates(x)
     data <- assay(x)
-    grl <- IRanges::splitAsList(gr, seqnames(gr))
 
     res <- sapply(colnames(x), function(y) {
         l <- unlist(lapply(names(data), function(d) {
             df <- data[[d]][[y]]
-            by <- IRanges::ranges(grl[[d]])
+            by <- l[[d]]
             rle <- IRanges::extractList(df, by)
             (getFunction(.Generic))(rle, na.rm = na.rm)
         }))
@@ -687,32 +703,32 @@ setMethod("Summary", "GenoGAMDataSetList", function(x, ..., na.rm = FALSE) {
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("mean", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "mean")
+    .MetricsFunGGDL(x, "mean")
 })
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("var", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "var")
+    .MetricsFunGGDL(x, "var")
 })
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("sd", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "sd")
+    .MetricsFunGGDL(x, "sd")
 })
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("median", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "median")
+    .MetricsFunGGDL(x, "median")
 })
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("mad", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "mad")
+    .MetricsFunGGDL(x, "mad")
 })
 
 #' @rdname GenoGAMDataSet-metrics
 setMethod("IQR", "GenoGAMDataSetList", function(x) {
-    .MetricsFun(x, "IQR")
+    .MetricsFunGGDL(x, "IQR")
 })
 
 ## Cosmetics

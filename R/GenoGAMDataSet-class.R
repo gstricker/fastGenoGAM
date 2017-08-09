@@ -417,7 +417,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         return(tiles)
     }
 
-    ## run lambda function
+    ## run local function
     tileList <- BiocParallel::bplapply(l$chromosomes, .local, sl = l)
 
     ## concatenate results into one list
@@ -426,7 +426,12 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     GenomeInfoDb::seqlevels(tiles, pruning.mode="coarse") <- GenomeInfoDb::seqlevelsInUse(tiles)
 
     ## resize start and end tiles till correct tile size is reached
-    startsToResize <- which(width(tiles) < l$tileSize & start(tiles) == 1)
+    ## find tiles that are at the start of the regions of interest
+    startPos <- GRanges(seqnames(l$chromosomes), IRanges(start(l$chromosomes), start(l$chromosomes)))
+    isStart <- logical(length(tiles))
+    isStart[queryHits(findOverlaps(tiles, startPos))] <- TRUE
+    
+    startsToResize <- which(width(tiles) < l$tileSize & isStart)
     suppressWarnings(tiles[startsToResize] <- resize(tiles[startsToResize], width = l$tileSize))
     endsToResize <- which(width(tiles) < l$tileSize)
     suppressWarnings(tiles[endsToResize] <- resize(tiles[endsToResize], width = l$tileSize, fix = "end"))
@@ -888,13 +893,13 @@ setGeneric("getTileSize<-", function(object, value) standardGeneric("getTileSize
 ##' that triggers a new computation of the tiles based on the new tile size.
 setReplaceMethod("getTileSize", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
-    settings <- tileSettings(object)
-    settings$tileSize <- value
-    settings$chunkSize <- value - 2*settings$overhangSize
-    newIndex <- .makeTiles(settings)
-    slot(object, "index") <- newIndex
-    return(object)
-})
+                     settings <- tileSettings(object)
+                     settings$tileSize <- value
+                     settings$chunkSize <- value - 2*settings$overhangSize
+                     newIndex <- .makeTiles(settings)
+                     slot(object, "index") <- newIndex
+                     return(object)
+                 })
 
 ##' @export 
 setGeneric("getOverhangSize<-", function(object, value) standardGeneric("getOverhangSize<-"))
@@ -903,13 +908,13 @@ setGeneric("getOverhangSize<-", function(object, value) standardGeneric("getOver
 ##' that triggers a new computation of the tiles based on the new overhang size.
 setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
-    settings <- tileSettings(object)
-    settings$overhangSize <- value
-    settings$tileSize <- settings$chunkSize + 2*value
-    newIndex <- .makeTiles(settings)
-    slot(object, "index") <- newIndex
-    return(object)
-})
+                     settings <- tileSettings(object)
+                     settings$overhangSize <- value
+                     settings$tileSize <- settings$chunkSize + 2*value
+                     newIndex <- .makeTiles(settings)
+                     slot(object, "index") <- newIndex
+                     return(object)
+                 })
 
 ##' @export 
 setGeneric("getTileNumber<-", function(object, value) standardGeneric("getTileNumber<-"))
@@ -918,18 +923,18 @@ setGeneric("getTileNumber<-", function(object, value) standardGeneric("getTileNu
 ##' that triggers a new computation of the tiles based on the new number of tiles.
 setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
-    settings <- tileSettings(object)
-    size <- settings$chunkSize*settings$numTiles
-    if(size > sum(width(dataRange(object)))) {
-        warning("The settings indicated a longer total genome size than actually present. it was trimmed accordingly.")
-        size <- sum(width(dataRange(object)))
-    }
-    settings$chunkSize <- round(size/value)
-    settings$tileSize <- value + 2*settings$overhangSize
-    newIndex <- .makeTiles(settings)
-    slot(object, "index") <- newIndex
-    return(object)
-})
+                     settings <- tileSettings(object)
+                     size <- min(width(settings$chromosomes))
+                     if(size > sum(width(dataRange(object)))) {
+                         warning("The settings indicated a longer total genome size than actually present. it was trimmed accordingly.")
+                         size <- sum(width(dataRange(object)))
+                     }
+                     settings$chunkSize <- round(size/value)
+                     settings$tileSize <- value + 2*settings$overhangSize
+                     newIndex <- .makeTiles(settings)
+                     slot(object, "index") <- newIndex
+                     return(object)
+                 })
 
 ## Subsetting
 ## ==========
