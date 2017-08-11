@@ -15,3 +15,6 @@ A /code{GenoGAMDataSet} object
 \description{
 Make an example /code{GenoGAMDataSet}
 }
+\examples{
+ggdl <- makeTestGenoGAMDataSetList()
+}

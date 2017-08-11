@@ -125,18 +125,18 @@ test_that("Tiling works correctly with tiles bigger than chromosomes", {
     l <- list(chunkSize = 8000, overhangSize = 100, chromosomes = chromosomes)
     tiles <- .makeTiles(l)
     expect_true(length(tiles) == 3)
-    expect_true(all(width(tiles) == c(6000, 8200, 8200)))
+    expect_true(all(width(tiles) == c(6000, 6000, 6000)))
 })
 
 test_that("Tiling works correctly with a distinct set of regions", {
     chromosomes <- GRanges(c("chr1", "chr1", "chr2", "chr2"),
-                           IRanges(c(1, 1200, 1, 10000), c(2000, 10000, 999, 11100)))
+                           IRanges(c(1, 1200, 1, 10000), c(2000, 10000, 1101, 11100)))
     seqlengths(chromosomes) <- c(1e6, 1e6)
     l <- list(chunkSize = 1000, overhangSize = 200, chromosomes = chromosomes)
     tiles <- .makeTiles(l)
     
     expect_equal(metadata(tiles)$numTiles, 12)
-    expect_true(max(width(tiles)) == 1400 & min(width(tiles)) == 1400)
+    expect_true(max(width(tiles)) == 1101 & min(width(tiles)) == 1101)
 })
 
 test_that("Settings checking functions work correctly", {

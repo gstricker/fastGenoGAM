@@ -153,7 +153,7 @@ test_that("The subsetting methods work correct", {
     res <- subsetByOverlaps(ggdl, gr)
     gr$id <- 1:2
     expect_true(all(seqlevelsInUse(res) == c("chrX", "chrY")))
-    expect_identical(gr, getIndex(res))
+    expect_true(all(gr == getIndex(res)))
     expect_true(length(rowRanges(res)) == 2)
     expect_true(length(assay(res)) == 2)
 
@@ -311,11 +311,11 @@ test_that("Metric computation works correct in case of one tile", {
     test_res <- as.vector(sapply(assay(ggdl)[[1]], median))
     
     expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
-    expect_true(identical(res, test_res))
+    expect_true(all(res == test_res))
 
     ## for mad
     res <- as.vector(mad(ggdl))
-    test_res <- as.vector(sapply(assay(ggd)[[1]], mad))
+    test_res <- as.vector(sapply(assay(ggdl)[[1]], mad))
     
     expect_true(all(dim(res) == c(length(getIndex(ggdl)), ncol(assay(ggdl)[[1]]))))
     expect_true(identical(res, test_res))

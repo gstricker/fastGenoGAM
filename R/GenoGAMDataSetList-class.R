@@ -99,6 +99,9 @@ GenoGAMDataSetList <- function(...) {
 #'
 #' @param sim Use simulated data (TRUE) or test data from a real experiment
 #' @return A /code{GenoGAMDataSet} object
+#' @examples
+#' ggdl <- makeTestGenoGAMDataSetList()
+#' @export
 makeTestGenoGAMDataSetList <- function() {
 
     k <- 10000
