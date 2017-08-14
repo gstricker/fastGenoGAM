@@ -195,13 +195,13 @@ test_that("The subsetting methods work correct", {
     expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
-    res <- ggdl[[1]]
-    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
-                                 IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
-    seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
+    ## res <- ggdl[[1]]
+    ## dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
+    ##                              IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
+    ## seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
     
-    expect_identical(granges(getIndex(ggdl)[1]), dr)
-    expect_equal(getTileNumber(res), 1)
+    ## expect_identical(granges(getIndex(ggdl)[1]), dr)
+    ## expect_equal(getTileNumber(res), 1)
 
     gr <- GRanges("chrXIV", IRanges(300501,301500))
     res <- subsetByOverlaps(ggdl, gr)

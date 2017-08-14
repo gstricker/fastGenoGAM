@@ -76,11 +76,10 @@
         ## retrieve data
         for(jj in 1:length(table_i)) {
             idx <- as.integer(names(table_i)[jj])
-            begin <- i[1] - max(len[idx - 1], 1)
+            begin <- i[1] - max(len[idx - 1], 0)
             rows <- begin:(begin + table_i[jj] - 1)
             res[[jj]] <- x[[idx]][rows, ]
             i <- i[-(1:table_i[jj])]
-            i <- i - i[1] + 1
         }
 
         ## check if everything went correct

@@ -8,7 +8,6 @@
 \alias{'[['}
 \alias{subsetByOverlaps,GenoGAMDataSetList,GRanges-method}
 \alias{[,GenoGAMDataSetList,GRanges,ANY,ANY-method}
-\alias{[[,GenoGAMDataSetList,numeric,ANY-method}
 \title{Subset method for GenoGAMDataSetList}
 \usage{
 \S4method{subset}{GenoGAMDataSetList}(x, ...)
@@ -18,8 +17,6 @@
   "equal"), invert = FALSE, ...)
 
 \S4method{[}{GenoGAMDataSetList,GRanges,ANY,ANY}(x, i)
-
-\S4method{[[}{GenoGAMDataSetList,numeric,ANY}(x, i)
 }
 \arguments{
 \item{x, query}{A GenoGAMDataSet object.}

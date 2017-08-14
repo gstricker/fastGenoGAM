@@ -559,12 +559,12 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
     return(ggd)
 })
 
-#' @rdname GenoGAMDataSetList-subsetting
-setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
-    gr <- getIndex(x)[i]
-    ggd <- subsetByOverlaps(x,gr)
-    return(ggd)
-})
+## #' @rdname GenoGAMDataSetList-subsetting
+## setMethod("[[", c("GenoGAMDataSetList", "numeric"), function(x, i) {
+##     gr <- getIndex(x)[i]
+##     ggd <- subsetByOverlaps(x,gr)
+##     return(ggd)
+## })
 
 ## ## Tile computation
 ## ## ================
