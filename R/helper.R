@@ -74,10 +74,11 @@
         res <- vector("list", length(table_i))
             
         ## retrieve data
-        ## for(chr in names(table_i)) {
         for(jj in 1:length(table_i)) {
-            rows <- i[1]:(i[1] + table_i[jj] - 1)
-            res[[jj]] <- x[[jj]][rows, ]
+            idx <- as.integer(names(table_i)[jj])
+            begin <- i[1] - max(len[idx - 1], 1)
+            rows <- begin:(begin + table_i[jj] - 1)
+            res[[jj]] <- x[[idx]][rows, ]
             i <- i[-(1:table_i[jj])]
             i <- i - i[1] + 1
         }
