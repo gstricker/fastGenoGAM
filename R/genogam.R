@@ -185,15 +185,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     e <- s + width(chunks) - 1
     relativeChunks <- IRanges::IRanges(s, e)
 
-    ## combine fits
-    combinedFits <- .transformResults(res, relativeChunks, what = "fits")
-    combinedSEs <- .transformResults(res, relativeChunks, what = "se")
-        
-    ## build GenoGAM object
-    se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
-                                                     assays = list(fits = combinedFits,
-                                                                   se = combinedSEs))
-    
+    ## prepare some slots
     modelParams <- slot(ggs, "params")
     modelParams$cv <- cv
     modelParams$bpknots <- bpknots
@@ -207,12 +199,48 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     modelParams <- c(modelParams, tileSettings(ggd))
     modelParams$check <- NULL
 
-    gg <- GenoGAM(se, family = slot(ggs, "family"),
-                   design = design(ggd),
-                   sizeFactors = sizeFactors(ggd),
-                   factorialDesign = colData(ggd),
-                   params = modelParams,
-                   settings = settings) ## smooths slot to be added
+    ## combine fits
+    ## if ggd is a GenoGAMDataSetList build GenoGAMList
+    if(class(ggd) == "GenoGAMDataSetList") {
+        rowID <- findOverlaps(getIndex(ggd), ggd@id)
+        rowID <- data.table::data.table(data.frame(rowID))
+        data.table::setnames(rowID, names(rowID), c("index", "listid"))
+        
+        combinedFits <- .transformResults(res, relativeChunks, id = rowID, what = "fits")
+        combinedSEs <- .transformResults(res, relativeChunks, id = rowID, what = "se")
+
+        rr <- rowRanges(ggd)
+        selist <- lapply(1:length(combinedFits), function(ii) {
+            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr[[ii]],
+                                                             assays = list(fits = combinedFits[[ii]],
+                                                                           se = combinedSEs[[ii]]))
+            return(se)
+        })
+        names(selist) <- names(rr)
+
+        gg <- GenoGAMList(data = selist, id = ggd@id,
+                          family = slot(ggs, "family"),
+                          design = design(ggd),
+                          sizeFactors = sizeFactors(ggd),
+                          factorialDesign = colData(ggd),
+                          params = modelParams,
+                          settings = settings) ## smooths slot to be added
+    }
+    else {
+        ## build GenoGAM object
+        combinedFits <- .transformResults(res, relativeChunks, what = "fits")
+        combinedSEs <- .transformResults(res, relativeChunks, what = "se")
+        
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
+                                                     assays = list(fits = combinedFits,
+                                                                   se = combinedSEs))
+        gg <- GenoGAM(se, family = slot(ggs, "family"),
+                      design = design(ggd),
+                      sizeFactors = sizeFactors(ggd),
+                      factorialDesign = colData(ggd),
+                      params = modelParams,
+                      settings = settings) ## smooths slot to be added
+    }
     
     ## How to make it run and write directly parallel. Do parallel by Chromosome, write to HDD and run next chromosome?
 
@@ -322,46 +350,67 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 ##' transform the result list of GenoGAMSetup object into a DataFrame
 ##' of either fits or standard errors
 ##' @noRd
-.transformResults <- function(x, relativeChunks, what = c("fits", "se")) {
+.transformResults <- function(x, relativeChunks, id = NULL, what = c("fits", "se")) {
     if(length(relativeChunks) == 0) {
         return(data.table::data.table())
     }
+    aslist <- TRUE
 
-    allData <- lapply(x, function(y) {
-        if(length(slot(y, what)) == 0) {
-            return(data.table::data.table())
-        }
-            
-        s <- start(relativeChunks[slot(y, "params")$id])
-        e <- end(relativeChunks[slot(y, "params")$id])
+    if(is.null(id)) {
+        id <- data.table::data.table(index = 1:length(x), listid = 1)
+        aslist <- FALSE
+        identifiers <- unique(id$listid)
+    }
 
-        ## go by column and subset by colData column
-        l <- lapply(1:length(slot(y, what)), function(z) {
+    if(aslist) {
+        identifiers <- unique(id$listid)
+        res <- vector("list", length(identifiers))
+    }
+        
+    for(ii in identifiers) {
+        elements <- id[id$listid == ii,]$index
+        
+        allData <- lapply(x[elements], function(y) {
+            if(length(slot(y, what)) == 0) {
+                return(data.table::data.table())
+            }
             
-            des <- slot(y, "design")
-            fits <- slot(y, "fits")
-            if(length(des) == 0 | length(fits) == 0) {
-                res <- list()
-            }
-            else {
-                tileLength <- length(fits[[z]])/nrow(des)
-                ## expand colData columns to full length and coerce to boolean
-                desVec <- matrix(as.logical(rep(des, each = tileLength)), ncol = ncol(des))
-                ## take the z list element (= column) and
-                ## subset by the z colData column
-                res <- slot(y, what)[[z]][desVec[,z]]
-                res <- res[s:e]
-            }
-            return(res)
+            s <- start(relativeChunks[slot(y, "params")$id])
+            e <- end(relativeChunks[slot(y, "params")$id])
+
+            ## go by column and subset by colData column
+            l <- lapply(1:length(slot(y, what)), function(z) {
+                
+                des <- slot(y, "design")
+                fits <- slot(y, "fits")
+                if(length(des) == 0 | length(fits) == 0) {
+                    res <- list()
+                }
+                else {
+                    tileLength <- length(fits[[z]])/nrow(des)
+                    ## expand colData columns to full length and coerce to boolean
+                    desVec <- matrix(as.logical(rep(des, each = tileLength)), ncol = ncol(des))
+                    ## take the z list element (= column) and
+                    ## subset by the z colData column
+                    res <- slot(y, what)[[z]][desVec[,z]]
+                    res <- res[s:e]
+                }
+                return(res)
+            })
+            names(l) <- names(slot(y, what))
+            return(data.table::as.data.table(l))
         })
-        names(l) <- names(slot(y, what))
-        return(data.table::as.data.table(l))
-    })
+        combinedData <- data.table::rbindlist(allData)
+        varNames <- colnames(combinedData)
+        combinedData <- S4Vectors::DataFrame(combinedData)
+        colnames(combinedData) <- varNames
+        if(aslist) {
+            res[[ii]] <- combinedData
+        }
+        else {
+            res <- combinedData
+        }
+    }
 
-    combinedData <- data.table::rbindlist(allData)
-    varNames <- colnames(combinedData)
-    combinedData <- S4Vectors::DataFrame(combinedData)
-    colnames(combinedData) <- varNames
-
-    return(combinedData)
+    return(res)
 }
