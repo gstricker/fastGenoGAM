@@ -5,7 +5,6 @@
 \alias{subset,GenoGAMDataSetList-method}
 \alias{subsetByOverlaps}
 \alias{'['}
-\alias{'[['}
 \alias{subsetByOverlaps,GenoGAMDataSetList,GRanges-method}
 \alias{[,GenoGAMDataSetList,GRanges,ANY,ANY-method}
 \title{Subset method for GenoGAMDataSetList}
@@ -19,7 +18,7 @@
 \S4method{[}{GenoGAMDataSetList,GRanges,ANY,ANY}(x, i)
 }
 \arguments{
-\item{x, query}{A GenoGAMDataSet object.}
+\item{x, query}{A GenoGAMDataSetList object.}
 
 \item{...}{Further arguments. Mostly a logical statement
 in case of the 'subset' function. Note that the columnnames
@@ -63,8 +62,7 @@ Subset method for GenoGAMDataSetList
 \details{
 Those are various methods to subset the GenoGAMDataSetList object.
 By logical statement or GRanges overlap. The '[' subsetter is
-just a short version of 'subsetByOverlaps'. The double brackets '[['
-offer a subset based on tiles.
+just a short version of 'subsetByOverlaps'.
 }
 \references{
 Allen's Interval Algebra: James F. Allen: Maintaining knowledge

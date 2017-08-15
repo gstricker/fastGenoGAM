@@ -182,7 +182,7 @@ model.}
 \item{\code{index}}{A GRanges object representing an index of the ranges defined 
 on the genome. Mostly used to store tiles.}
 
-\item{\code{ggd}}{A list of RangedSummarizedExperiment objects}
+\item{\code{data}}{A list of RangedSummarizedExperiment objects}
 
 \item{\code{id}}{A GRanges object keeping the identifiers assigning the regions to the
 respective list elements}

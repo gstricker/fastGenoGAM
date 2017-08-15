@@ -568,7 +568,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         names(selist) <- names(countData)
         ggd <- new("GenoGAMDataSetList", settings = settings,
                    design = design, sizeFactors = sf, index = tiles,
-                   ggd = selist, id = splitid)
+                   data = selist, id = splitid)
     }
     else {
         se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr),
@@ -943,10 +943,9 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' @details
 #' Those are various methods to subset the GenoGAMDataSet object.
 #' By logical statement or GRanges overlap. The '[' subsetter is
-#' just a short version of 'subsetByOverlaps'. The double brackets '[['
-#' offer a subset based on tiles.
+#' just a short version of 'subsetByOverlaps'.
 #'
-#' @aliases subsetByOverlaps '[' '[['
+#' @aliases subsetByOverlaps '['
 #' @param x,query A GenoGAMDataSet object.
 #' @param subject,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.

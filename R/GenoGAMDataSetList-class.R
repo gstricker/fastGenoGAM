@@ -21,7 +21,7 @@ NULL
 #' @slot sizeFactors The normalized values for each sample. A named numeric vector.
 #' @slot index A GRanges object representing an index of the ranges defined 
 #' on the genome. Mostly used to store tiles.
-#' @slot ggd A list of RangedSummarizedExperiment objects
+#' @slot data A list of RangedSummarizedExperiment objects
 #' @slot id A GRanges object keeping the identifiers assigning the regions to the
 #' respective list elements
 #' @name GenoGAMDataSetList-class
@@ -30,18 +30,18 @@ NULL
 setClass("GenoGAMDataSetList",
          slots = list(settings = "GenoGAMSettings",
                       design = "formula", sizeFactors = "numeric",
-                      index = "GRanges", ggd = "list", id = "GRanges"),
+                      index = "GRanges", data = "list", id = "GRanges"),
          prototype = list(settings = GenoGAMSettings(),
                           design = ~ s(x), sizeFactors = numeric(), 
                           index = GenomicRanges::GRanges(),
-                          ggd = list(), id = GenomicRanges::GRanges()))
+                          data = list(), id = GenomicRanges::GRanges()))
 
 ## Validity
 ## ========
 
-.validateGGDType <- function(object) {
-    if(class(object@ggd) != "list") {
-        return("'ggd' must be a list object and all elements must be of class RangedSummarizedExperiment")
+.validateDataType <- function(object) {
+    if(class(object@data) != "list") {
+        return("'data' must be a list object and all elements must be of class RangedSummarizedExperiment")
     }
     NULL
 }
@@ -55,7 +55,7 @@ setClass("GenoGAMDataSetList",
 
 .validateGGDLChromosomes <- function(object) {
     cindex <- GenomeInfoDb::seqlevels(object@index)
-    seqlev <- lapply(object@ggd, function(y) {
+    seqlev <- lapply(object@data, function(y) {
         GenomeInfoDb::seqlevels(SummarizedExperiment::rowRanges(y))
     })
     cobject <- unique(unlist(seqlev))
@@ -70,7 +70,7 @@ setClass("GenoGAMDataSetList",
     c(.validateSettingsType(object), .validateDesignType(object),
       .validateSFType(object), .validateIndexType(object),
       .validateGGDLChromosomes(object),
-      .validateGGDType(object),
+      .validateDataType(object),
       .validateIDType(object))
 }
 
@@ -139,12 +139,12 @@ makeTestGenoGAMDataSetList <- function() {
     ## size factors
     sf <- rep(0, length(colnames(selist[[1]])))
     
-    ggd <- GenoGAMDataSetList(ggd = selist, id = id, design = ~ s(x),
+    ggdl <- GenoGAMDataSetList(data = selist, id = id, design = ~ s(x),
                               index = tiles, sizeFactors = sf)
     
-    design(ggd) <- ~ s(x) + s(x, by = experiment)
+    design(ggdl) <- ~ s(x) + s(x, by = experiment)
         
-    return(ggd)
+    return(ggdl)
 }
 
 ## Check function
@@ -160,7 +160,7 @@ setMethod("checkObject", "GenoGAMDataSetList", function(object) {
 
 #' @describeIn GenoGAMDataSetList Get the dimension of the object
 setMethod("dim", "GenoGAMDataSetList", function(x) {
-    dims <- sapply(x@ggd, dim)
+    dims <- sapply(x@data, dim)
     if(length(dims) == 0) {
         return(c(0, 0))
     }
@@ -203,39 +203,39 @@ setMethod("seqlevelsInUse", "GenoGAMDataSetList", function(x) {
 ##' @describeIn GenoGAMDataSetList get colData from the first element of the
 ##' SummarizedExperiment list
 setMethod("colData", "GenoGAMDataSetList", function(x, ...) {
-    if(length(x@ggd) == 0) {
+    if(length(x@data) == 0) {
         return(DataFrame())
     }
     
-    colData(x@ggd[[1]])
+    colData(x@data[[1]])
 })
 
 ##' @describeIn GenoGAMDataSetList get a list of rowRanges from the
 ##' GenoGAMDataSetList object
 setMethod("rowRanges", "GenoGAMDataSetList", function(x, ...) {
-    lapply(x@ggd, rowRanges)
+    lapply(x@data, rowRanges)
 })
 
 ##' @describeIn GenoGAMDataSetList get a list of assays from the
 ##' GenoGAMDataSetList object
 setMethod("assay", "GenoGAMDataSetList", function(x, ...) {
-    lapply(x@ggd, assay)
+    lapply(x@data, assay)
 })
 
 ##' @describeIn GenoGAMDataSetList get a list of list of assays from the
 ##' GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
 setMethod("assays", "GenoGAMDataSetList", function(x, ...) {
-    lapply(x@ggd, assays)
+    lapply(x@data, assays)
 })
 
 ##' @describeIn GenoGAMDataSetList get colnames from the first element of the
 ##' SummarizedExperiment list
 setMethod("colnames", "GenoGAMDataSetList", function(x) {
-    if(length(x@ggd) == 0) {
+    if(length(x@data) == 0) {
         return(NULL)
     }
         
-    colnames(x@ggd[[1]])
+    colnames(x@data[[1]])
 })
 
 ##' @describeIn GenoGAMDataSetList accessor to the index slot
@@ -259,7 +259,7 @@ setMethod("tileSettings", "GenoGAMDataSetList", function(object) {
 
 ##' @describeIn GenoGAMDataSetList The actual underlying GRanges showing the range of the data.
 setMethod("dataRange", "GenoGAMDataSetList", function(object) {
-    res <- .rowRangesFromList(object@ggd)
+    res <- .rowRangesFromList(object@data)
 })
 
 ##' @describeIn GenoGAMDataSetList A GRanges object representing the chromosomes
@@ -385,11 +385,10 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric")
 #' @details
 #' Those are various methods to subset the GenoGAMDataSetList object.
 #' By logical statement or GRanges overlap. The '[' subsetter is
-#' just a short version of 'subsetByOverlaps'. The double brackets '[['
-#' offer a subset based on tiles.
+#' just a short version of 'subsetByOverlaps'.
 #'
-#' @aliases subsetByOverlaps '[' '[['
-#' @param x,query A GenoGAMDataSet object.
+#' @aliases subsetByOverlaps '['
+#' @param x,query A GenoGAMDataSetList object.
 #' @param subject,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.
 #' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
@@ -432,9 +431,9 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     design <- design(x)
     sf <- sizeFactors(x)
 
-    ## make ggd slot
+    ## make data slot
     ## subset all SummarizedExperiments
-    se <- lapply(x@ggd, function(se) {
+    se <- lapply(x@data, function(se) {
         res <- subset(se, ...)
         return(res)
     })
@@ -464,10 +463,10 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     splitid <- .rowRangesFromList(reduced_se)
     splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
 
-    ggd <- new("GenoGAMDataSetList", settings = settings,
+    ggdl <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               ggd = reduced_se, id = splitid)
-    return(ggd)
+               data = reduced_se, id = splitid)
+    return(ggdl)
 })
 
 .subsetIndexGGDL <- function(se, index) {
@@ -503,7 +502,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     sf <- sizeFactors(query)
 
     ## iterate over all SummarizedExperiments and subset
-    se <- lapply(query@ggd, function(se) {
+    se <- lapply(query@data, function(se) {
         res <- subsetByOverlaps(se, subject, maxgap = maxgap,
                                 minoverlap = minoverlap,
                                 type=type, invert = invert, ...)
@@ -535,11 +534,11 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     splitid <- .rowRangesFromList(reduced_se)
     splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
     
-    ggd <- new("GenoGAMDataSetList", settings = settings,
+    ggdl <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               ggd = reduced_se, id = splitid)
+               data = reduced_se, id = splitid)
     
-    return(ggd)
+    return(ggdl)
 }
 
 #' @rdname GenoGAMDataSetList-subsetting
@@ -555,8 +554,8 @@ setMethod("subsetByOverlaps", c("GenoGAMDataSetList", "GRanges"),
 
 #' @rdname GenoGAMDataSetList-subsetting
 setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
-    ggd <- subsetByOverlaps(x, i)
-    return(ggd)
+    ggdl <- subsetByOverlaps(x, i)
+    return(ggdl)
 })
 
 ## #' @rdname GenoGAMDataSetList-subsetting
