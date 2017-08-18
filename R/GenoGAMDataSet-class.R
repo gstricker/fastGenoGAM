@@ -213,7 +213,8 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @rdname GenoGAMDataSet-class
 #' @export
 GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangSize = NULL,
-                           directory = ".", settings = NULL, hdf5 = FALSE, split = hdf5, ...) {
+                           directory = ".", settings = NULL, hdf5 = FALSE, split = hdf5,
+                           fromHDF5 = FALSE, hdf5Path = "./h5data", ...) {
 
     if(missing(experimentDesign)) {
         futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")
@@ -228,7 +229,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         
         workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 60000
+        posPerGB <- 20000
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4
         ## determine number of splines and samples
@@ -270,24 +271,38 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         settings <- GenoGAMSettings()
     }
 
-    if(class(experimentDesign) == "RangedSummarizedExperiment") {
-        futile.logger::flog.debug("Building GenoGAMDataSet from SummarizedExperiment object")
-        ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
-                                    chunkSize = chunkSize,
-                                    overhangSize = overhangSize,
-                                    design = design,
-                                    settings = settings, ...)
+    
+    if(fromHDF5) {
+        futile.logger::flog.debug(paste0("Building GenoGAMDataSet from HDF5: ", directory))
+        ggd <- .GenoGAMDataSetFromHDF5(config = experimentDesign,
+                                       chunkSize = chunkSize,
+                                       overhangSize = overhangSize,
+                                       design = design,
+                                       directory = directory,
+                                       settings = settings,
+                                       path = hdf5Path, ...)
     }
     else {
-        futile.logger::flog.debug(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
-        ggd <- .GenoGAMDataSetFromConfig(config = experimentDesign,
-                                        chunkSize = chunkSize,
-                                        overhangSize = overhangSize,
-                                        design = design,
-                                        directory = directory,
-                                        settings = settings, 
-                                        hdf5 = hdf5,
-                                        split = split, ...)
+        
+        if(class(experimentDesign) == "RangedSummarizedExperiment") {
+            futile.logger::flog.debug("Building GenoGAMDataSet from SummarizedExperiment object")
+            ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
+                                         chunkSize = chunkSize,
+                                         overhangSize = overhangSize,
+                                         design = design,
+                                         settings = settings, ...)
+        }
+        else {
+            futile.logger::flog.debug(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
+            ggd <- .GenoGAMDataSetFromConfig(config = experimentDesign,
+                                             chunkSize = chunkSize,
+                                             overhangSize = overhangSize,
+                                             design = design,
+                                             directory = directory,
+                                             settings = settings, 
+                                             hdf5 = hdf5,
+                                             split = split, ...)
+        }
     }
 
     futile.logger::flog.info("GenoGAMDataSet created")
@@ -479,7 +494,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 #'
 #' @noRd
 .GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize,
-                                    design, directory, settings, hdf5, split = FALSE, ...) {
+                                    design, directory, settings, hdf5 = FALSE, split = hdf5, ...) {
 
     ## initialize some variables
     args <- list()
@@ -496,7 +511,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     header <- Rsamtools::scanBamHeader(config$file[1])
     chroms <- header[[1]]$targets
     nsamples <- nrow(config)
-    totalLength <- sum(chroms)*nsamples
+    totalLength <- sum(as.numeric(chroms))*nsamples
 
     ## split if data vectors are to big
     if(totalLength > 2^31 | hdf5) {
@@ -532,13 +547,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
               chunkSize = chunkSize,
               overhangSize = overhangSize)
     tiles <- .makeTiles(l)
-
-    ## read data
-    countData <- readData(config, hdf5 = hdf5, split = split, settings = settings, ...)
-    if(length(countData) == 0) {
-        return(new("GenoGAMDataSet"))
-    }
-    
+   
     ## make colData
     colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]
     rownames(colData) <- config$ID
@@ -559,24 +568,141 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     if(split) {
         splitid <- gr
         splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
-        selist <- lapply(names(countData), function(id) {
-            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
-                                       assays = list(countData[[id]]),
-                                       colData = colData)
+
+        ## backup chromosomeList
+        chrBackup <- slot(settings, "chromosomeList")
+       
+        selist <- BiocParallel::bplapply(splitid$id, function(id) {
+            
+            ## read data and make SummarizedExperiment objects
+            slot(settings, "chromosomeList") <- id
+            countData <- readData(config, settings = settings, ...)
+            if(length(countData) == 0) {
+                return(new("GenoGAMDataSet"))
+            }
+
+            if(hdf5) {
+                h5df <- .writeToHDF5(countData, file = id)
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                                                                 assays = list(h5df), colData = colData)
+                isHDF5 <- TRUE
+            }
+            else {
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                                                                 assays = list(countData), colData = colData)
+                isHDF5 <- FALSE
+            }
+            rm(countData)
+            gc()
             return(se)
         })
-        names(selist) <- names(countData)
+        names(selist) <- chrBackup
+        slot(settings, "chromosomeList") <- chrBackup
         ggd <- new("GenoGAMDataSetList", settings = settings,
                    design = design, sizeFactors = sf, index = tiles,
-                   data = selist, id = splitid)
+                   data = selist, id = splitid, hdf5 = isHDF5)
     }
     else {
+        ## read data and make SummarizedExperiment objects
+        countData <- readData(config, settings = settings, ...)
+        if(length(countData) == 0) {
+            return(new("GenoGAMDataSet"))
+        }
+        
         se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr),
                                    assays = list(countData),
                                    colData = colData)
         ggd <- new("GenoGAMDataSet", se, settings = settings,
                    design = design, sizeFactors = sf, index = tiles)
     }
+
+    ## check if everything was set fine
+    correct <- checkObject(ggd)
+    
+    return(ggd)
+}
+
+#' The underlying function to build a GenoGAMDataSet from an
+#' already present HDF5 file
+#'
+#' @noRd
+.GenoGAMDataSetFromHDF5 <- function(config, chunkSize, overhangSize,
+                                    design, directory, settings, path, ...) {
+
+    ## initialize some variables
+    args <- list()
+        
+    ## normalize config object
+    config <- .normalizeConfig(config, directory)
+
+    ## get chromosomeLengths to check if a split of data along the chromosomes is necessary
+    header <- Rsamtools::scanBamHeader(config$file[1])
+    chroms <- header[[1]]$targets
+
+    ## generate rowRanges
+    bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
+    if(length(bamParamsWhich) != 0) {
+        gr <- GenomicRanges::GRanges(bamParamsWhich)
+        lengths <- chroms[GenomeInfoDb::seqlevels(GenomicRanges::GRanges(bamParamsWhich))]
+
+        if(all(!is.na(lengths))){
+            GenomeInfoDb::seqlengths(gr) <- lengths
+        }
+        else {
+            futile.logger::flog.error("The data does not match the region specification in the bamParams settings.")
+            return(new("GenoGAMDataSet"))
+        }
+    }
+    else {
+        starts <- rep(1, length(chroms))
+        ends <- chroms
+        gr <- GenomicRanges::GRanges(names(chroms),
+                                               IRanges::IRanges(starts, ends))
+        GenomeInfoDb::seqlengths(gr) <- chroms
+    }
+    futile.logger::flog.debug("Following row ranges created:")
+    futile.logger::flog.debug(show(gr))
+
+    ## make tiles
+    l <- list(chromosomes = gr,
+              chunkSize = chunkSize,
+              overhangSize = overhangSize)
+    tiles <- .makeTiles(l)
+   
+    ## make colData
+    colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]
+    rownames(colData) <- config$ID
+
+    
+    ## initiate size factors
+    sf <- rep(0, nrow(colData))
+    ##names(sf) <- config$ID
+    
+    ## update chromosome list
+    if(is.null(slot(settings, "chromosomeList"))) {
+        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
+    }
+
+    ## finally build object
+    splitid <- gr
+    splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+
+    selist <- lapply(splitid$id, function(id) {
+
+        ## read HDF5 file
+        h5file <- file.path(path, id)
+        
+        ## read HDF5 data and make SummarizedExperiment objects
+        h5df <- HDF5Array::HDF5Array(h5file, id)
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                                                         assays = list(h5df), colData = colData)
+        return(se)
+    })
+    names(selist) <- splitid$id
+    
+    ggd <- new("GenoGAMDataSetList", settings = settings,
+               design = design, sizeFactors = sf, index = tiles,
+               data = selist, id = splitid, hdf5 = TRUE)
 
     ## check if everything was set fine
     correct <- checkObject(ggd)

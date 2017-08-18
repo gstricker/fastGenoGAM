@@ -30,11 +30,13 @@ NULL
 setClass("GenoGAMDataSetList",
          slots = list(settings = "GenoGAMSettings",
                       design = "formula", sizeFactors = "numeric",
-                      index = "GRanges", data = "list", id = "GRanges"),
+                      index = "GRanges", data = "list", id = "GRanges",
+                      hdf5 = "logical"),
          prototype = list(settings = GenoGAMSettings(),
                           design = ~ s(x), sizeFactors = numeric(), 
                           index = GenomicRanges::GRanges(),
-                          data = list(), id = GenomicRanges::GRanges()))
+                          data = list(), id = GenomicRanges::GRanges(),
+                          hdf5 = FALSE))
 
 ## Validity
 ## ========
@@ -49,6 +51,13 @@ setClass("GenoGAMDataSetList",
 .validateIDType <- function(object) {
     if(class(object@id) != "GRanges") {
         return("'id' must be a GRanges object")
+    }
+    NULL
+}
+
+.validateH5Type <- function(object) {
+    if(class(object@hdf5) != "logical") {
+        return("'hdf5' must be a logical object")
     }
     NULL
 }
@@ -71,7 +80,8 @@ setClass("GenoGAMDataSetList",
       .validateSFType(object), .validateIndexType(object),
       .validateGGDLChromosomes(object),
       .validateDataType(object),
-      .validateIDType(object))
+      .validateIDType(object),
+      .validateH5Type(object))
 }
 
 S4Vectors::setValidity2("GenoGAMDataSetList", .validateGenoGAMDataSetList)
@@ -164,7 +174,7 @@ setMethod("dim", "GenoGAMDataSetList", function(x) {
     if(length(dims) == 0) {
         return(c(0, 0))
     }
-    res <- c(sum(dims[1,]), max(dims[2,]))
+    res <- c(sum(as.numeric(dims[1,])), max(as.numeric(dims[2,])))
     return(res)
 })
 
@@ -430,6 +440,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     settings <- slot(x, "settings")
     design <- design(x)
     sf <- sizeFactors(x)
+    h5 <- slot(x, "hdf5")
 
     ## make data slot
     ## subset all SummarizedExperiments
@@ -465,7 +476,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
 
     ggdl <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               data = reduced_se, id = splitid)
+               data = reduced_se, id = splitid, hdf5 = h5)
     return(ggdl)
 })
 
@@ -500,6 +511,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     settings <- slot(query, "settings")
     design <- design(query)
     sf <- sizeFactors(query)
+    h5 <- slot(query, "hdf5")
 
     ## iterate over all SummarizedExperiments and subset
     se <- lapply(query@data, function(se) {
@@ -536,7 +548,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     
     ggdl <- new("GenoGAMDataSetList", settings = settings,
                design = design, sizeFactors = sf, index = index,
-               data = reduced_se, id = splitid)
+               data = reduced_se, id = splitid, hdf5 = h5)
     
     return(ggdl)
 }
@@ -600,21 +612,29 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 
 ## #' Function to retrieve the row coordinates as a list
 ## #' @param x The GenoGAMDataSet object
-## #' @return An integerList with the row numbers for each tile
-.getListedCoordinates <- function(x) {
+##  #' @return An integerList with the row numbers for each tile
+## .getListedCoordinates <- function(x) {
 
-    rr <- rowRanges(x)
-    lcoords <- lapply(rr, function(y) {
-        ov <- IRanges::findOverlaps(y, getIndex(x))
-        sh <- S4Vectors::subjectHits(ov)
-        qh <- S4Vectors::queryHits(ov)
-        l <- range(IRanges::splitAsList(qh, sh))
-        l <- IRanges::IRanges(l[,1], l[,2])
-        return(l)
-    })
-    return(lcoords)
-}
+##     rr <- rowRanges(x)
+##     lcoords <- lapply(rr, function(y) {
+##         ind <- getIndex(x)
+##         ind <- ind[seqnames(ind) == as.character(S4Vectors::runValue(seqnames(y)))]
+        
 
+        
+##         gr <- fastGenoGAM:::.extractGR(y)
+##         ov <- IRanges::findOverlaps(gr, getIndex(x))
+##         sh <- S4Vectors::subjectHits(ov)
+##         uniqueqh <- unique(S4Vectors::queryHits(ov))
+##         qh <- sapply(uniqueqh, function(ii) {
+##             start(gr)[ii]:end(gr)[ii]
+##         })
+##         l <- range(IRanges::splitAsList(qh, sh))
+##         l <- IRanges::IRanges(l[,1], l[,2])
+##         return(l)
+##     })
+##     return(lcoords)
+## }
 
 #' compute metrics for each tile
 #' @param x The GenoGAMDataSet object
@@ -623,18 +643,72 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @return The metric value
 .MetricsFunGGDL <- function(x, what, na.rm = FALSE) {
 
-    l <- .getListedCoordinates(x)
+    if(slot(x, "hdf5")) {
+        res <- .MetricsFunHDF5(x, what, na.rm)
+    }
+    else {
+        res <- .MetricsFunSimple(x, what, na.rm)
+    }
+
+    return(res)
+}
+
+#' compute metrics for each tile
+#' @param x The GenoGAMDataSet object
+#' @param what A character naming the metric
+#' @param na.rm Should NAs be ignored
+#' @return The metric value
+.MetricsFunSimple <- function(x, what, na.rm = FALSE) {
+
+    ind <- getIndex(x)
     data <- assay(x)
                     
-    res <- sapply(colnames(x), function(y) {
+    res <- sapply(1:dim(x)[2], function(ii) {
         l <- unlist(lapply(names(data), function(d) {
-            df <- data[[d]][[y]]
-            by <- l[[d]]
+            df <- data[[d]][[ii]]
+            by <- IRanges::ranges(ind[GenomeInfoDb::seqnames(ind) == d])
             rle <- IRanges::extractList(df, by)
             eval(call(what, rle, na.rm = na.rm))
         }))
         return(l)
     })
+    
+    if(!is(res, "matrix")) {
+        if(is(res, "list") & is.null(dim(res))) {
+            res <- matrix()
+        }
+        else {
+            res <- t(matrix(res))
+        }
+    }
+
+    colnames(res) <- colnames(x)
+    rownames(res) <- getIndex(x)$id
+    return(res)
+}
+
+#' compute metrics for each tile
+#' @param x The GenoGAMDataSet object
+#' @param what A character naming the metric
+#' @param na.rm Should NAs be ignored
+#' @return The metric value
+.MetricsFunHDF5 <- function(x, what, na.rm = FALSE) {
+
+    ind <- getIndex(x)
+    data <- assay(x)
+           
+    system.time(res <- sapply(1:dim(x)[2], function(ii) {
+        print(ii)
+        l <- unlist(lapply(names(data), function(d) {
+            print(d)
+            df <- data[[d]][,ii]
+            by <- IRanges::ranges(ind[GenomeInfoDb::seqnames(ind) == d])
+            rleDF <- as(df, "DataFrame")          
+            rle <- IRanges::extractList(rleDF[,1], by)
+            eval(call(what, rle, na.rm = na.rm))
+        }))
+        return(l)
+    }))
     
     if(!is(res, "matrix")) {
         if(is(res, "list") & is.null(dim(res))) {

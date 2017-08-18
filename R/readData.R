@@ -167,22 +167,53 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
 }
 
 
-##' Function to write data.frame list to HDF5
+##' Function to write DataFrame to HDF5
 ##' @noRd
-.writeToHDF5 <- function(dflist, dir = "./h5data") {
+.writeToHDF5 <- function(df, name, settings) {
+
+    mode <- "integer"
+    level <- 6L
+    name <- "chr22"
+    HDF5Array::setHDF5DumpDir("~/h5data")
+    h5file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
+    h5file <- file.path(HDF5Array::getHDF5DumpDir(), "test.h5")
+    HDF5Array::setHDF5DumpFile(h5file)
+    HDF5Array::setHDF5DumpCompressionLevel(level=level)
+    chunkdims <- HDF5Array::getHDF5DumpChunkDim(c(max(width(getIndex(ggd))), dim(df)[2]), mode)
+    h5created <- rhdf5::h5createDataset(h5file, "chr22", chunkdims, storage.mode = mode)
+    if(h5created) {
+        HDF5Array::appendDatasetCreationToHDF5DumpLog(h5file, "chr22", chunkdims, mode, chunkdims, 6)
+    }
+    chunkdims <- c(62000, 1)
+    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = "chr22", verbose = TRUE, chunk_dim = chunkdims, level = level)
+    h6file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
+    h6 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h6file, name = "chr22", verbose = TRUE, level = level)
+    h7file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
+    h7 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h7file, name = "chr22", verbose = TRUE, level = 0)
+
+    HDF5Array::showHDF5DumpLog()
+    system.time(bla5 <- h5[1:16569,])
+    system.time(bla6 <- h6[1:16569,])
+    system.time(bla7 <- h7[1:16569,])
+    
+    if(futile.logger::flog.threshold() == "DEBUG") {
+        verbose <- TRUE
+    }
+    else {
+        verbose <- FALSE
+    }
+    
     if(!dir.exists(dir)) {
         futile.logger::flog.info(paste("HDF5 directory created at:", dir))
         dir.create(dir)
     }
 
+    HDF5Array::showHDF5DumpLog()
     futile.logger::flog.info("Writing to HDF5")
-    h5list <- BiocParallel::bplapply(names(dflist), function(df) {
-        h5file <- file.path(dir, df)
-        h5 <- HDF5Array::HDF5Array(HDF5Array::DelayedArray(dflist[[df]]))
-        return(h5)
-    })
+    h5file <- file.path(dir, file)
+    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = file, verbose = verbose)
     futile.logger::flog.info("Writing to HDF5 finished")
-    return(h5list)
+    return(h5)
 }
 
 ##' The intermediate function calling the correct

@@ -1,3 +1,8 @@
+## TODO: Add to settings HDF5 settings:
+## - hdf5 path
+## - compression level
+## - 
+
 ## ===============
 ## GenoGAMSettings
 ## ===============
@@ -75,12 +80,14 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 setClass("GenoGAMSettings",
          slots = list(center = "logicalOrNULL", chromosomeList = "characterOrNULL",
              bamParams = "ScanBamParam", processFunction = "functionOrNULL", 
-             optimMethod = "character", optimControl = "list", estimControl = "list"),
+             optimMethod = "character", optimControl = "list", estimControl = "list",
+             hdf5Control = "list"),
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
              optimControl = list(maxit = 50, fnscale = -1, trace = 1),
-             estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)))
+             estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6),
+             hdf5Control = list(dir = NULL, level = NULL, chunk = NULL)))
 
 ## Validity
 ## ========
@@ -115,10 +122,19 @@ setClass("GenoGAMSettings",
     NULL
 }
 
+.validateHDF5ControlType <- function(object) {
+    if(class(object@hdf5Control) != "list") {
+        return("'hdf5Control' must be a list object")
+    }
+    NULL
+}
+
+
 ## general validate function
 .validateGenoGAMSettings <- function(object) {
     c(.validateBAMParamsType(object), .validateOptimMethodType(object),
-      .validateOptimControlType(object) ,.validateEstimControlType(object))
+      .validateOptimControlType(object) ,.validateEstimControlType(object),
+      .validateHDF5ControlType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
@@ -148,7 +164,37 @@ GenoGAMSettings <- function(...) {
     params <- .fillParameters(l = params, estimControl)
     slot(ggs, "estimControl") <- params
 
+    slot(ggs, "hdf5Control") <- .initializeHDF5Params(slot(ggs, "hdf5Control"))
     return(ggs)
+}
+
+#' initializing HDF5 control parameters
+.initializeHDF5Params <- function(params) {
+    currentDir <- HDF5Array::getHDF5DumpDir()
+    currentLevel <- HDF5Array::getHDF5DumpCompressionLevel()
+
+    ## set or get current dump directory
+    if(is.null(params$dir)) {
+        params$dir <- currentDir
+    }
+    else {
+        if(currentDir != params$dir) {
+            HDF5Array::setHDF5DumpDir(params$dir)
+        }
+    }
+
+    ## set or get current level
+    if(is.null(params$level)) {
+        params$level <- currentLevel
+    }
+    else {
+        if(currentLevel != params$level) {
+            HDF5Array::setHDF5CompressionLevel(params$level)
+        }
+    }
+
+    ## no need to initiate chunk dimensions
+    return(params)
 }
 
 ## Cosmetics
@@ -174,6 +220,16 @@ GenoGAMSettings <- function(...) {
     cat("\n")
     cat("-------------------- Parallel backend -------------------\n")
     show(BiocParallel::registered()[[1]])
+    cat("\n")
+    cat("-------------------- HDF5 settings ----------------------\n")
+    cat("HDF5 Directory:", ggs@hdf5Control$dir, "\n")
+    cat("HDF5 Compression Level (0-9):", ggs@hdf5Control$level, "\n")
+    if(is.null(ggs@hdf5Control$chunk)) {
+        cat("HDF5 Chunk dimensions: Will be set automatically \n")
+    }
+    else {
+        cat("HDF5 chunk dimensions:", ggs@hdf5Control$chunk, "\n")
+    }
     cat("\n")
     cat("-------------------- Optimization parameters ------------\n")
     cat("Optimization method:", ggs@optimMethod, "\n")
