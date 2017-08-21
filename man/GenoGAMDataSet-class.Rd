@@ -36,7 +36,7 @@
 \usage{
 GenoGAMDataSet(experimentDesign, design, chunkSize = NULL,
   overhangSize = NULL, directory = ".", settings = NULL, hdf5 = FALSE,
-  split = hdf5, fromHDF5 = FALSE, hdf5Path = "./h5data", ...)
+  split = hdf5, fromHDF5 = FALSE, ...)
 
 \S4method{getIndex}{GenoGAMDataSet}(object)
 

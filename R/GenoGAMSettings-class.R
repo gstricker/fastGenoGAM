@@ -81,13 +81,14 @@ setClass("GenoGAMSettings",
          slots = list(center = "logicalOrNULL", chromosomeList = "characterOrNULL",
              bamParams = "ScanBamParam", processFunction = "functionOrNULL", 
              optimMethod = "character", optimControl = "list", estimControl = "list",
-             hdf5Control = "list"),
+             hdf5Control = "list", regionSize = "integer"),
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
-             optimControl = list(maxit = 50, fnscale = -1, trace = 1),
-             estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6),
-             hdf5Control = list(dir = NULL, level = NULL, chunk = NULL)))
+             optimControl = list(maxit = 50L, fnscale = -1L, trace = 1L),
+             estimControl = list(eps = 1e-6, maxiter = 1000L, alpha = 1L, rho = 0.5, c = 1e-4, m = 6L),
+             hdf5Control = list(dir = NULL, level = NULL, chunk = NULL),
+             regionSize = 4000L))
 
 ## Validity
 ## ========
@@ -129,12 +130,19 @@ setClass("GenoGAMSettings",
     NULL
 }
 
+.validateRegionSizeType <- function(object) {
+    if(class(object@regionSize) != "integer") {
+        return("'regionSize' must be an integer object")
+    }
+    NULL
+}
+
 
 ## general validate function
 .validateGenoGAMSettings <- function(object) {
     c(.validateBAMParamsType(object), .validateOptimMethodType(object),
       .validateOptimControlType(object) ,.validateEstimControlType(object),
-      .validateHDF5ControlType(object))
+      .validateHDF5ControlType(object), .validateRegionSizeType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
@@ -221,15 +229,21 @@ GenoGAMSettings <- function(...) {
     cat("-------------------- Parallel backend -------------------\n")
     show(BiocParallel::registered()[[1]])
     cat("\n")
+    cat("-------------------- Logger settings --------------------\n")
+    cat("Logger threshold:", futile.logger::flog.threshold(), "\n")
+    cat("\n")
     cat("-------------------- HDF5 settings ----------------------\n")
-    cat("HDF5 Directory:", ggs@hdf5Control$dir, "\n")
-    cat("HDF5 Compression Level (0-9):", ggs@hdf5Control$level, "\n")
+    cat("HDF5 Directory:", HDF5Array::getHDF5DumpDir(), "\n")
+    cat("HDF5 Compression Level (0-9):", HDF5Array::getHDF5DumpCompressionLevel(), "\n")
     if(is.null(ggs@hdf5Control$chunk)) {
         cat("HDF5 Chunk dimensions: Will be set automatically \n")
     }
     else {
         cat("HDF5 chunk dimensions:", ggs@hdf5Control$chunk, "\n")
     }
+    cat("\n")
+    cat("-------------------- Count Matrix settings ------------\n")
+    cat("Region size:", ggs@regionSize, "\n")
     cat("\n")
     cat("-------------------- Optimization parameters ------------\n")
     cat("Optimization method:", ggs@optimMethod, "\n")

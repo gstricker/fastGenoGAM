@@ -4,6 +4,8 @@
 #' @include GenoGAMSettings-class.R
 NULL
 
+setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
+
 #' GenoGAMDataSet
 #'
 #' The GenoGAMDataSet class contains the pre-processed raw data and
@@ -30,10 +32,11 @@ setClass("GenoGAMDataSet",
          contains = "RangedSummarizedExperiment",
          slots = list(settings = "GenoGAMSettings",
                       design = "formula", sizeFactors = "numeric",
-                      index = "GRanges"),
+                      index = "GRanges", countMatrix = "HDF5OrMatrix"),
          prototype = list(settings = GenoGAMSettings(),
                           design = ~ s(x), sizeFactors = numeric(), 
-                          index = GenomicRanges::GRanges()))
+                          index = GenomicRanges::GRanges(),
+                          countMatrix = matrix()))
 
 ## Validity
 ## ========
@@ -76,11 +79,20 @@ setClass("GenoGAMDataSet",
     NULL
 }
 
+#' Validating the correct type
+.validateCountMatrixType <- function(object) {
+    if(class(object@countMatrix) != "matrix" & class(object@countMatrix) != "HDF5Matrix") {
+        return("'countMatrix' must be either a matrix or HDF5Matrix object")
+    }
+    NULL
+}
+
+
 ## general validate function
 .validateGenoGAMDataSet <- function(object) {
     c(.validateSettingsType(object), .validateDesignType(object),
       .validateSFType(object), .validateIndexType(object),
-      .validateChromosomes(object))
+      .validateChromosomes(object), .validateCountMatrixType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
@@ -214,7 +226,7 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @export
 GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangSize = NULL,
                            directory = ".", settings = NULL, hdf5 = FALSE, split = hdf5,
-                           fromHDF5 = FALSE, hdf5Path = "./h5data", ...) {
+                           fromHDF5 = FALSE, ...) {
 
     if(missing(experimentDesign)) {
         futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")
@@ -223,25 +235,11 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     futile.logger::flog.info("Creating GenoGAMDataSet")
 
+    ## optimal chunk size
     if(is.null(chunkSize)) {
-        ## set optimal chunk length if not provided
-        ## based on number of cores, samples and splines
-        
-        workers <- BiocParallel::registered()[[1]]$workers
-        ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 20000
-        ## we don't want to exceed this number of GByte per core
-        GBlimit <- 4
-        ## determine number of splines and samples
-        if(class(experimentDesign) == "data.frame") {
-            nsamples <- nrow(experimentDesign)
-        }
-        else {
-            nsamples <- count.fields(experimentDesign)[1]
-        }
-        nsplines <- length(.getVars(design))
-        
-        chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
+        ## need initial overhangsize if null to compute chunk size
+        ov <- ifelse(is.null(overhangSize), 1000, overhangSize)
+        chunkSize <- .setOptimalChunkSize(experimentDesign, design, ov, hdf5)
     }
 
     if(is.null(overhangSize)) {
@@ -254,6 +252,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         warning("Overhang size exceeds the total size of the chunk. Adjusted to chunkSize/2 - 1")
     }
 
+    if(is.null(settings)) {
+        settings <- GenoGAMSettings()
+    }
+
     input <- paste0("Building GenoGAMDataSet with the following parameters:\n",
                     "  Class of experimentDesign: ", class(experimentDesign), "\n",
                     "  Chunk size: ", chunkSize, "\n",
@@ -262,25 +264,21 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                     "  Directory: ", directory, "\n",
                     "  HDF5: ", hdf5, "\n",
                     "  Split: ", split, "\n",
-                    "  Specific Settings: ")
+                    "  Specific Settings: ",
+                    "  From HDF5: ", fromHDF5, "\n")
     futile.logger::flog.debug(input)
     futile.logger::flog.debug(show(settings))
     futile.logger::flog.debug(show(list(...)))
-
-    if(is.null(settings)) {
-        settings <- GenoGAMSettings()
-    }
-
-    
+   
     if(fromHDF5) {
-        futile.logger::flog.debug(paste0("Building GenoGAMDataSet from HDF5: ", directory))
+        futile.logger::flog.debug(paste0("Building GenoGAMDataSet from HDF5: ", settings@hdf5Control$dir))
         ggd <- .GenoGAMDataSetFromHDF5(config = experimentDesign,
                                        chunkSize = chunkSize,
                                        overhangSize = overhangSize,
                                        design = design,
                                        directory = directory,
                                        settings = settings,
-                                       path = hdf5Path, ...)
+                                       split = split, ...)
     }
     else {
         
@@ -290,7 +288,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                                          chunkSize = chunkSize,
                                          overhangSize = overhangSize,
                                          design = design,
-                                         settings = settings, ...)
+                                         settings = settings,
+                                         hdf5 = hdf5, ...)
         }
         else {
             futile.logger::flog.debug(paste0("Building GenoGAMDataSet from config file: ", experimentDesign))
@@ -314,7 +313,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 #' 
 #' @noRd
 .GenoGAMDataSetFromSE <- function(se, chunkSize, overhangSize,
-                                    design, settings, ...) {
+                                    design, settings, hdf5, ...) {
 
     gr <- .extractGR(rowRanges(se))
 
@@ -345,7 +344,28 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ggd <- new("GenoGAMDataSet", se, settings = settings,
                design = design, sizeFactors = sf, index = tiles)
 
+    ## compute sum matrix
+    ## backup original tile index
+    index_backup <- getIndex(ggd)
 
+    ## make new tile index
+    metadata(slot(ggd, "index"))$chunkSize <- slot(settings, "regionSize")
+    newTiles <- .makeTiles(tileSettings(ggd))
+    slot(ggd, "index") <- newTiles
+
+    ## compute the matrix
+    sumMatrix <- sum(ggd)
+    slot(ggd, "countMatrix") <- sumMatrix
+
+    ## set tiles back to original
+    slot(ggd, "index") <- index_backup
+
+    ## write to hdf5 if necessary
+    if(hdf5){
+        h5df <- .writeToHDF5(assay(se), "dataset", settings)
+        assays(ggd) <- list(h5df)
+    }
+    
     ## check if everything was set fine
     correct <- checkObject(ggd)
     
@@ -368,6 +388,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     ## tiles should be not bigger than any pre-specified region
     l$tileSize <- min(l$chunkSize + 2*l$overhangSize, min(width(l$chromosomes)))
+    ## adjust chunks and overhang accordingly
+    l$chunkSize <- l$tileSize - 2*l$overhangSize
     
     input <- paste0("Building Tiles with the following parameters:\n",
                     "  Chunk size: ", l$chunkSize, "\n",
@@ -466,6 +488,56 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(tiles)
 }
 
+#' set optimal chunk length if not provided
+#' based on number of cores, samples, splines and
+#' in case of HDF5, the block size
+.setOptimalChunkSize <- function(expDesign, design, ov, hdf5) {
+
+    ## determine number of samples
+    if(class(expDesign) == "data.frame") {
+        nsamples <- nrow(expDesign)
+    }
+    else {
+        nsamples <- count.fields(expDesign)[1]
+    }
+
+    if(hdf5) {
+        maxBlockSize <- DelayedArray:::get_max_block_length("integer")
+        tileSize <- floor(maxBlockSize/nsamples)
+        chunkSize <- tileSize - 2*ov
+    }
+    else {
+        workers <- BiocParallel::registered()[[1]]$workers
+        ## maximal chunk size to work with and use only 1GB per core
+        posPerGB <- 20000L
+        ## we don't want to exceed this number of GByte per core
+        GBlimit <- 4L
+        ## number of splines
+        nsplines <- length(.getVars(design))
+
+        chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
+    }
+
+    return(chunkSize)
+}
+
+#' make sum matrix for each DataFrame
+.makeSumMatrix <- function(x, by) {
+    rle <- IRanges::extractList(x, by)
+    t(sapply(rle, function(y) sapply(y, sum)))
+}
+
+#' get the identifier of the HDF5 files, that belong together to one dataset
+.getIdentifier <- function(path) {
+    files <- list.files(path)
+    splitFiles <- strsplit(files, "_")
+    
+    ## check the second element of the split name, which should be the
+    ## identifier (and the creation date). Discard invalid files (which give NA)
+    ## and in case of multiple identifiers select the first.
+    possibleIdentifiers <- unique(na.omit(sapply(splitFiles, function(y) y[2])))
+    return(possibleIdentifiers[1])
+}
 
 #' Convert the config columns to the right type.
 #'
@@ -514,7 +586,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     totalLength <- sum(as.numeric(chroms))*nsamples
 
     ## split if data vectors are to big
-    if(totalLength > 2^31 | hdf5) {
+    if(totalLength > 2^31) {
         split <- TRUE
     }
 
@@ -547,6 +619,12 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
               chunkSize = chunkSize,
               overhangSize = overhangSize)
     tiles <- .makeTiles(l)
+
+    ## make tiles for sum matrix computation
+    suml <- list(chromosomes = gr,
+              chunkSize = slot(settings, "regionSize"),
+              overhangSize = min(overhangSize, slot(settings, "regionSize") - 1))
+    sumTiles <- .makeTiles(suml)
    
     ## make colData
     colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]
@@ -581,26 +659,39 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                 return(new("GenoGAMDataSet"))
             }
 
+            ## make sumMatrix
+            by <- IRanges::ranges(sumTiles[GenomeInfoDb::seqnames(sumTiles) == id])
+            sumMatrix <- .makeSumMatrix(countData, by)
+
+            ## make SummarizedExperiment objects and write to HDD if necessary
             if(hdf5) {
-                h5df <- .writeToHDF5(countData, file = id)
+                h5df <- .writeToHDF5(countData, id, settings)
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
                                                                  assays = list(h5df), colData = colData)
-                isHDF5 <- TRUE
             }
             else {
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
                                                                  assays = list(countData), colData = colData)
-                isHDF5 <- FALSE
             }
             rm(countData)
             gc()
-            return(se)
+            return(list(se = se, sm = sumMatrix))
         })
+        ## combine sum matrices to one and write to HDF5 if necessary
+        sumMatrix <- lapply(selist, function(y) y$sm)
+        sumMatrix <- do.call("rbind", sumMatrix)
+        if(hdf5) {
+            sumMatrix <- .writeToHDF5(sumMatrix, "sumMatrix", settings)
+        }
+
+        ## extract the SummarizedExperiment objects only
+        ## and make new GenoGAMDataSetList object
+        selist <- lapply(selist, function(y) y$se)
         names(selist) <- chrBackup
         slot(settings, "chromosomeList") <- chrBackup
         ggd <- new("GenoGAMDataSetList", settings = settings,
                    design = design, sizeFactors = sf, index = tiles,
-                   data = selist, id = splitid, hdf5 = isHDF5)
+                   data = selist, id = splitid, hdf5 = hdf5, countMatrix = sumMatrix)
     }
     else {
         ## read data and make SummarizedExperiment objects
@@ -608,12 +699,38 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         if(length(countData) == 0) {
             return(new("GenoGAMDataSet"))
         }
-        
+      
         se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr),
                                    assays = list(countData),
                                    colData = colData)
+
+        ## first make GenoGAMDataSet object and then compute
+        ## the sum matrix and write to hdf5 if necessary
+        ## this avoids special functions for those particular steps
+        ## only.
         ggd <- new("GenoGAMDataSet", se, settings = settings,
                    design = design, sizeFactors = sf, index = tiles)
+
+        ## compute sum matrix
+        ## backup original tile index
+        index_backup <- getIndex(ggd)
+
+        ## set new tiles
+        slot(ggd, "index") <- sumTiles
+
+        ## compute the matrix
+        sumMatrix <- sum(ggd)
+        slot(ggd, "countMatrix") <- sumMatrix
+
+        ## set tiles back to original
+        slot(ggd, "index") <- index_backup
+
+        if(hdf5){
+            h5df <- .writeToHDF5(countData, "dataset", settings)
+            assays(ggd) <- list(h5df)
+            h5sm <- .writeToHDF5(sumMatrix, "sumMatrix", settings)
+            slot(ggd, "countMatrix") <- h5sm
+        }
     }
 
     ## check if everything was set fine
@@ -627,7 +744,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 #'
 #' @noRd
 .GenoGAMDataSetFromHDF5 <- function(config, chunkSize, overhangSize,
-                                    design, directory, settings, path, ...) {
+                                    design, directory, settings, split, ...) {
 
     ## initialize some variables
     args <- list()
@@ -683,26 +800,51 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
     }
 
-    ## finally build object
-    splitid <- gr
-    splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+    ## get Identifier for the data
+    path <- slot(settings, "hdf5Control")$dir
+    ident <- .getIdentifier(path)
 
-    selist <- lapply(splitid$id, function(id) {
-
-        ## read HDF5 file
-        h5file <- file.path(path, id)
+    if(split) {
+        ## finally build object
+        splitid <- gr
+        splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
         
-        ## read HDF5 data and make SummarizedExperiment objects
-        h5df <- HDF5Array::HDF5Array(h5file, id)
-        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
-                                                         assays = list(h5df), colData = colData)
-        return(se)
-    })
-    names(selist) <- splitid$id
+        selist <- lapply(splitid$id, function(id) {
+        
+            ## read HDF5 file
+            h5file <- file.path(path, paste(id, ident, sep = "_"))
+        
+            ## read HDF5 data and make SummarizedExperiment objects
+            h5df <- HDF5Array::HDF5Array(h5file, id)
+            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                                                             assays = list(h5df), colData = colData)
+            return(se)
+        })
+
+        names(selist) <- splitid$id
     
-    ggd <- new("GenoGAMDataSetList", settings = settings,
-               design = design, sizeFactors = sf, index = tiles,
-               data = selist, id = splitid, hdf5 = TRUE)
+        ggd <- new("GenoGAMDataSetList", settings = settings,
+                   design = design, sizeFactors = sf, index = tiles,
+                   data = selist, id = splitid, hdf5 = TRUE)
+    }
+    else {
+        ## read HDF5 file
+        h5file <- file.path(path, paste("dataset", ident, sep = "_"))
+
+        ## read HDF5 data and make SummarizedExperiment objects
+        h5df <- HDF5Array::HDF5Array(h5file, "dataset")
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr),
+                                                         assays = list(h5df), colData = colData)
+        
+        ggd <- new("GenoGAMDataSet", se, settings = settings,
+                   design = design, sizeFactors = sf, index = tiles)
+        
+    }
+
+    ## read sum matrix file
+    smFile <- file.path(path, paste("sumMatrix", ident, sep = "_"))
+    sumMatrix <- HDF5Array::HDF5Array(smFile, "sumMatrix")
+    slot(ggd, "countMatrix") <- sumMatrix
 
     ## check if everything was set fine
     correct <- checkObject(ggd)

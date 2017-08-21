@@ -166,53 +166,41 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     return(ans)
 }
 
+.makeFilename <- function(dir, name) {
+    date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
+    suffix <- gsub("-", "", date)
+    f <- file.path(dir, paste(name, suffix, sep = "_"))
+    return(f)
+}
 
 ##' Function to write DataFrame to HDF5
 ##' @noRd
 .writeToHDF5 <- function(df, name, settings) {
-
-    mode <- "integer"
-    level <- 6L
-    name <- "chr22"
-    HDF5Array::setHDF5DumpDir("~/h5data")
-    h5file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
-    h5file <- file.path(HDF5Array::getHDF5DumpDir(), "test.h5")
-    HDF5Array::setHDF5DumpFile(h5file)
-    HDF5Array::setHDF5DumpCompressionLevel(level=level)
-    chunkdims <- HDF5Array::getHDF5DumpChunkDim(c(max(width(getIndex(ggd))), dim(df)[2]), mode)
-    h5created <- rhdf5::h5createDataset(h5file, "chr22", chunkdims, storage.mode = mode)
-    if(h5created) {
-        HDF5Array::appendDatasetCreationToHDF5DumpLog(h5file, "chr22", chunkdims, mode, chunkdims, 6)
-    }
-    chunkdims <- c(62000, 1)
-    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = "chr22", verbose = TRUE, chunk_dim = chunkdims, level = level)
-    h6file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
-    h6 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h6file, name = "chr22", verbose = TRUE, level = level)
-    h7file <- HDF5Array::getHDF5DumpFile(for.use = TRUE)
-    h7 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h7file, name = "chr22", verbose = TRUE, level = 0)
-
-    HDF5Array::showHDF5DumpLog()
-    system.time(bla5 <- h5[1:16569,])
-    system.time(bla6 <- h6[1:16569,])
-    system.time(bla7 <- h7[1:16569,])
-    
+  
     if(futile.logger::flog.threshold() == "DEBUG") {
         verbose <- TRUE
     }
     else {
         verbose <- FALSE
     }
-    
+
+    dir <- slot(settings, "hdf5Control")$dir
     if(!dir.exists(dir)) {
         futile.logger::flog.info(paste("HDF5 directory created at:", dir))
         dir.create(dir)
     }
 
-    HDF5Array::showHDF5DumpLog()
-    futile.logger::flog.info("Writing to HDF5")
-    h5file <- file.path(dir, file)
-    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = file, verbose = verbose)
-    futile.logger::flog.info("Writing to HDF5 finished")
+    if(!is.null(slot(settings, "hdf5Control")$chunk)) {
+        chunkdims <- slot(settings, "hdf5Control")$chunk
+    }
+    else {
+        chunkdims <- HDF5Array::getHDF5DumpChunkDim(dim(df), "integer")
+    }
+
+    futile.logger::flog.info(paste("Writing", name, "to HDF5"))
+    h5file <- .makeFilename(dir, name)
+    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = name, chunk_dim = chunkdims, verbose = verbose)
+    futile.logger::flog.info(paste(name, "written"))
     return(h5)
 }
 

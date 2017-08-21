@@ -4,6 +4,8 @@
 #' @include GenoGAMSettings-class.R
 NULL
 
+setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
+
 #' GenoGAMDataSetList
 #'
 #' The GenoGAMDataSetList class contains the pre-processed raw data and
@@ -31,12 +33,12 @@ setClass("GenoGAMDataSetList",
          slots = list(settings = "GenoGAMSettings",
                       design = "formula", sizeFactors = "numeric",
                       index = "GRanges", data = "list", id = "GRanges",
-                      hdf5 = "logical"),
+                      hdf5 = "logical", countMatrix = "HDF5OrMatrix"),
          prototype = list(settings = GenoGAMSettings(),
                           design = ~ s(x), sizeFactors = numeric(), 
                           index = GenomicRanges::GRanges(),
                           data = list(), id = GenomicRanges::GRanges(),
-                          hdf5 = FALSE))
+                          hdf5 = FALSE, countMatrix = matrix()))
 
 ## Validity
 ## ========
@@ -81,7 +83,8 @@ setClass("GenoGAMDataSetList",
       .validateGGDLChromosomes(object),
       .validateDataType(object),
       .validateIDType(object),
-      .validateH5Type(object))
+      .validateH5Type(object),
+      .validateCountMatrixType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMDataSetList", .validateGenoGAMDataSetList)
@@ -696,10 +699,10 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 
     ind <- getIndex(x)
     data <- assay(x)
-           
-    system.time(res <- sapply(1:dim(x)[2], function(ii) {
+    
+    res <- sapply(1:dim(x)[2], function(ii) {
         print(ii)
-        l <- unlist(lapply(names(data), function(d) {
+        l <- unlist(BiocParallel::bplapply(names(data), function(d) {
             print(d)
             df <- data[[d]][,ii]
             by <- IRanges::ranges(ind[GenomeInfoDb::seqnames(ind) == d])
@@ -708,7 +711,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
             eval(call(what, rle, na.rm = na.rm))
         }))
         return(l)
-    }))
+    })
     
     if(!is(res, "matrix")) {
         if(is(res, "list") & is.null(dim(res))) {
