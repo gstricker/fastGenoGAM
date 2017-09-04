@@ -33,7 +33,7 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
     }
 
     ## generate input
-    sumMatrix <- sum(ggd)
+    sumMatrix <- getCountMatrix(ggd)
     if(is.null(factorGroups)) {
         factorGroups <- list(colnames(ggd))
     }
@@ -43,7 +43,7 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
     ## compute sizeFactors
     sf <- NULL
         for(elem in factorGroups) {
-            dds <- .normalize(sumMatrix[,elem], factor(elem))
+            dds <- .normalize(sumMatrix[,elem, drop = FALSE], factor(elem))
             sf <- c(sf, log(DESeq2::sizeFactors(dds)))
         }
     idx <- which(!(colnames(ggd) %in% names(sf)))

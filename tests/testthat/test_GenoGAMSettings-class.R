@@ -4,6 +4,7 @@ context("Test the GenoGAMSettings-class constructor")
 test_that("The GenoGAMSettings constructor works correctly", {
     ggs <- new("GenoGAMSettings")
     test_ggs <- GenoGAMSettings()
+    test_ggs@hdf5Control <- list(dir = NULL, level = NULL, chunk = NULL)
     expect_identical(ggs, test_ggs)
     expect_is(ggs, "GenoGAMSettings")
 })

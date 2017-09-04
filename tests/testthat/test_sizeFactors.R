@@ -6,7 +6,8 @@ test_that("Size factor computation is correct", {
     vec <- round(runif(dim(ggd)[1], 1, 10))
     assay(ggd)[,1] <- vec
     assay(ggd)[,2] <- 2*vec
-
+    slot(ggd, "countMatrix") <- sum(ggd)
+    
     ggd <- computeSizeFactors(ggd)
     sf <- sizeFactors(ggd)
     assay(ggd)[,1] <- assay(ggd)[,1]/exp(sf[1])

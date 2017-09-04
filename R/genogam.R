@@ -42,7 +42,7 @@
 ##' @export
 genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                     bpknots = 20, kfolds = 10, intervalSize = 20, 
-                    regions = 20, regionSize = 4000, order = 2, m = 2) {
+                    regions = 20, order = 2, m = 2) {
 
     futile.logger::flog.info("Initializing the model")
 
@@ -67,7 +67,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     coords <- .getCoordinates(ggd)
     chunks <- .getChunkCoords(coords)
 
-    if(!check) break
+    ## if(!check) break
 
     ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
                         H = H, bpknots = bpknots, order = order,
@@ -76,6 +76,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     futile.logger::flog.info("Done")
     ## Cross Validation
     cv <- FALSE
+    regionSize <- slot(settings, "regionSize")
 
     if(is.null(lambda) | is.null(theta)) {
         futile.logger::flog.info("Estimating hyperparameters")
@@ -99,7 +100,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         new_coords <- .getCoordinates(ggd)
         
         ## get the tile ids for CV
-        sumMatrix <- sum(ggd)
+        sumMatrix <- getCountMatrix(ggd)
         ## ncv set to a number, such that CV does not compute more models than
         ## the actual genogam run. 
         ## 40 is the average expected number of iterations
@@ -112,7 +113,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         if(ncv < length(new_coords)) {
             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd)) |
                nrow(sumMatrix) < regions) {
-                rsums <- rowSums(sumMatrix)
+                if(class(sumMatrix) == "DelayedMatrix") {
+                    rsums <- DelayedArray::rowSums(sumMatrix)
+                }
+                else {
+                    rsums <- rowSums(sumMatrix)
+                }
                 ids <- order(rsums, decreasing = TRUE)[1:ncv]
             }
             else {
@@ -145,9 +151,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         cv <- TRUE
         futile.logger::flog.info("Done")
     }
-    
-    futile.logger::flog.info("Fitting model")
 
+    ## Define function and some important variables
     .local <- function(id, data, init, coords) {
         ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
 
@@ -173,13 +178,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         return(setup)
     }
 
+    ## specify ids
     ids <- 1:length(coords)
-    res <- BiocParallel::bplapply(ids, .local, 
-                                  data = ggd, init = ggs, coords = coords)
-
-    futile.logger::flog.info("Done")
-
-    futile.logger::flog.info("Assembling fits and building GenoGAM object")
     ## make chunk coordinates relative
     s <- start(chunks) %% start(coords) + 1
     e <- s + width(chunks) - 1
@@ -199,24 +199,56 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     modelParams <- c(modelParams, tileSettings(ggd))
     modelParams$check <- NULL
 
-    ## combine fits
-    ## if ggd is a GenoGAMDataSetList build GenoGAMList
+    futile.logger::flog.info("Fitting model")
+    ## start model
     if(class(ggd) == "GenoGAMDataSetList") {
-        rowID <- findOverlaps(getIndex(ggd), ggd@id)
-        rowID <- data.table::data.table(data.frame(rowID))
-        data.table::setnames(rowID, names(rowID), c("index", "listid"))
-        
-        combinedFits <- .transformResults(res, relativeChunks, id = rowID, what = "fits")
-        combinedSEs <- .transformResults(res, relativeChunks, id = rowID, what = "se")
+        identifier <- slot(ggd, "id")$id
+        indx <- getIndex(ggd)
 
-        rr <- rowRanges(ggd)
-        selist <- lapply(1:length(combinedFits), function(ii) {
-            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr[[ii]],
-                                                             assays = list(fits = combinedFits[[ii]],
-                                                                           se = combinedSEs[[ii]]))
+        ## lapply by identifier, i.e. chromosome
+        selist <- lapply(identifier, function(y) {
+            ## get correct ids
+            subids  <- ids[as.vector(GenomeInfoDb::seqnames(indx) %in% y)]
+
+            ## compute model for one identifier, i.e chromosome
+            futile.logger::flog.info(paste("Fitting", y))
+            res <- BiocParallel::bplapply(subids, .local, 
+                                          data = ggd, init = ggs, coords = coords)
+            futile.logger::flog.info(paste(y, "Done"))
+
+            ## assemble results
+            futile.logger::flog.info(paste("Processing fits for", y))    
+            combinedFits <- .transformResults(res, relativeChunks, what = "fits")
+            combinedSEs <- .transformResults(res, relativeChunks, what = "se")
+
+            rr <- rowRanges(ggd)[[y]]
+            if(slot(ggd, "hdf5")) {
+                ## make filename for fits and SEs
+                seedFile <- assay(ggd)[[y]]@seed@file
+                seedFileSplit <- strsplit(seedFile, split = "/")[[1]]
+                f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
+
+                ## write fits and SEs to same file but under different name
+                ## use rhdf5::h5ls(filename) to see the storage
+                h5fits <- .writeToHDF5(combinedFits, file = f, name = "fits", settings = settings, simple = TRUE)
+                h5ses <- .writeToHDF5(combinedFits, file = f, name = "ses", settings = settings, simple = TRUE)
+
+                ## make SummarizedExperiment
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
+                                                                 assays = list(fits = h5fits,
+                                                                     se = h5ses))
+            }
+            else {
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
+                                                                 assays = list(fits = combinedFits,
+                                                                     se = combinedSEs))
+                futile.logger::flog.info("Processing done")
+            }
+
             return(se)
         })
-        names(selist) <- names(rr)
+
+        names(selist) <- names(assay(ggd))
 
         gg <- GenoGAMList(data = selist, id = ggd@id,
                           family = slot(ggs, "family"),
@@ -227,13 +259,40 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                           settings = settings) ## smooths slot to be added
     }
     else {
+
+        res <- BiocParallel::bplapply(ids, .local, 
+                                      data = ggd, init = ggs, coords = coords)
+        futile.logger::flog.info("Done")
+
+        futile.logger::flog.info("Processing fits for")
         ## build GenoGAM object
         combinedFits <- .transformResults(res, relativeChunks, what = "fits")
         combinedSEs <- .transformResults(res, relativeChunks, what = "se")
+
+        if(slot(ggd, "hdf5")) {
+            ## make filename for fits and SEs
+            seedFile <- assay(ggd)@seed@file
+            seedFileSplit <- strsplit(seedFile, split = "/")[[1]]
+            f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
+            
+            ## write fits and SEs to same file but under different name
+            ## use rhdf5::h5ls(filename) to see the storage
+            h5fits <- .writeToHDF5(combinedFits, file = f, name = "fits", settings = settings, simple = TRUE)
+            h5ses <- .writeToHDF5(combinedFits, file = f, name = "ses", settings = settings, simple = TRUE)
+
+            ## make SummarizedExperiment
+            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
+                                                             assays = list(fits = h5fits,
+                                                                 se = h5ses))
+        }
+        else {
+            se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
+                                                             assays = list(fits = combinedFits,
+                                                                 se = combinedSEs))
+        }
         
-        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
-                                                     assays = list(fits = combinedFits,
-                                                                   se = combinedSEs))
+        futile.logger::flog.info("Processing done")
+        
         gg <- GenoGAM(se, family = slot(ggs, "family"),
                       design = design(ggd),
                       sizeFactors = sizeFactors(ggd),
@@ -241,10 +300,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                       params = modelParams,
                       settings = settings) ## smooths slot to be added
     }
-    
-    ## How to make it run and write directly parallel. Do parallel by Chromosome, write to HDD and run next chromosome?
 
-    futile.logger::flog.info("Done")
+    futile.logger::flog.info("Finished")
     return(gg)
 }
 
@@ -266,6 +323,10 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 #' initiates GenoGAMSetup with tile specific data
 #' @noRd
 .initiate <- function(ggd, setup, coords, id) {
+
+    des <- .getDesignFromFormula(design(ggd), colData(ggd))
+    X <- as(.blockMatrixFromDesignMatrix(slot(setup, "designMatrix"), des), "dgCMatrix")
+    slot(setup, "designMatrix") <- X
 
     ## initiate response vector and betas
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)

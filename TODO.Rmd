@@ -8,14 +8,15 @@
 - export function
 - suppressWarnings does not work in tile construction if parallel backend is Snow
 - optimize estimation of parameters (linesearch algorithm, see Nocedal algorithm 3.5 and 3.6, maybe C implementations might be of use in some parts)
-- store only the original B matrix and move the creation of design matrix X by colData to init step
 - make family class object, to keep all functions in there
 - make exportable cross validation function
-- make se computation more efficient, by using C code for looping over the matrices, as we only need the diagonal of the end result
 - use C code in lbfgs (direction computation)?
 - split unittests for estimation and genogam function
-- make tilelength dependant on number of cores - 2 and 4gb per core
 - make gaussian part of release version?
 - combine bpknots in genogam() and in the creation step of GGD (bpknots in settings?)
 - get rid of warning messages during read data on makeTile level and on readingBAM level
 - make a convenience parameter to exclude "chrM"?
+- deactivate ncv control within genogam
+- make predict function, that has a 'fromHDF5' functionality, such that it can take in
+the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
+computed fits in HDF5.

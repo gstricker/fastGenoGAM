@@ -135,7 +135,7 @@ test_that("Tiling works correctly with a distinct set of regions", {
     l <- list(chunkSize = 1000, overhangSize = 200, chromosomes = chromosomes)
     tiles <- .makeTiles(l)
     
-    expect_equal(metadata(tiles)$numTiles, 12)
+    expect_equal(metadata(tiles)$numTiles, 16)
     expect_true(max(width(tiles)) == 1101 & min(width(tiles)) == 1101)
 })
 

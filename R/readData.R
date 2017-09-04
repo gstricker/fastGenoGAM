@@ -169,13 +169,13 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
 .makeFilename <- function(dir, name) {
     date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
     suffix <- gsub("-", "", date)
-    f <- file.path(dir, paste(name, suffix, sep = "_"))
+    f <- file.path(dir, paste0(name, "_", suffix, ".h5"))
     return(f)
 }
 
 ##' Function to write DataFrame to HDF5
 ##' @noRd
-.writeToHDF5 <- function(df, name, settings) {
+.writeToHDF5 <- function(df, file, name = file, settings, simple = FALSE) {
   
     if(futile.logger::flog.threshold() == "DEBUG") {
         verbose <- TRUE
@@ -198,7 +198,12 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     }
 
     futile.logger::flog.info(paste("Writing", name, "to HDF5"))
-    h5file <- .makeFilename(dir, name)
+    if(simple) {
+        h5file <- file.path(dir, file)
+    }
+    else {
+        h5file <- .makeFilename(dir, file)
+    }
     h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = name, chunk_dim = chunkdims, verbose = verbose)
     futile.logger::flog.info(paste(name, "written"))
     return(h5)

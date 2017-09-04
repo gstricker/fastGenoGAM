@@ -32,7 +32,6 @@ test_that("The constructor works correctly for config files and data.frames", {
     expect_equal(getTileNumber(ds), 3)
     expect_true(all(sapply(assay(ds)[[1]], sum) > 0))
     
-
     df <- read.table(config, header = TRUE, sep = '\t')
     ds <- GenoGAMDataSet(df, chunkSize = 1000, overhangSize = 200,
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
@@ -51,7 +50,9 @@ test_that("The constructor works correctly for config files and data.frames", {
     expect_true(is.null(getTileNumber(ds)))
     expect_true(length(assays(ds)) == 0)
 
-    settings <- GenoGAMSettings(chromosomeList = c("chrV"))
+    gr <- GenomicRanges::GRanges("chrV", IRanges::IRanges(1, 100000))
+    settings <- GenoGAMSettings(bamParams = Rsamtools::ScanBamParam(which = gr))
+    
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings, split = TRUE)

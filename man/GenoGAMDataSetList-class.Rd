@@ -38,6 +38,7 @@
 \alias{assays,GenoGAMDataSetList-method}
 \alias{colnames,GenoGAMDataSetList-method}
 \alias{getIndex,GenoGAMDataSetList-method}
+\alias{getCountMatrix,GenoGAMDataSetList-method}
 \alias{tileSettings,GenoGAMDataSetList-method}
 \alias{dataRange,GenoGAMDataSetList-method}
 \alias{getChromosomes,GenoGAMDataSetList-method}
@@ -74,6 +75,8 @@ GenoGAMDataSetList(...)
 \S4method{colnames}{GenoGAMDataSetList}(x)
 
 \S4method{getIndex}{GenoGAMDataSetList}(object)
+
+\S4method{getCountMatrix}{GenoGAMDataSetList}(object)
 
 \S4method{tileSettings}{GenoGAMDataSetList}(object)
 
@@ -143,6 +146,8 @@ GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
 SummarizedExperiment list
 
 \item \code{getIndex}: accessor to the index slot
+
+\item \code{getCountMatrix}: An accessor to the countMatrix slot
 
 \item \code{tileSettings}: The accessor to the list of settings, that
 were used to generate the tiles.

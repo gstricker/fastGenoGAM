@@ -91,7 +91,8 @@
                       GPos = do.call("c", res),
                       GRanges = do.call("c", res),
                       data.frame = do.call("rbind", res),
-                      DataFrame = do.call("rbind", res))
+                      DataFrame = do.call("rbind", res),
+                      DelayedMatrix = do.call("rbind", res))
     }
 
     ## for all non-list objects

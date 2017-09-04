@@ -57,13 +57,6 @@ setClass("GenoGAMDataSetList",
     NULL
 }
 
-.validateH5Type <- function(object) {
-    if(class(object@hdf5) != "logical") {
-        return("'hdf5' must be a logical object")
-    }
-    NULL
-}
-
 .validateGGDLChromosomes <- function(object) {
     cindex <- GenomeInfoDb::seqlevels(object@index)
     seqlev <- lapply(object@data, function(y) {
@@ -254,6 +247,13 @@ setMethod("colnames", "GenoGAMDataSetList", function(x) {
 ##' @describeIn GenoGAMDataSetList accessor to the index slot
 setMethod("getIndex", "GenoGAMDataSetList", function(object) {
     return(slot(object, "index"))
+})
+
+##' @describeIn GenoGAMDataSetList An accessor to the countMatrix slot
+setMethod("getCountMatrix", signature(object = "GenoGAMDataSetList"), function(object) {
+    res <- slot(object, "countMatrix")
+    colnames(res) <- colnames(object)
+    return(res)
 })
 
 ##' @describeIn GenoGAMDataSetList The accessor to the list of settings, that
@@ -613,31 +613,21 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
     return(coords)
 }
 
-## #' Function to retrieve the row coordinates as a list
-## #' @param x The GenoGAMDataSet object
-##  #' @return An integerList with the row numbers for each tile
-## .getListedCoordinates <- function(x) {
+#' Function to retrieve the row coordinates as a list
+#' @param ind The GenoGAMDataSetList index
+#' @param rr The GenoGAMDataSetList chromosome specific rowRanges
+#' @return An integerList with the row numbers for each tile
+.getListedCoordinates <- function(ind, rr) {
 
-##     rr <- rowRanges(x)
-##     lcoords <- lapply(rr, function(y) {
-##         ind <- getIndex(x)
-##         ind <- ind[seqnames(ind) == as.character(S4Vectors::runValue(seqnames(y)))]
-        
+    gr <- .extractGR(rr)
+    ov <- IRanges::findOverlaps(rr, ind)
+    sh <- Rle(S4Vectors::subjectHits(ov))
+    qh <- queryHits(ov)
+    l <- range(IRanges::splitAsList(qh, sh))
+    l <- IRanges::IRanges(l[,1], l[,2])
+    return(l)
 
-        
-##         gr <- fastGenoGAM:::.extractGR(y)
-##         ov <- IRanges::findOverlaps(gr, getIndex(x))
-##         sh <- S4Vectors::subjectHits(ov)
-##         uniqueqh <- unique(S4Vectors::queryHits(ov))
-##         qh <- sapply(uniqueqh, function(ii) {
-##             start(gr)[ii]:end(gr)[ii]
-##         })
-##         l <- range(IRanges::splitAsList(qh, sh))
-##         l <- IRanges::IRanges(l[,1], l[,2])
-##         return(l)
-##     })
-##     return(lcoords)
-## }
+}
 
 #' compute metrics for each tile
 #' @param x The GenoGAMDataSet object
@@ -665,11 +655,13 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 
     ind <- getIndex(x)
     data <- assay(x)
+    rr <- rowRanges(x)
                     
     res <- sapply(1:dim(x)[2], function(ii) {
         l <- unlist(lapply(names(data), function(d) {
             df <- data[[d]][[ii]]
-            by <- IRanges::ranges(ind[GenomeInfoDb::seqnames(ind) == d])
+            by <- ind[GenomeInfoDb::seqnames(ind) == d]
+            by <- .getListedCoordinates(by, rr[[d]])
             rle <- IRanges::extractList(df, by)
             eval(call(what, rle, na.rm = na.rm))
         }))
@@ -699,13 +691,13 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 
     ind <- getIndex(x)
     data <- assay(x)
+    rr <- rowRanges(x)
     
     res <- sapply(1:dim(x)[2], function(ii) {
-        print(ii)
         l <- unlist(BiocParallel::bplapply(names(data), function(d) {
-            print(d)
             df <- data[[d]][,ii]
-            by <- IRanges::ranges(ind[GenomeInfoDb::seqnames(ind) == d])
+            by <- ind[GenomeInfoDb::seqnames(ind) == d]
+            by <- .getListedCoordinates(by, rr[[d]])
             rleDF <- as(df, "DataFrame")          
             rle <- IRanges::extractList(rleDF[,1], by)
             eval(call(what, rle, na.rm = na.rm))
@@ -752,20 +744,40 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @rdname GenoGAMDataSetList-metrics
 setMethod("Summary", "GenoGAMDataSetList", function(x, ..., na.rm = FALSE) {
-
-    l <- .getListedCoordinates(x)
+    
+    ind <- getIndex(x)
     data <- assay(x)
+    rr <- rowRanges(x)
+    
+    if(slot(x, "hdf5")) {
+        
+        res <- sapply(1:dim(x)[2], function(ii) {
+            l <- unlist(BiocParallel::bplapply(names(data), function(d) {
+                df <- data[[d]][,ii]
+                by <- ind[GenomeInfoDb::seqnames(ind) == d]
+                by <- .getListedCoordinates(by, rr[[d]])
+                rleDF <- as(df, "DataFrame")          
+                rle <- IRanges::extractList(rleDF[,1], by)
+                (getFunction(.Generic))(rle, na.rm = na.rm)
+            }))
+            return(l)
+        })
+    }
+    else {
 
-    res <- sapply(colnames(x), function(y) {
-        l <- unlist(lapply(names(data), function(d) {
-            df <- data[[d]][[y]]
-            by <- l[[d]]
-            rle <- IRanges::extractList(df, by)
-            (getFunction(.Generic))(rle, na.rm = na.rm)
-        }))
-        return(l)
-    })
+        res <- sapply(1:dim(x)[2], function(ii) {
+            l <- unlist(lapply(names(data), function(d) {
+                df <- data[[d]][[ii]]
+                by <- ind[GenomeInfoDb::seqnames(ind) == d]
+                by <- .getListedCoordinates(by, rr[[d]])
+                rle <- IRanges::extractList(df, by)
+                (getFunction(.Generic))(rle, na.rm = na.rm)
+            }))
+            return(l)
+        })
+    }
 
+    
     if(!is(res, "matrix")) {
         if(is(res, "list") & is.null(dim(res))) {
             res <- matrix()

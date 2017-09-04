@@ -31,12 +31,12 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 setClass("GenoGAMDataSet",
          contains = "RangedSummarizedExperiment",
          slots = list(settings = "GenoGAMSettings",
-                      design = "formula", sizeFactors = "numeric",
-                      index = "GRanges", countMatrix = "HDF5OrMatrix"),
+             design = "formula", sizeFactors = "numeric",
+             hdf5 = "logical", index = "GRanges", countMatrix = "HDF5OrMatrix"),
          prototype = list(settings = GenoGAMSettings(),
-                          design = ~ s(x), sizeFactors = numeric(), 
-                          index = GenomicRanges::GRanges(),
-                          countMatrix = matrix()))
+             design = ~ s(x), sizeFactors = numeric(),
+             hdf5 = FALSE, index = GenomicRanges::GRanges(),
+             countMatrix = matrix()))
 
 ## Validity
 ## ========
@@ -87,12 +87,21 @@ setClass("GenoGAMDataSet",
     NULL
 }
 
+.validateH5Type <- function(object) {
+    if(class(object@hdf5) != "logical") {
+        return("'hdf5' must be a logical object")
+    }
+    NULL
+}
+
+
 
 ## general validate function
 .validateGenoGAMDataSet <- function(object) {
     c(.validateSettingsType(object), .validateDesignType(object),
       .validateSFType(object), .validateIndexType(object),
-      .validateChromosomes(object), .validateCountMatrixType(object))
+      .validateChromosomes(object), .validateCountMatrixType(object),
+      .validateH5Type(object))
 }
 
 S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
@@ -362,7 +371,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     ## write to hdf5 if necessary
     if(hdf5){
-        h5df <- .writeToHDF5(assay(se), "dataset", settings)
+        h5df <- .writeToHDF5(assay(se), file = "dataset", settings = settings)
         assays(ggd) <- list(h5df)
     }
     
@@ -521,6 +530,23 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(chunkSize)
 }
 
+#' make the 'by' argument for the 'makeSumMatrix' function
+.makeBy <- function(x, from) {
+    rr <- range(from)
+    if(length(rr) == 1 &
+       IRanges::start(rr) == 1 &
+       IRanges::end(rr) == max(GenomicRanges::pos(x)))
+        {
+            return(ranges(from))
+        }
+    ovRanges <- IRanges::findOverlaps(x, from)
+    res <- sapply(unique(S4Vectors::subjectHits(ovRanges)), function(y) {
+        qh <- S4Vectors::queryHits(ovRanges)[S4Vectors::subjectHits(ovRanges) == y]
+        IRanges::IRanges(min(qh), max(qh))
+    })
+    return(do.call("c", res))
+}
+
 #' make sum matrix for each DataFrame
 .makeSumMatrix <- function(x, by) {
     rle <- IRanges::extractList(x, by)
@@ -535,7 +561,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ## check the second element of the split name, which should be the
     ## identifier (and the creation date). Discard invalid files (which give NA)
     ## and in case of multiple identifiers select the first.
-    possibleIdentifiers <- unique(na.omit(sapply(splitFiles, function(y) y[2])))
+    possibleIdentifiers <- unique(na.omit(sapply(splitFiles, function(y) y[length(y)])))
     return(possibleIdentifiers[1])
 }
 
@@ -645,7 +671,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ## as this will make it easily possible to merge them later if necessary
     if(split) {
         splitid <- gr
-        splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+        splitid$id <- as.character(GenomeInfoDb::seqnames(splitid))
 
         ## backup chromosomeList
         chrBackup <- slot(settings, "chromosomeList")
@@ -658,19 +684,21 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
             if(length(countData) == 0) {
                 return(new("GenoGAMDataSet"))
             }
-
+            rr <- GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,])
+            smRanges <- sumTiles[GenomeInfoDb::seqnames(sumTiles) == id]            
+            
             ## make sumMatrix
-            by <- IRanges::ranges(sumTiles[GenomeInfoDb::seqnames(sumTiles) == id])
+            by <- .makeBy(rr, smRanges)
             sumMatrix <- .makeSumMatrix(countData, by)
 
             ## make SummarizedExperiment objects and write to HDD if necessary
             if(hdf5) {
-                h5df <- .writeToHDF5(countData, id, settings)
-                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                h5df <- .writeToHDF5(countData, file = id, settings = settings)
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(h5df), colData = colData)
             }
             else {
-                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = GenomicRanges::GPos(gr[GenomeInfoDb::seqnames(gr) == id,]),
+                se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(countData), colData = colData)
             }
             rm(countData)
@@ -681,7 +709,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         sumMatrix <- lapply(selist, function(y) y$sm)
         sumMatrix <- do.call("rbind", sumMatrix)
         if(hdf5) {
-            sumMatrix <- .writeToHDF5(sumMatrix, "sumMatrix", settings)
+            sumMatrix <- .writeToHDF5(sumMatrix, file = "sumMatrix", settings = settings)
         }
 
         ## extract the SummarizedExperiment objects only
@@ -726,9 +754,9 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         slot(ggd, "index") <- index_backup
 
         if(hdf5){
-            h5df <- .writeToHDF5(countData, "dataset", settings)
+            h5df <- .writeToHDF5(countData, file = "dataset", settings = settings)
             assays(ggd) <- list(h5df)
-            h5sm <- .writeToHDF5(sumMatrix, "sumMatrix", settings)
+            h5sm <- .writeToHDF5(sumMatrix, file = "sumMatrix", settings = settings)
             slot(ggd, "countMatrix") <- h5sm
         }
     }
@@ -807,12 +835,12 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     if(split) {
         ## finally build object
         splitid <- gr
-        splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+        splitid$id <- as.character(GenomeInfoDb::seqnames(splitid))
         
         selist <- lapply(splitid$id, function(id) {
         
             ## read HDF5 file
-            h5file <- file.path(path, paste(id, ident, sep = "_"))
+            h5file <- file.path(path, paste0(id, "_", ident))
         
             ## read HDF5 data and make SummarizedExperiment objects
             h5df <- HDF5Array::HDF5Array(h5file, id)
@@ -829,7 +857,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
     else {
         ## read HDF5 file
-        h5file <- file.path(path, paste("dataset", ident, sep = "_"))
+        h5file <- file.path(path, paste0("dataset", "_", ident))
 
         ## read HDF5 data and make SummarizedExperiment objects
         h5df <- HDF5Array::HDF5Array(h5file, "dataset")
@@ -842,7 +870,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
 
     ## read sum matrix file
-    smFile <- file.path(path, paste("sumMatrix", ident, sep = "_"))
+    smFile <- file.path(path, paste0("sumMatrix", "_", ident))
     sumMatrix <- HDF5Array::HDF5Array(smFile, "sumMatrix")
     slot(ggd, "countMatrix") <- sumMatrix
 
@@ -1045,6 +1073,17 @@ setGeneric("getIndex", function(object) standardGeneric("getIndex"))
 ##' @describeIn GenoGAMDataSet An accessor to the index slot
 setMethod("getIndex", signature(object = "GenoGAMDataSet"), function(object) {
     return(slot(object, "index"))
+})
+
+##' @export
+setGeneric("getCountMatrix", function(object) standardGeneric("getCountMatrix"))
+
+
+##' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
+setMethod("getCountMatrix", signature(object = "GenoGAMDataSet"), function(object) {
+    res <- slot(object, "countMatrix")
+    colnames(res) <- colnames(object)
+    return(res)
 })
 
 
@@ -1465,10 +1504,21 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 
     l <- .getCoordinates(x)
 
-    res <- sapply(colnames(x), function(y) {
-        rle <- IRanges::extractList(assay(x)[[y]], l)
-        eval(call(what, rle, na.rm = na.rm))
-    })
+    ## for HDF5
+    if(slot(x, "hdf5")) {
+        res <- sapply(1:dim(x)[2], function(ii) {
+            df <- assay(x)[,ii]
+            rleDF <- as(df, "DataFrame")          
+            rle <- IRanges::extractList(rleDF[,1], l)
+            eval(call(what, rle, na.rm = na.rm))
+        })
+    }
+    else { ## Otherwise
+        res <- sapply(colnames(x), function(y) {
+            rle <- IRanges::extractList(assay(x)[[y]], l)
+            eval(call(what, rle, na.rm = na.rm))
+        })
+    }
     
     if(!is(res, "matrix")) {
         if(is(res, "list") & is.null(dim(res))) {
@@ -1510,11 +1560,22 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @rdname GenoGAMDataSet-metrics
 setMethod("Summary", "GenoGAMDataSet", function(x, ..., na.rm = FALSE) {
     l <- .getCoordinates(x)
-        
-    res <- sapply(colnames(x), function(y) {
-        rle <- IRanges::extractList(assay(x)[[y]], l)
-        (getFunction(.Generic))(rle, na.rm = na.rm)
-    })
+
+    ## for HDF5
+    if(slot(x, "hdf5")) {
+        res <- sapply(1:dim(x)[2], function(ii) {
+            df <- assay(x)[,ii]
+            rleDF <- as(df, "DataFrame")          
+            rle <- IRanges::extractList(rleDF[,1], l)
+            (getFunction(.Generic))(rle, na.rm = na.rm)
+        })
+    }
+    else { ## Otherwise
+        res <- sapply(colnames(x), function(y) {
+            rle <- IRanges::extractList(assay(x)[[y]], l)
+            (getFunction(.Generic))(rle, na.rm = na.rm)
+        })
+    }
 
     if(!is(res, "matrix")) {
         if(is(res, "list") & is.null(dim(res))) {

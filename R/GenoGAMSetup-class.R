@@ -348,9 +348,9 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 .buildDesignMatrix <- function(ggd, knots, pos, order) {
 
     ## build matrix
-    x <- as(.bspline(pos, knots, order),"dgCMatrix")
-    design <- .getDesignFromFormula(design(ggd), colData(ggd))
-    X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
+    X <- as(.bspline(pos, knots, order),"dgCMatrix")
+    ## design <- .getDesignFromFormula(design(ggd), colData(ggd))
+    ## X <- as(.blockMatrixFromDesignMatrix(x, design), "dgCMatrix")
     return(X)
 }
 

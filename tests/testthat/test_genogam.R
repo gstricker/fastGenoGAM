@@ -85,6 +85,10 @@ test_that("Fits are correctly computed", {
     ## fits should be just the row sums of the design matrix
     ## which should be 1.
     test_ggs <- ggs
+    design <- .getDesignFromFormula(design(ggd), colData(ggd))
+    X <- as(.blockMatrixFromDesignMatrix(slot(test_ggs, "designMatrix"), design), "dgCMatrix")
+    slot(test_ggs, "designMatrix") <- X
+    
     slot(test_ggs, "beta") <- matrix(1, dim(slot(test_ggs, "designMatrix"))[2], 1)
     res3 <- .getFits(test_ggs)
     X <- as.matrix(slot(test_ggs, "designMatrix"))

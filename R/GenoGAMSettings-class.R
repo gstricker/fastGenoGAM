@@ -233,8 +233,8 @@ GenoGAMSettings <- function(...) {
     cat("Logger threshold:", futile.logger::flog.threshold(), "\n")
     cat("\n")
     cat("-------------------- HDF5 settings ----------------------\n")
-    cat("HDF5 Directory:", HDF5Array::getHDF5DumpDir(), "\n")
-    cat("HDF5 Compression Level (0-9):", HDF5Array::getHDF5DumpCompressionLevel(), "\n")
+    cat("HDF5 Directory:", ggs@hdf5Control$dir, "\n")
+    cat("HDF5 Compression Level (0-9):", ggs@hdf5Control$level, "\n")
     if(is.null(ggs@hdf5Control$chunk)) {
         cat("HDF5 Chunk dimensions: Will be set automatically \n")
     }

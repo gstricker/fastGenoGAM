@@ -23,6 +23,7 @@ LazyData: true
 Depends:
     R (>= 3.3),
     SummarizedExperiment (>= 1.1.19),
+    HDF5Array (>= 1.2.0),
     S4Vectors (>= 0.9.34),
     Matrix (>= 1.2-8)
 Imports:
@@ -36,7 +37,6 @@ Imports:
     GenomicAlignments (>= 1.7.17),
     IRanges (>= 2.5.30),
     Biostrings (>= 2.39.14),
-    HDF5Array (>= 1.2.0),
     methods,
     stats
 Suggests:

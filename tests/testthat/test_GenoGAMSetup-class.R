@@ -93,16 +93,16 @@ test_that("The design matrix is build correctly", {
     X <- .buildDesignMatrix(ggd, knots, x, order)
     dims <- dim(ggd)
     
-    expect_true(all.equal(Matrix::rowSums(X), rep(c(1, 2), each = dims[1])))
+    expect_true(all.equal(Matrix::rowSums(X), rep(1, each = dims[1])))
 
     design(ggd) <- ~ s(x)
     X <- .buildDesignMatrix(ggd, knots, x, order)
     dimsX <- dim(X)
-    expect_true(all(dimsX == c(dims[1]*2, k)))
+    expect_true(all(dimsX == c(dims[1], k)))
 
     design(ggd) <- ~ s(x, by = experiment)
     X <- .buildDesignMatrix(ggd, knots, x, order)
     dimsX <- dim(X)
-    expect_true(all(dimsX == c(dims[1]*2, k)))
-    expect_true(sum(X[1:dims[1],]) == 0)
+    expect_true(all(dimsX == c(dims[1], k)))
+    expect_true(sum(X[1:dims[1],]) == 10000)
 })

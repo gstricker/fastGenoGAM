@@ -17,6 +17,7 @@
 \alias{getOverhangSize<-}
 \alias{getTileNumber<-}
 \alias{getIndex,GenoGAMDataSet-method}
+\alias{getCountMatrix,GenoGAMDataSet-method}
 \alias{tileSettings,GenoGAMDataSet-method}
 \alias{dataRange,GenoGAMDataSet-method}
 \alias{getChromosomes,GenoGAMDataSet-method}
@@ -39,6 +40,8 @@ GenoGAMDataSet(experimentDesign, design, chunkSize = NULL,
   split = hdf5, fromHDF5 = FALSE, ...)
 
 \S4method{getIndex}{GenoGAMDataSet}(object)
+
+\S4method{getCountMatrix}{GenoGAMDataSet}(object)
 
 \S4method{tileSettings}{GenoGAMDataSet}(object)
 
@@ -127,6 +130,8 @@ GenoGAMDataSet is the constructor function for the GenoGAMDataSet-class.
 \section{Methods (by generic)}{
 \itemize{
 \item \code{getIndex}: An accessor to the index slot
+
+\item \code{getCountMatrix}: An accessor to the countMatrix slot
 
 \item \code{tileSettings}: The accessor to the list of settings,
 that were used to generate the tiles.
