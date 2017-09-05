@@ -70,6 +70,12 @@ Almost all parameters are supported, with a couple of exceptions. See
 details. For a complete list of parameters see ?optim.}
 
 \item{\code{estimControl}}{List of control settings for the parameter estimation algorithm.}
+
+\item{\code{hdf5Control}}{List of control settings for the HDF5 backend}
+
+\item{\code{regionSize}}{The size of the region to use for the computation of the
+count matrix, that is later used by DESeq2. Also the size of the regions that
+will be used for Cross Validation.}
 }}
 
 \examples{

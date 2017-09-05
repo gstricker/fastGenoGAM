@@ -2,6 +2,7 @@
 ## GenoGAMDatasetList class
 ## ====================
 #' @include GenoGAMSettings-class.R
+#' @include GenoGAMDataSet-class.R
 NULL
 
 setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
@@ -26,6 +27,9 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' @slot data A list of RangedSummarizedExperiment objects
 #' @slot id A GRanges object keeping the identifiers assigning the regions to the
 #' respective list elements
+#' @slot hdf5 A logical slot indicating if the object should be stored as HDF5
+#' @slot countMatrix Either a matrix or HDF5Matrix to store the sums of counts of
+#' the regions (could also be seen as bins) for later use especially by DESeq2
 #' @name GenoGAMDataSetList-class
 #' @rdname GenoGAMDataSetList-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -89,11 +93,11 @@ S4Vectors::setValidity2("GenoGAMDataSetList", .validateGenoGAMDataSetList)
 #'
 #' GenoGAMDataSetList is the constructor function for the GenoGAMDataSetList-class.
 #'
-#' @aliases dim length seqlengths seqlevels colData rowRanges colnames getIndex
-#' tileSettings dataRange getChromosomes getTileSize getChunkSize getOverhangSize
-#' getTileNumber design design<- sizeFactors sizeFactors<- getChunkSize<-
-#' getTileSize<- getOverhangSize<- getTileNumber<-
 #' @param ... The slots and their respective values
+#' @param object,x For use of S4 methods. The GenoGAMDataSetList object.
+#' @param value,i For use of S4 methods. The value to be assigned to the slot.
+#' @param withDimnames For use of S4 methods.
+#' 
 #' @return An object of class GenoGAMDataSetList
 #' @name GenoGAMDataSetList
 #' @rdname GenoGAMDataSetList-class
@@ -103,7 +107,6 @@ GenoGAMDataSetList <- function(...) {
 
 #' Make an example /code{GenoGAMDataSet}
 #'
-#' @param sim Use simulated data (TRUE) or test data from a real experiment
 #' @return A /code{GenoGAMDataSet} object
 #' @examples
 #' ggdl <- makeTestGenoGAMDataSetList()
@@ -336,7 +339,6 @@ setReplaceMethod("sizeFactors", "GenoGAMDataSetList", function(object, value) {
 
 ##' @describeIn GenoGAMDataSetList Replace method of the chunkSize parameter,
 ##' that triggers a new computation of the tiles based on the new chunk size.
-##' @noRd
 setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -349,7 +351,6 @@ setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSetList", "numeric"),
 
 ##' @describeIn GenoGAMDataSetList Replace method of the tileSize parameter,
 ##' that triggers a new computation of the tiles based on the new tile size.
-##' @noRd
 setReplaceMethod("getTileSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -362,7 +363,6 @@ setReplaceMethod("getTileSize", signature = c("GenoGAMDataSetList", "numeric"),
 
 ##' @describeIn GenoGAMDataSetList Replace method of the overhangSize parameter,
 ##' that triggers a new computation of the tiles based on the new overhang size.
-##' @noRd
 setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -375,7 +375,6 @@ setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSetList", "numeric
 
 ##' @describeIn GenoGAMDataSetList Replace method of the tileNumber parameter,
 ##' that triggers a new computation of the tiles based on the new number of tiles.
-##' @noRd
 setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -400,7 +399,6 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric")
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @aliases subsetByOverlaps '['
 #' @param x,query A GenoGAMDataSetList object.
 #' @param subject,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.

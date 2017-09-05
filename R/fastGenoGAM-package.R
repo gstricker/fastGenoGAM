@@ -1,10 +1,11 @@
 #' fastGenoGAM: A package providing a framework to analyse ChIP-Seq data
 #' 
 # @name fastGenoGAM
-#' @import BiocParallel
-#' @import GenomicRanges
 #' @import methods
+#' @import HDF5Array
+#' @import BiocParallel
 #' @import IRanges
+#' @import GenomicRanges
 #' @importFrom stats runif rnbinom as.formula dnbinom optim na.omit
 #' @importFrom futile.logger flog.info
 #' @importFrom futile.logger flog.warn

@@ -24,6 +24,9 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' @slot sizeFactors The normalized values for each sample. A named numeric vector.
 #' @slot index A GRanges object representing an index of the ranges defined 
 #' on the genome. Mostly used to store tiles.
+#' @slot hdf5 A logical slot indicating if the object should be stored as HDF5
+#' @slot countMatrix Either a matrix or HDF5Matrix to store the sums of counts of
+#' the regions (could also be seen as bins) for later use especially by DESeq2
 #' @name GenoGAMDataSet-class
 #' @rdname GenoGAMDataSet-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -138,6 +141,11 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' memory footprint. Note this only applies to the input count data, results are
 #' usually stored in HDF5 format due to their space requirements for type double.
 #' Exceptions are small organisms like yeast.
+#' @param split A logical argument specifying if the data should be stored as
+#' a list split by chromosome. This is useful and necessary for huge organisms like
+#' human, as R does not support long integers.
+#' @param fromHDF5 A logical argument specifying if the data is already present in
+#' form of HDF5 files and should be rather read in from there.
 #' @param ... Further parameters, mostly for arguments of custom processing
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
@@ -511,7 +519,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
 
     if(hdf5) {
-        maxBlockSize <- DelayedArray:::get_max_block_length("integer")
+        maxBlockSize <- DelayedArray::get_max_block_length("integer")
         tileSize <- floor(maxBlockSize/nsamples)
         chunkSize <- tileSize - 2*ov
     }
@@ -1252,7 +1260,6 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @aliases subsetByOverlaps '['
 #' @param x,query A GenoGAMDataSet object.
 #' @param subject,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.

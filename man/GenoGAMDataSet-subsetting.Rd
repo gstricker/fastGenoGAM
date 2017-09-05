@@ -3,8 +3,6 @@
 \docType{methods}
 \name{subset,GenoGAMDataSet-method}
 \alias{subset,GenoGAMDataSet-method}
-\alias{subsetByOverlaps}
-\alias{'['}
 \alias{subsetByOverlaps,GenoGAMDataSet,GRanges-method}
 \alias{[,GenoGAMDataSet,GRanges,ANY,ANY-method}
 \title{Subset methods for GenoGAMDataSet}

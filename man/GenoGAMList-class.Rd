@@ -4,15 +4,6 @@
 \name{GenoGAMList-class}
 \alias{GenoGAMList-class}
 \alias{GenoGAMList}
-\alias{getSettings}
-\alias{getFamily}
-\alias{colData}
-\alias{getParams}
-\alias{getSmooths}
-\alias{fits}
-\alias{se}
-\alias{dimnames}
-\alias{colnames}
 \alias{dim,GenoGAMList-method}
 \alias{length,GenoGAMList-method}
 \alias{seqlengths,GenoGAMList-method}
@@ -74,9 +65,11 @@ GenoGAMList(...)
 \arguments{
 \item{...}{Slots of the GenoGAM class. See the slot description.}
 
-\item{object, x}{For use of S4 methods. The GenoGAM object.}
+\item{object, x}{For use of S4 methods. The GenoGAMList object.}
 
 \item{i}{A GRanges object (only for subsetting)}
+
+\item{withDimnames}{For use of S4 methods. The GenoGAMList object.}
 }
 \value{
 An object of the type GenoGAM.

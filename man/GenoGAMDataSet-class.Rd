@@ -103,6 +103,13 @@ memory footprint. Note this only applies to the input count data, results are
 usually stored in HDF5 format due to their space requirements for type double.
 Exceptions are small organisms like yeast.}
 
+\item{split}{A logical argument specifying if the data should be stored as
+a list split by chromosome. This is useful and necessary for huge organisms like
+human, as R does not support long integers.}
+
+\item{fromHDF5}{A logical argument specifying if the data is already present in
+form of HDF5 files and should be rather read in from there.}
+
 \item{...}{Further parameters, mostly for arguments of custom processing
 functions or to specify a different method for fragment size estimation.
 See details for further information.}
@@ -183,6 +190,11 @@ model.}
 
 \item{\code{index}}{A GRanges object representing an index of the ranges defined 
 on the genome. Mostly used to store tiles.}
+
+\item{\code{hdf5}}{A logical slot indicating if the object should be stored as HDF5}
+
+\item{\code{countMatrix}}{Either a matrix or HDF5Matrix to store the sums of counts of
+the regions (could also be seen as bins) for later use especially by DESeq2}
 }}
 
 \section{Config}{

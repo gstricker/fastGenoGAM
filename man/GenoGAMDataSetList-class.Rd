@@ -4,29 +4,6 @@
 \name{GenoGAMDataSetList-class}
 \alias{GenoGAMDataSetList-class}
 \alias{GenoGAMDataSetList}
-\alias{dim}
-\alias{length}
-\alias{seqlengths}
-\alias{seqlevels}
-\alias{colData}
-\alias{rowRanges}
-\alias{colnames}
-\alias{getIndex}
-\alias{tileSettings}
-\alias{dataRange}
-\alias{getChromosomes}
-\alias{getTileSize}
-\alias{getChunkSize}
-\alias{getOverhangSize}
-\alias{getTileNumber}
-\alias{design}
-\alias{design<-}
-\alias{sizeFactors}
-\alias{sizeFactors<-}
-\alias{getChunkSize<-}
-\alias{getTileSize<-}
-\alias{getOverhangSize<-}
-\alias{getTileNumber<-}
 \alias{dim,GenoGAMDataSetList-method}
 \alias{length,GenoGAMDataSetList-method}
 \alias{seqlengths,GenoGAMDataSetList-method}
@@ -50,6 +27,10 @@
 \alias{design<-,GenoGAMDataSetList,ANY-method}
 \alias{sizeFactors,GenoGAMDataSetList-method}
 \alias{sizeFactors<-,GenoGAMDataSetList,ANY-method}
+\alias{getChunkSize<-,GenoGAMDataSetList,numeric-method}
+\alias{getTileSize<-,GenoGAMDataSetList,numeric-method}
+\alias{getOverhangSize<-,GenoGAMDataSetList,numeric-method}
+\alias{getTileNumber<-,GenoGAMDataSetList,numeric-method}
 \title{GenoGAMDataSetList}
 \usage{
 GenoGAMDataSetList(...)
@@ -99,9 +80,23 @@ GenoGAMDataSetList(...)
 \S4method{sizeFactors}{GenoGAMDataSetList}(object)
 
 \S4method{sizeFactors}{GenoGAMDataSetList,ANY}(object) <- value
+
+\S4method{getChunkSize}{GenoGAMDataSetList,numeric}(object) <- value
+
+\S4method{getTileSize}{GenoGAMDataSetList,numeric}(object) <- value
+
+\S4method{getOverhangSize}{GenoGAMDataSetList,numeric}(object) <- value
+
+\S4method{getTileNumber}{GenoGAMDataSetList,numeric}(object) <- value
 }
 \arguments{
 \item{...}{The slots and their respective values}
+
+\item{withDimnames}{For use of S4 methods.}
+
+\item{object, x}{For use of S4 methods. The GenoGAMDataSetList object.}
+
+\item{value, i}{For use of S4 methods. The value to be assigned to the slot.}
 }
 \value{
 An object of class GenoGAMDataSetList
@@ -172,6 +167,18 @@ or chromosome regions on which the model will be computed
 \item \code{sizeFactors}: Access to the sizeFactors slot
 
 \item \code{sizeFactors<-}: Replace method of the sizeFactors slot
+
+\item \code{getChunkSize<-}: Replace method of the chunkSize parameter,
+that triggers a new computation of the tiles based on the new chunk size.
+
+\item \code{getTileSize<-}: Replace method of the tileSize parameter,
+that triggers a new computation of the tiles based on the new tile size.
+
+\item \code{getOverhangSize<-}: Replace method of the overhangSize parameter,
+that triggers a new computation of the tiles based on the new overhang size.
+
+\item \code{getTileNumber<-}: Replace method of the tileNumber parameter,
+that triggers a new computation of the tiles based on the new number of tiles.
 }}
 
 \section{Slots}{
@@ -191,6 +198,11 @@ on the genome. Mostly used to store tiles.}
 
 \item{\code{id}}{A GRanges object keeping the identifiers assigning the regions to the
 respective list elements}
+
+\item{\code{hdf5}}{A logical slot indicating if the object should be stored as HDF5}
+
+\item{\code{countMatrix}}{Either a matrix or HDF5Matrix to store the sums of counts of
+the regions (could also be seen as bins) for later use especially by DESeq2}
 }}
 
 \author{

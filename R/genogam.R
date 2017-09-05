@@ -154,7 +154,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
 
     ## Define function and some important variables
     .local <- function(id, data, init, coords) {
-        ## suppressPackageStartupMessages(require(GenoGAM, quietly = TRUE))
+        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         setup <- .initiate(data, init, coords, id)
         betas <- .estimateParams(setup)

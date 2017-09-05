@@ -37,6 +37,7 @@ Imports:
     GenomicAlignments (>= 1.7.17),
     IRanges (>= 2.5.30),
     Biostrings (>= 2.39.14),
+    DelayedArray (>= 0.3.19),
     methods,
     stats
 Suggests:

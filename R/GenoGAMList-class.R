@@ -75,8 +75,8 @@ S4Vectors::setValidity2("GenoGAMList", .validateGenoGAMList)
 #' Rather to be a point of reference and documentation for slots and how
 #' to access them.
 #'
-#' @aliases getSettings getFamily colData getParams getSmooths fits se dimnames colnames
-#' @param object,x For use of S4 methods. The GenoGAM object.
+#' @param object,x For use of S4 methods. The GenoGAMList object.
+#' @param withDimnames For use of S4 methods. The GenoGAMList object.
 #' @param i A GRanges object (only for subsetting)
 #' @param ... Slots of the GenoGAM class. See the slot description.
 #' @return An object of the type GenoGAM.
@@ -291,7 +291,6 @@ makeTestGenoGAMList <- function() {
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @aliases subsetByOverlaps '['
 #' @param x,query A GenoGAMList object.
 #' @param subject,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.

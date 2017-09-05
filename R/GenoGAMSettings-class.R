@@ -39,6 +39,10 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' Almost all parameters are supported, with a couple of exceptions. See
 #' details. For a complete list of parameters see ?optim.
 #' @slot estimControl List of control settings for the parameter estimation algorithm.
+#' @slot hdf5Control List of control settings for the HDF5 backend
+#' @slot regionSize The size of the region to use for the computation of the
+#' count matrix, that is later used by DESeq2. Also the size of the regions that
+#' will be used for Cross Validation.
 #' @details Center can have three values: TRUE, FALSE, NULL. TRUE will
 #' trigger the center function, FALSE will trigger the use of the entire
 #' fragment. NULL should be used in case a custom process function is used.

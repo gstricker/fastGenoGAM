@@ -6,9 +6,6 @@
 \usage{
 makeTestGenoGAMDataSetList()
 }
-\arguments{
-\item{sim}{Use simulated data (TRUE) or test data from a real experiment}
-}
 \value{
 A /code{GenoGAMDataSet} object
 }

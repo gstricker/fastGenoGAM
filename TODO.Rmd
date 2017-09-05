@@ -20,3 +20,5 @@
 - make predict function, that has a 'fromHDF5' functionality, such that it can take in
 the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
 computed fits in HDF5.
+- correct fromHDF5 function to ignore auto files
+- more consistent identifier for HDF5 files. If computation runs over night the identifier will change
