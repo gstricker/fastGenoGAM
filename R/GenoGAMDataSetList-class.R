@@ -581,30 +581,66 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 ## ## Tile computation
 ## ## ================
 
-## #' Function to retrieve the row coordinates as a list
-## #' @param x The GenoGAMDataSet object
-## #' @return An integerList with the row numbers for each tile
+#' A function to enhance absoluteRanges function to values beyond 2^31
+#' by splitting the data and using own Coordinates class.
+.absRanges <- function(x) {
+    totalLen <- sum(as.numeric(GenomeInfoDb::seqlengths(x)))
+    if(totalLen >= 2^31) {
+        parts <- (totalLen %/% 2^31) + 1
+        coords <- vector("list", parts)
+        left <- GenomeInfoDb::seqlevels(x)
+        for(ii in 1:parts) {
+            if(length(left) == 0) {
+                stop("No chromosomes left to compute coordinates")
+            }
+            idx <- getIndex(x)
+            GenomeInfoDb::seqlevels(idx, pruning.mode = "coarse") <- left
+            csum <- cumsum(as.numeric(GenomeInfoDb::seqlengths(idx)))
+            id <- which(csum < 2^31)
+            left <- GenomeInfoDb::seqlevels(idx)[-id]
+            GenomeInfoDb::seqlevels(idx, pruning.mode = "coarse") <- GenomeInfoDb::seqlevels(idx)[id]
+            coords[[ii]] <- as(GenomicRanges::absoluteRanges(idx), "Coordinates")
+            if(ii > 1) {
+                sh <- max(end(coords[[ii-1]]))
+                end(coords[[ii]]) <- end(coords[[ii]]) + sh
+                start(coords[[ii]]) <- start(coords[[ii]]) + sh
+            }
+        }
+        coords <- do.call("rbind", coords)
+    }
+    else {
+        coords <- GenomicRanges::absoluteRanges(getIndex(x))
+        coords <- as(coords, "Coordinates")
+    }
+    return(coords)
+}
+
+#' Function to retrieve the row coordinates
+#' @param x The GenoGAMDataSetList object
+#' @return A Coordinates object specifying the row coordinates of
+#' each tile
 .getCoordinatesGGDL <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
-    if(sum(seqlengths(x)) == length(x)) {
-        coords <- absoluteRanges(getIndex(x))
+    totalLen <- sum(as.numeric(GenomeInfoDb::seqlengths(x)))
+    if(totalLen == length(x)) {
+        coords <- .absRanges(x)
     }
     ## otherwise the slower version 'by block'
     else {
         rr <- rowRanges(x)
-        coords <- ranges(getIndex(x))
+        coords <- as(ranges(getIndex(x)), "Coordinates")
         current <- 1
         for(ii in 1:length(rr)) {
             ov <- IRanges::findOverlaps(rr[[ii]], getIndex(x))
             sh <- S4Vectors::subjectHits(ov)
             qh <- S4Vectors::queryHits(ov)
             l <- range(IRanges::splitAsList(qh, sh))
-            l <- IRanges::IRanges(l[,1], l[,2])
+            l <- Coordinates(l[,1], l[,2])
             len <- length(l) + current - 1
             end(l) <- end(l) + max(end(coords)[current - 1], 0)
             start(l) <- start(l) + max(end(coords)[current - 1], 0)
-            coords[current:len] <- l
+            coords[current:len,] <- l
             current <- len + 1
         }
     }

@@ -55,6 +55,7 @@ biocViews: Regression, DifferentialPeakCalling, ChIPSeq,
     DifferentialExpression, Genetics, Epigenetics, WholeGenome,
     ChipOnChip
 Collate: 
+    'Coordinates-class.R'
     'helper.R'
     'GenoGAMSettings-class.R'
     'GenoGAM-class.R'

@@ -47,7 +47,7 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
             sf <- c(sf, log(DESeq2::sizeFactors(dds)))
         }
     idx <- which(!(colnames(ggd) %in% names(sf)))
-    if(length(idx) >0) {
+    if(length(idx) > 0) {
         zeros <- rep(0, length(idx))
         names(zeros) <- colnames(ggd)[idx]
         sf <- c(sf, zeros)

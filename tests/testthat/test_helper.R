@@ -18,7 +18,7 @@ test_that("The subsetting coordinates function is correct", {
 
     ## single chromosome subset at start
     id <- 1
-    i <- start(coords[id]):end(coords[id])
+    i <- start(coords[id,]):end(coords[id,])
     x <- assay(ggdl)
     res <- .subsetByCoords(x, i)
     expect_true(nrow(res) == length(i))
@@ -26,7 +26,7 @@ test_that("The subsetting coordinates function is correct", {
 
     ## single chromosome subset at end
     id <- length(coords)
-    i <- start(coords[id]):end(coords[id])
+    i <- start(coords[id,]):end(coords[id,])
     x <- assay(ggdl)
     res <- .subsetByCoords(x, i)
     
@@ -36,7 +36,7 @@ test_that("The subsetting coordinates function is correct", {
     expect_identical(assay(ggdl)[[a]][start(r):end(r),], res)
 
     ## multiple chromosome subset across entire coordinates
-    i <- start(coords[1]):end(coords[length(coords)])
+    i <- start(coords[1,]):end(coords[length(coords),])
     x <- assay(ggdl)
     res <- .subsetByCoords(x, i)
     expect_true(nrow(res) == length(i))

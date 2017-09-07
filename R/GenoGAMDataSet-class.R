@@ -243,7 +243,7 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' @export
 GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangSize = NULL,
                            directory = ".", settings = NULL, hdf5 = FALSE, split = hdf5,
-                           fromHDF5 = FALSE, ...) {
+                           fromHDF5 = FALSE, ignoreM = FALSE, ...) {
 
     if(missing(experimentDesign)) {
         futile.logger::flog.debug("No input provided. Creating empty GenoGAMDataSet")
@@ -252,11 +252,16 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     futile.logger::flog.info("Creating GenoGAMDataSet")
 
+    if(is.null(settings)) {
+        settings <- GenoGAMSettings()
+    }
+
     ## optimal chunk size
     if(is.null(chunkSize)) {
         ## need initial overhangsize if null to compute chunk size
         ov <- ifelse(is.null(overhangSize), 1000, overhangSize)
-        chunkSize <- .setOptimalChunkSize(experimentDesign, design, ov, hdf5)
+        bpknots <- slot(settings, "bpknots")
+        chunkSize <- .setOptimalChunkSize(experimentDesign, design, ov, bpknots, hdf5)
     }
 
     if(is.null(overhangSize)) {
@@ -267,10 +272,6 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     if(overhangSize >= chunkSize/2) {
         overhangSize <- round(chunkSize/2) - 1
         warning("Overhang size exceeds the total size of the chunk. Adjusted to chunkSize/2 - 1")
-    }
-
-    if(is.null(settings)) {
-        settings <- GenoGAMSettings()
     }
 
     input <- paste0("Building GenoGAMDataSet with the following parameters:\n",
@@ -317,7 +318,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                                              directory = directory,
                                              settings = settings, 
                                              hdf5 = hdf5,
-                                             split = split, ...)
+                                             split = split, ignoreM = ignoreM, ...)
         }
     }
 
@@ -366,7 +367,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     index_backup <- getIndex(ggd)
 
     ## make new tile index
-    metadata(slot(ggd, "index"))$chunkSize <- slot(settings, "regionSize")
+    metadata(slot(ggd, "index"))$chunkSize <- slot(settings, "dataControl")$regionSize
     newTiles <- .makeTiles(tileSettings(ggd))
     slot(ggd, "index") <- newTiles
 
@@ -508,7 +509,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 #' set optimal chunk length if not provided
 #' based on number of cores, samples, splines and
 #' in case of HDF5, the block size
-.setOptimalChunkSize <- function(expDesign, design, ov, hdf5) {
+.setOptimalChunkSize <- function(expDesign, design, ov, bpknots, hdf5) {
 
     ## determine number of samples
     if(class(expDesign) == "data.frame") {
@@ -519,14 +520,14 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
 
     if(hdf5) {
-        maxBlockSize <- DelayedArray::get_max_block_length("integer")
+        maxBlockSize <- DelayedArray:::get_max_block_length("integer")
         tileSize <- floor(maxBlockSize/nsamples)
         chunkSize <- tileSize - 2*ov
     }
     else {
         workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 20000L
+        posPerGB <- 400000L / bpknots
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4L
         ## number of splines
@@ -562,14 +563,16 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 }
 
 #' get the identifier of the HDF5 files, that belong together to one dataset
-.getIdentifier <- function(path) {
+.getIdentifier <- function(path, fits = FALSE) {
+    identPos <- 2
+    if(fits) identPos <- 3
     files <- list.files(path)
     splitFiles <- strsplit(files, "_")
     
     ## check the second element of the split name, which should be the
     ## identifier (and the creation date). Discard invalid files (which give NA)
     ## and in case of multiple identifiers select the first.
-    possibleIdentifiers <- unique(na.omit(sapply(splitFiles, function(y) y[length(y)])))
+    possibleIdentifiers <- unique(na.omit(sapply(splitFiles, function(y) y[identPos])))
     return(possibleIdentifiers[1])
 }
 
@@ -595,12 +598,16 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(config)
 }
 
+mnames <- function() {
+    c("chrM", "MT")
+}
+
 #' The underlying function to build a GenoGAMDataSet from a
 #' config file or a data.frame
 #'
 #' @noRd
-.GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize,
-                                    design, directory, settings, hdf5 = FALSE, split = hdf5, ...) {
+.GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize, design,
+                                      directory, settings, hdf5 = FALSE, split = hdf5, ignoreM = FALSE, ...) {
 
     ## initialize some variables
     args <- list()
@@ -624,6 +631,12 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         split <- TRUE
     }
 
+    ## ignore Mito chromosome
+    if(ignoreM) {
+        keep <- !(names(chroms) %in% mnames())
+        chroms <- chroms[keep]
+    }
+    
     ## generate rowRanges
     bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
     if(length(bamParamsWhich) != 0) {
@@ -637,14 +650,23 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
             futile.logger::flog.error("The data does not match the region specification in the bamParams settings.")
             return(new("GenoGAMDataSet"))
         }
+
     }
     else {
+        if(!is.null(slot(settings, "chromosomeList"))) {
+            chroms <- chroms[names(chroms) %in% slot(settings, "chromosomeList")]
+        }
         starts <- rep(1, length(chroms))
         ends <- chroms
         gr <- GenomicRanges::GRanges(names(chroms),
                                                IRanges::IRanges(starts, ends))
         GenomeInfoDb::seqlengths(gr) <- chroms
     }
+
+    ## update chromosome list
+    slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
+
+    
     futile.logger::flog.debug("Following row ranges created:")
     futile.logger::flog.debug(show(gr))
 
@@ -656,8 +678,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     ## make tiles for sum matrix computation
     suml <- list(chromosomes = gr,
-              chunkSize = slot(settings, "regionSize"),
-              overhangSize = min(overhangSize, slot(settings, "regionSize") - 1))
+              chunkSize = slot(settings, "dataControl")$regionSize,
+              overhangSize = min(overhangSize, slot(settings, "dataControl")$regionSize - 1))
     sumTiles <- .makeTiles(suml)
    
     ## make colData
@@ -668,11 +690,6 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ## initiate size factors
     sf <- rep(0, nrow(colData))
     ##names(sf) <- config$ID
-    
-    ## update chromosome list
-    if(is.null(slot(settings, "chromosomeList"))) {
-        slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
-    }
 
     ## finally build object
     ## if split make sure to keep the seqinfo same for all list elements,
@@ -1447,14 +1464,16 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
     return(l)
 }
 
-#' Function to retrieve the row coordinates as a list
+#' Function to retrieve the row coordinates
 #' @param x The GenoGAMDataSet object
-#' @return An integerList with the row numbers for each tile
+#' @return A Coordinates object specifying the row coordinates
+#' of each tile
 .getCoordinatesGGD <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
-    if(sum(seqlengths(x)) == length(x)) {
-        l <- absoluteRanges(getIndex(x))
+    totalLen <- sum(as.numeric(GenomeInfoDb::seqlengths(x)))
+    if(totalLen == length(x)) {
+        l <- .absRanges(x)
     }
     ## otherwise the slower version 'by bloc
     else {
@@ -1462,13 +1481,13 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
         sh <- S4Vectors::subjectHits(ov)
         qh <- S4Vectors::queryHits(ov)
         l <- range(IRanges::splitAsList(qh, sh))
-        l <- IRanges::IRanges(l[,1], l[,2])
+        l <- Coordinates(l[,1], l[,2])
     }
     return(l)
 }
 
 #' Function to establish chunk coordinates
-#' @param x A IRanges object as the output of .getCoordinates
+#' @param x An Coordinates object as the output of .getCoordinates
 #' @return The same object as x but with not overlapping ranges
 #' which were cut at the center of the overhang
 .getChunkCoords <- function(x) {
@@ -1476,9 +1495,9 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
         return(x)
     }
     
-    start <- c(start(x[1]), ceiling((end(x[-length(x)]) + start(x[-1]))/2))
-    end <- c((start[-1] - 1), end(x[length(x)]))
-    ir <- IRanges(start, end)
+    start <- c(start(x[1,]), ceiling((end(x[-length(x),]) + start(x[-1,]))/2))
+    end <- c((start[-1] - 1), end(x[length(x),]))
+    ir <- Coordinates(start, end)
     return(ir)
 }
 
@@ -1509,7 +1528,7 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @return The metric value
 .MetricsFunGGD <- function(x, what, na.rm = FALSE) {
 
-    l <- .getCoordinates(x)
+    l <- as(.getCoordinates(x), "IRanges")
 
     ## for HDF5
     if(slot(x, "hdf5")) {
@@ -1566,7 +1585,7 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @rdname GenoGAMDataSet-metrics
 setMethod("Summary", "GenoGAMDataSet", function(x, ..., na.rm = FALSE) {
-    l <- .getCoordinates(x)
+    l <- as(.getCoordinates(x), "IRanges")
 
     ## for HDF5
     if(slot(x, "hdf5")) {

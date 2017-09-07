@@ -380,11 +380,13 @@ test_that("Coordinate and Chunk transformation work correctly", {
     chunks <- .getChunkCoords(coords)
     
     expect_true(length(coords) == length(index))
-    expect_true(width(range(coords)) == sum(width(dataRange(ggdl))))
+    widthCoords <- max(end(coords)) - min(start(coords)) + 1
+    expect_true(widthCoords == sum(width(dataRange(ggdl))))
     expect_true(all(width(coords) == width(index)))
 
     expect_true(length(chunks) == length(index))
-    expect_true(width(range(chunks)) == sum(width(dataRange(ggdl))))
+    widthChunks <- max(end(chunks)) - min(start(chunks)) + 1
+    expect_true(widthChunks == sum(width(dataRange(ggdl))))
     expect_true(all(width(chunks) == width(index)))
 
     ## normal input with overhang
@@ -394,7 +396,8 @@ test_that("Coordinate and Chunk transformation work correctly", {
 
     expect_error(.getCoordinates())
     expect_true(length(coords) == length(index))
-    expect_true(width(range(coords)) == sum(width(dataRange(ggdl))))
+    widthCoords <- max(end(coords)) - min(start(coords)) + 1
+    expect_true(widthCoords == sum(width(dataRange(ggdl))))
     expect_true(all(width(coords) == width(index)))
 
     chunks <- .getChunkCoords(coords)
@@ -403,8 +406,8 @@ test_that("Coordinate and Chunk transformation work correctly", {
     
     ## The first and the second chunks of a chromosome must be of same length
     ## as the last and the second-to-last. 
-    expect_true(width(chunks[1]) == width(chunks[length(chunks)]))
-    expect_true(width(chunks[2]) == width(chunks[length(chunks) - 1]))
+    expect_true(width(chunks[1,]) == width(chunks[length(chunks),]))
+    expect_true(width(chunks[2,]) == width(chunks[length(chunks) - 1,]))
 
     ## The rest should be of size = chunkSize
     numEqualChunks <- length(which(width(chunks) == getChunkSize(ggdl)))

@@ -61,7 +61,7 @@
     ## dealing with list objects (mostly from GenoGAMDataSetList)
     if(class(x) == "list") {
         ## build mapping function
-        len <- cumsum(sapply(x, NROW))
+        len <- cumsum(as.numeric(sapply(x, NROW)))
         .map <- stepfun(x = len, y = 1:(length(len) + 1), right = TRUE)
 
         ## map to correct list elements and rows

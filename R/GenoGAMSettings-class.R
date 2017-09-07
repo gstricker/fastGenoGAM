@@ -85,14 +85,14 @@ setClass("GenoGAMSettings",
          slots = list(center = "logicalOrNULL", chromosomeList = "characterOrNULL",
              bamParams = "ScanBamParam", processFunction = "functionOrNULL", 
              optimMethod = "character", optimControl = "list", estimControl = "list",
-             hdf5Control = "list", regionSize = "integer"),
+             hdf5Control = "list", dataControl = "list"),
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
              optimControl = list(maxit = 50L, fnscale = -1L, trace = 1L),
              estimControl = list(eps = 1e-6, maxiter = 1000L, alpha = 1L, rho = 0.5, c = 1e-4, m = 6L),
              hdf5Control = list(dir = NULL, level = NULL, chunk = NULL),
-             regionSize = 4000L))
+             dataControl = list(regionSize = 4000L, bpknots = 20L))
 
 ## Validity
 ## ========
@@ -134,9 +134,9 @@ setClass("GenoGAMSettings",
     NULL
 }
 
-.validateRegionSizeType <- function(object) {
-    if(class(object@regionSize) != "integer") {
-        return("'regionSize' must be an integer object")
+.validateDataControlType <- function(object) {
+    if(class(object@dataControl) != "list") {
+        return("'dataControl' must be an integer object")
     }
     NULL
 }
@@ -146,7 +146,7 @@ setClass("GenoGAMSettings",
 .validateGenoGAMSettings <- function(object) {
     c(.validateBAMParamsType(object), .validateOptimMethodType(object),
       .validateOptimControlType(object) ,.validateEstimControlType(object),
-      .validateHDF5ControlType(object), .validateRegionSizeType(object))
+      .validateHDF5ControlType(object), .validateDataControlType(object))
 }
 
 S4Vectors::setValidity2("GenoGAMSettings", .validateGenoGAMSettings)
@@ -176,6 +176,13 @@ GenoGAMSettings <- function(...) {
     params <- .fillParameters(l = params, estimControl)
     slot(ggs, "estimControl") <- params
 
+    ## check if all data params are there
+    params <- slot(ggs, "dataControl")
+    dataControl = list(regionSize = 4000L, bpknots = 20L)
+    params <- .fillParameters(l = params, dataControl)
+    slot(ggs, "dataControl") <- params
+
+    ## initialize HDF5 options globally
     slot(ggs, "hdf5Control") <- .initializeHDF5Params(slot(ggs, "hdf5Control"))
     return(ggs)
 }
@@ -201,7 +208,7 @@ GenoGAMSettings <- function(...) {
     }
     else {
         if(currentLevel != params$level) {
-            HDF5Array::setHDF5CompressionLevel(params$level)
+            HDF5Array::setHDF5DumpCompressionLevel(params$level)
         }
     }
 
@@ -246,8 +253,10 @@ GenoGAMSettings <- function(...) {
         cat("HDF5 chunk dimensions:", ggs@hdf5Control$chunk, "\n")
     }
     cat("\n")
-    cat("-------------------- Count Matrix settings ------------\n")
-    cat("Region size:", ggs@regionSize, "\n")
+    cat("-------------------- Data settings ----------------------\n")
+    cat("Region size:", ggs@dataControl$regionSize, "\n")
+    cat("\n")
+    cat("Basepairs per Knot:", ggs@dataControl$bpknots, "\n")
     cat("\n")
     cat("-------------------- Optimization parameters ------------\n")
     cat("Optimization method:", ggs@optimMethod, "\n")

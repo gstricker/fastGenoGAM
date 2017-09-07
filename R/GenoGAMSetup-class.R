@@ -10,9 +10,9 @@ NULL
 #' A class to embody the setup for a GenoGAM fit
 #' 
 #' @slot params A list of all hyper-parameters which are either estimated
-#' or fixed.
-#' At the moment the smoothing parameter lambda and a second regularization
-#' matrix H are provided.
+#' or fixed. At the moment the smoothing parameter lambda, the overdispersion
+#' parameter theta the order and penalization order of the splines as well as
+#' the second regularization parameter epsilon are provided.
 #' @slot knots A list of knot positions on each chromosome.
 #' @slot designMatrix The design matrix.
 #' @slot beta The vector of coefficients to be estimated. Initialized.
@@ -39,7 +39,7 @@ setClass("GenoGAMSetup",
                       offset = "numeric", family = "character",
                       response = "numeric", fits = "list",
                       control = "list"),
-         prototype = list(params = list(lambda = 0, theta = 0, H = 0,
+         prototype = list(params = list(lambda = 0, theta = 0, eps = 0,
                                         order = 2, penorder = 2),
                           knots = list(), designMatrix = new("dgCMatrix"),
                           beta = matrix(,0,0), se = list(),
@@ -61,8 +61,8 @@ setClass("GenoGAMSetup",
 }
 
 .validateParamsElements <- function(object) {
-    if(!all(names(slot(object, "params")) %in% c("lambda", "theta", "H", "order", "penorder"))) {
-        return("'params' must contain the elements 'lambda', 'theta', 'H', 'order' and 'penorder'")
+    if(!all(names(slot(object, "params")) %in% c("lambda", "theta", "eps", "order", "penorder"))) {
+        return("'params' must contain the elements 'lambda', 'theta', 'eps', 'order' and 'penorder'")
     }
     NULL
 }
@@ -171,7 +171,7 @@ S4Vectors::setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
 GenoGAMSetup <- function(...) {
     ggs <- new("GenoGAMSetup", ...)
     params <- slot(ggs, "params")
-    coreValues <- c(lambda = 0, theta = 0, H = 0, order = 2, penorder = 2)
+    coreValues <- c(lambda = 0, theta = 0, eps = 0, order = 2, penorder = 2)
     params <- .fillParameters(l = params, coreValues)
     slot(ggs, "params") <- params
 
@@ -223,7 +223,7 @@ setMethod("length", "GenoGAMSetup", function(x) {
 
 #' Constructor function
 #' @noRd
-setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
+setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb",
                          bpknots = 20, order = 2, penorder = 2, control = list()) {
 
     ## knot placement    
@@ -239,7 +239,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
     nbetas <- nknots
     nfun <- length(.getVars(design(ggd), type = "covar"))
     S <- .buildSMatrix(nbetas, penorder, nfun)
-    I <- .buildIMatrix(nbetas * nfun, H)
+    I <- .buildIMatrix(nbetas * nfun, eps)
     S <- S + I
 
     ## turn knots into list to comply with object requirements
@@ -248,7 +248,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, H = 0, family = "nb",
 
     offset <- rep(sizeFactors(ggd), each = getTileSize(ggd))
 
-    ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, H = H,
+    ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, eps = eps,
                                           order = order, penorder = penorder),
                             knots = knots, formula = design(ggd),
                             design = des, offset = offset, family = family,

@@ -13,12 +13,9 @@
 - use C code in lbfgs (direction computation)?
 - split unittests for estimation and genogam function
 - make gaussian part of release version?
-- combine bpknots in genogam() and in the creation step of GGD (bpknots in settings?)
 - get rid of warning messages during read data on makeTile level and on readingBAM level
-- make a convenience parameter to exclude "chrM"?
 - deactivate ncv control within genogam
 - make predict function, that has a 'fromHDF5' functionality, such that it can take in
 the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
 computed fits in HDF5.
-- correct fromHDF5 function to ignore auto files
-- more consistent identifier for HDF5 files. If computation runs over night the identifier will change
+- Warning in the size factor function: .normalize in the function DESeq2::DESeqDataSetFromMatrix. Warning most likely due to coliding methods for "Ontology" in BiocGenerics and AnnotationDbi. Solution should come from DESeq side.

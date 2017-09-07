@@ -40,9 +40,9 @@
 ##' res <- genogam(ggd, lambda = 266.8368, theta = 2.415738)
 ##' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 ##' @export
-genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
-                    bpknots = 20, kfolds = 10, intervalSize = 20, 
-                    regions = 20, order = 2, m = 2) {
+genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
+                    kfolds = 10, intervalSize = 20, regions = 20, order = 2,
+                    m = 2) {
 
     futile.logger::flog.info("Initializing the model")
 
@@ -50,8 +50,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
                     "  Lambda: ", lambda, "\n",
                     "  Theta: ", theta, "\n",
                     "  Family: ", family, "\n",
-                    "  H: ", H, "\n",
-                    "  Knot spacing: ", bpknots, "\n",
+                    "  Epsilon: ", eps, "\n",
                     "  Number of folds: ", kfolds, "\n",
                     "  Interval size: ", intervalSize, "\n",
                     "  Number of regions: ", regions, "\n",
@@ -70,20 +69,21 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     ## if(!check) break
 
     ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
-                        H = H, bpknots = bpknots, order = order,
+                        eps = eps, bpknots = bpknots, order = order,
                         penorder = m, control = slot(settings, "estimControl"))
 
     futile.logger::flog.info("Done")
     ## Cross Validation
     cv <- FALSE
-    regionSize <- slot(settings, "regionSize")
+    regionSize <- slot(settings, "dataControl")$regionSize
+    bpknots <- slot(settings, "dataControl")$bpknots
 
     if(is.null(lambda) | is.null(theta)) {
         futile.logger::flog.info("Estimating hyperparameters")
 
         ## check correct region size
         if(regionSize < 2*getOverhangSize(ggd)) {
-            futile.logger::flog.warning("region size too small for cross validation, set to twice the overhang size.")
+            futile.logger::flog.warn("region size too small for cross validation, set to twice the overhang size.")
             regionSize <- 2*getOverhangSize(ggd)
         }
 
@@ -95,7 +95,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
         newTiles <- .makeTiles(tileSettings(ggd))
         slot(ggd, "index") <- newTiles
         new_ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
-                                H = H, bpknots = bpknots, order = order,
+                                eps = eps, bpknots = bpknots, order = order,
                                 penorder = m, control = slot(settings, "estimControl"))
         new_coords <- .getCoordinates(ggd)
         
@@ -314,7 +314,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
     }
     
     tile <- coords[id,]
-    y <- .subsetByCoords(x = assay(ggd), i = IRanges::start(tile):IRanges::end(tile))
+    y <- .subsetByCoords(x = assay(ggd), i = start(tile):end(tile))
     
     Y <- unname(unlist(as.data.frame(y)))
     return(as.integer(Y))
