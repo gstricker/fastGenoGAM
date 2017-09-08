@@ -4,9 +4,8 @@
 \alias{genogam}
 \title{genogam}
 \usage{
-genogam(ggd, lambda = NULL, theta = NULL, family = "nb", H = 0,
-  bpknots = 20, kfolds = 10, intervalSize = 20, regions = 20,
-  order = 2, m = 2)
+genogam(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
+  kfolds = 10, intervalSize = 20, regions = 20, order = 2, m = 2)
 }
 \arguments{
 \item{ggd}{The GenoGAMDataSet object to be fitted}
@@ -20,16 +19,11 @@ by cross validation.}
 \item{family}{The distribution to be used. So far only Negative-Binomial (nb)
 is supported.}
 
-\item{H}{The factor for additional first-order regularization. This should be
+\item{eps}{The factor for additional first-order regularization. This should be
 zero (default) in most cases. It can be useful for sparse data with many
 zero-counts regions or very low coverage. In this cases it is advised to use
 a small factor like 0.01, which would penalize those regions but not the ones
 with higher coverage. See Wood S., Generalized Additive Models (2006) for more.}
-
-\item{bpknots}{The spacing between knots. The lower the number, the more local
-functions and the more sensitive the model with the trade-off of increased
-computation time. In our experience going below 20 is not necessary even for
-close double peaks.}
 
 \item{kfolds}{The number of folds for cross validation}
 

@@ -73,9 +73,10 @@ details. For a complete list of parameters see ?optim.}
 
 \item{\code{hdf5Control}}{List of control settings for the HDF5 backend}
 
-\item{\code{regionSize}}{The size of the region to use for the computation of the
+\item{\code{dataControl}}{List of control settings for the processed data.
+The size of the region to use for the computation of the
 count matrix, that is later used by DESeq2. Also the size of the regions that
-will be used for Cross Validation.}
+will be used for Cross Validation. And the spacing between knots.}
 }}
 
 \examples{

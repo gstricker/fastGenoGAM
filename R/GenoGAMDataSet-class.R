@@ -146,6 +146,9 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' human, as R does not support long integers.
 #' @param fromHDF5 A logical argument specifying if the data is already present in
 #' form of HDF5 files and should be rather read in from there.
+#' @param ignoreM A logical argument to ignore the Mitochondria DNA on data read in.
+#' This is useful, if one is not interested in chrM, but it's size prevents the tiles
+#' to be larger, as all tiles has to be of some size.
 #' @param ... Further parameters, mostly for arguments of custom processing
 #' functions or to specify a different method for fragment size estimation.
 #' See details for further information.
@@ -599,7 +602,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 }
 
 mnames <- function() {
-    c("chrM", "MT")
+    c("chrM", "MT", "chromosomeM", "ChromosomeMT")
 }
 
 #' The underlying function to build a GenoGAMDataSet from a
@@ -665,7 +668,10 @@ mnames <- function() {
 
     ## update chromosome list
     slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
-
+    if(length(slot(settings, "chromosomeList")) == 0) {
+        futile.logger::flog.error("No chromosomes to read in. Check either the specified settings or the header of BAM file")
+        return(new("GenoGAMDataSet"))
+    }
     
     futile.logger::flog.debug("Following row ranges created:")
     futile.logger::flog.debug(show(gr))

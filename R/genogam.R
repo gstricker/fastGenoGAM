@@ -12,15 +12,11 @@
 ##' by cross validation.
 ##' @param family The distribution to be used. So far only Negative-Binomial (nb)
 ##' is supported.
-##' @param H The factor for additional first-order regularization. This should be
+##' @param eps The factor for additional first-order regularization. This should be
 ##' zero (default) in most cases. It can be useful for sparse data with many
 ##' zero-counts regions or very low coverage. In this cases it is advised to use
 ##' a small factor like 0.01, which would penalize those regions but not the ones
 ##' with higher coverage. See Wood S., Generalized Additive Models (2006) for more.
-##' @param bpknots The spacing between knots. The lower the number, the more local
-##' functions and the more sensitive the model with the trade-off of increased
-##' computation time. In our experience going below 20 is not necessary even for
-##' close double peaks.
 ##' @param kfolds The number of folds for cross validation
 ##' @param intervalSize The size of the hold-out intervals in cross validation.
 ##' If replicates are present, this can easily be increased to twice the fragment
@@ -66,18 +62,16 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     coords <- .getCoordinates(ggd)
     chunks <- .getChunkCoords(coords)
 
-    ## if(!check) break
-
-    ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
-                        eps = eps, bpknots = bpknots, order = order,
-                        penorder = m, control = slot(settings, "estimControl"))
-
     futile.logger::flog.info("Done")
     ## Cross Validation
     cv <- FALSE
     regionSize <- slot(settings, "dataControl")$regionSize
     bpknots <- slot(settings, "dataControl")$bpknots
 
+    ggs <- setupGenoGAM(ggd, lambda = lambda, theta = theta, family = family, 
+                        eps = eps, bpknots = bpknots, order = order,
+                        penorder = m, control = slot(settings, "estimControl"))
+    
     if(is.null(lambda) | is.null(theta)) {
         futile.logger::flog.info("Estimating hyperparameters")
 
@@ -153,7 +147,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     }
 
     ## Define function and some important variables
-    .local <- function(id, data, init, coords) {
+    .local <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL) {
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         setup <- .initiate(data, init, coords, id)
@@ -175,7 +169,27 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         slot(setup, "offset") <- numeric()
         slot(setup, "params")$id <- id
 
+        ## procedure to gradually write results to HDF5, to safe memory footprint
+        if(slot(ggd, "hdf5")) {
+            if(any(is.null(chunks), is.null(h5file)) {
+                ## An error rather for the developer
+                stop("Chunk coordinates missing in the fitting function")
+            }
+
+            combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
+            combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
+            
+            h5write(combinedFits, file = h5file, name = "/fits",
+                    index = list(start(chunks)[id]:end(chunks)[id], 1:2)) ## <- here ID is wrong
+            h5write(combinedSEs, file = h5file, name = "/ses",
+                    index = list(start(chunks)[id]:end(chunks)[id], 1:2))
+        }
+        
         return(setup)
+    }
+
+    .writeFitsToHDF5 <- function() {
+        
     }
 
     ## specify ids
@@ -209,11 +223,34 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         selist <- lapply(identifier, function(y) {
             ## get correct ids
             subids  <- ids[as.vector(GenomeInfoDb::seqnames(indx) %in% y)]
-
+            rr <- rowRanges(ggd)[[y]]
+            
             ## compute model for one identifier, i.e chromosome
             futile.logger::flog.info(paste("Fitting", y))
+            
+            if(slot(ggd, "hdf5")) {
+                ## make filename for fits and SEs
+                seedFile <- assay(ggd)[[y]]@seed@file
+                seedFileSplit <- strsplit(seedFile, split = "/")[[1]]
+                f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
+                h5file <- rhdf5::H5Fcreate(file.path(settings@hdf5Control$dir, f))
+
+                ## the dimension of the matrix for given chromosome
+                d <- c(length(rr), 2)
+                ## create datasets
+                h5space <- H5Screate_simple(d,d)
+                h5fits <- H5Dcreate(h5file, "fits", "H5T_IEEE_F32LE", h5space) ## Type Float: "H5T_IEEE_F32LE"
+                h5ses <- H5Dcreate(h5file, "ses", "H5T_IEEE_F32LE", h5space)
+
+                ## create chunks coordinates for given chromosome
+                chromIndex <- getIndex(ggd)[seqnames(getIndex(ggd)) == y,]
+                seqlevels(chromIndex, pruning.mode = "coarse") <- seqlevelsInUse(chromIndex)
+                chunks <- .getChunkCoords(chromIndex)
+            }
             res <- BiocParallel::bplapply(subids, .local, 
-                                          data = ggd, init = ggs, coords = coords)
+                                          data = ggd, init = ggs, coords = coords,
+                                          relativeChunks = relativeChunks, h5file = h5file,
+                                          chunks = chunks)
             futile.logger::flog.info(paste(y, "Done"))
 
             ## assemble results

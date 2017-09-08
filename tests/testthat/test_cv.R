@@ -4,7 +4,7 @@ ggd <- makeTestGenoGAMDataSet(sim = TRUE)
 settings <- GenoGAMSettings()
 control <- slot(settings, "estimControl")
 ggs <- setupGenoGAM(ggd, lambda = NULL, theta = NULL, family = "nb",
-                    H = 0, bpknots = 20, order = 2, penorder = 2,
+                    eps = 0, bpknots = 20, order = 2, penorder = 2,
                     control = control)
 folds <- 10
 iv <- 20

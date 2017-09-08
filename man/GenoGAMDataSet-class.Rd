@@ -37,7 +37,7 @@
 \usage{
 GenoGAMDataSet(experimentDesign, design, chunkSize = NULL,
   overhangSize = NULL, directory = ".", settings = NULL, hdf5 = FALSE,
-  split = hdf5, fromHDF5 = FALSE, ...)
+  split = hdf5, fromHDF5 = FALSE, ignoreM = FALSE, ...)
 
 \S4method{getIndex}{GenoGAMDataSet}(object)
 
@@ -109,6 +109,10 @@ human, as R does not support long integers.}
 
 \item{fromHDF5}{A logical argument specifying if the data is already present in
 form of HDF5 files and should be rather read in from there.}
+
+\item{ignoreM}{A logical argument to ignore the Mitochondria DNA on data read in.
+This is useful, if one is not interested in chrM, but it's size prevents the tiles
+to be larger, as all tiles has to be of some size.}
 
 \item{...}{Further parameters, mostly for arguments of custom processing
 functions or to specify a different method for fragment size estimation.

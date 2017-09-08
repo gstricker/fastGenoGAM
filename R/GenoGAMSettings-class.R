@@ -40,9 +40,10 @@ setClassUnion("functionOrNULL", c("function", "NULL"))
 #' details. For a complete list of parameters see ?optim.
 #' @slot estimControl List of control settings for the parameter estimation algorithm.
 #' @slot hdf5Control List of control settings for the HDF5 backend
-#' @slot regionSize The size of the region to use for the computation of the
+#' @slot dataControl List of control settings for the processed data.
+#' The size of the region to use for the computation of the
 #' count matrix, that is later used by DESeq2. Also the size of the regions that
-#' will be used for Cross Validation.
+#' will be used for Cross Validation. And the spacing between knots.
 #' @details Center can have three values: TRUE, FALSE, NULL. TRUE will
 #' trigger the center function, FALSE will trigger the use of the entire
 #' fragment. NULL should be used in case a custom process function is used.
@@ -92,7 +93,7 @@ setClass("GenoGAMSettings",
              optimControl = list(maxit = 50L, fnscale = -1L, trace = 1L),
              estimControl = list(eps = 1e-6, maxiter = 1000L, alpha = 1L, rho = 0.5, c = 1e-4, m = 6L),
              hdf5Control = list(dir = NULL, level = NULL, chunk = NULL),
-             dataControl = list(regionSize = 4000L, bpknots = 20L))
+             dataControl = list(regionSize = 4000L, bpknots = 20L)))
 
 ## Validity
 ## ========

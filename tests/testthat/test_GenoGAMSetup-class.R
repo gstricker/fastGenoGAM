@@ -4,7 +4,7 @@ test_that("GenoGAMSetup constructor works correctly", {
     ggs <- GenoGAMSetup()
 
     expect_true(all.equal(slot(ggs, "params"),
-                          list(lambda = 0, theta = 0, H = 0,
+                          list(lambda = 0, theta = 0, eps = 0,
                                order = 2, penorder = 2)))
     expect_true(length(slot(ggs, "knots")) == 0)
     expect_true(length(slot(ggs, "designMatrix")) == 0)
@@ -21,7 +21,7 @@ test_that("GenoGAMSetup constructor works correctly", {
     mat <- matrix(1:9, 3, 3)
     k <- 10
     control <- list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
-    ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, H = 0.05),
+    ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, eps = 0.05),
                         knots = list(1:k), designMatrix = as(mat, "dgCMatrix"),
                         beta = mat, se = list(runif(k)),
                         penaltyMatrix = as(mat, "dgCMatrix"), formula = ~ s(x),
@@ -29,7 +29,7 @@ test_that("GenoGAMSetup constructor works correctly", {
                         fits = list(runif(k)*3))
 
     expect_true(all.equal(slot(ggs, "params"),
-                          list(lambda = 5, order = 4, H = 0.05,
+                          list(lambda = 5, order = 4, eps = 0.05,
                                theta = 0, penorder = 2)))
     expect_true(all(slot(ggs, "knots")[[1]] == 1:10))
     expect_true(all(dim(slot(ggs, "designMatrix")) == c(3, 3)))
