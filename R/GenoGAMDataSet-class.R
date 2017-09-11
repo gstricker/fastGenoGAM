@@ -263,7 +263,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     if(is.null(chunkSize)) {
         ## need initial overhangsize if null to compute chunk size
         ov <- ifelse(is.null(overhangSize), 1000, overhangSize)
-        bpknots <- slot(settings, "bpknots")
+        bpknots <- slot(settings, "dataControl")$bpknots
         chunkSize <- .setOptimalChunkSize(experimentDesign, design, ov, bpknots, hdf5)
     }
 
