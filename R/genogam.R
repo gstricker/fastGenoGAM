@@ -192,11 +192,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2)) 
             rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            futile.logger::flog.info(paste("Processed tile", id "out of", length(subindx)))
+            futile.logger::flog.info(paste("Processed tile", normID, "out of", length(subindx)))
             return(NULL)
         }
 
-        futile.logger::flog.info(paste("Processed tile", id "out of", length(getIndex(ggd))))
+        futile.logger::flog.info(paste("Processed tile", id, "out of", length(getIndex(ggd))))
         return(setup)
     }
 
@@ -244,7 +244,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), 2)
                 ## create datasets
-                .createH5DF(h5file, d)
+                .createH5DF(h5file$pointer, d)
 
                 ## create chunks coordinates for given chromosome
                 chromIndex <- getIndex(ggd)[seqnames(getIndex(ggd)) == y,]
@@ -254,17 +254,20 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             
             res <- BiocParallel::bplapply(subids, .local, 
                                           data = ggd, init = ggs, coords = coords,
-                                          relativeChunks = relativeChunks, h5file = h5file,
+                                          relativeChunks = relativeChunks, h5file = h5file$pointer,
                                           chunks = chunks)
             futile.logger::flog.info(paste(y, "Done"))
 
             ## assemble results
-
+            futile.logger::flog.info("Processing Fits")
+            
             rr <- rowRanges(ggd)[[y]]
             if(slot(ggd, "hdf5")) {
 
-                ## TODO: make SummarizedExperiment from h5files, but need absolute paths.
                 ## TODO: In Hdf5 write function need to attach log entry to HDF5 dumpLog
+                f <- file.path(settings@hdf5Control$dir, h5file$file)
+                h5fits <- HDF5Array::HDF5Array(f, name = "fits")
+                h5ses <- HDF5Array::HDF5Array(f, name = "ses")
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(fits = h5fits,
                                                                      se = h5ses))
@@ -275,13 +278,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(fits = combinedFits,
                                                                      se = combinedSEs))
-                futile.logger::flog.info("Processing done")
             }
-
             return(se)
         })
 
         names(selist) <- names(assay(ggd))
+        futile.logger::flog.info("Processing done")
 
         gg <- GenoGAMList(data = selist, id = ggd@id,
                           family = slot(ggs, "family"),
@@ -297,7 +299,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                                       data = ggd, init = ggs, coords = coords)
         futile.logger::flog.info("Done")
 
-        futile.logger::flog.info("Processing fits for")
+        futile.logger::flog.info("Processing fits")
         ## build GenoGAM object
         combinedFits <- .transformResults(res, relativeChunks, what = "fits")
         combinedSEs <- .transformResults(res, relativeChunks, what = "se")
@@ -343,7 +345,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     seedFileSplit <- strsplit(seed, split = "/")[[1]]
     f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
     h5file <- rhdf5::H5Fcreate(file.path(dir, f))
-    return(h5file)
+    return(list(pointer = h5file, file = f))
 }
 
 .createH5DF <- function(h5file, d) {

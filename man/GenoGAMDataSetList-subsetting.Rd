@@ -9,7 +9,7 @@
 \usage{
 \S4method{subset}{GenoGAMDataSetList}(x, ...)
 
-\S4method{subsetByOverlaps}{GenoGAMDataSetList,GRanges}(query, subject,
+\S4method{subsetByOverlaps}{GenoGAMDataSetList,GRanges}(x, ranges,
   maxgap = 0L, minoverlap = 1L, type = c("any", "start", "end", "within",
   "equal"), invert = FALSE, ...)
 
@@ -21,9 +21,6 @@
 \item{...}{Further arguments. Mostly a logical statement
 in case of the 'subset' function. Note that the columnnames
 for chromosomes and positions are: 'seqnames' and 'pos'.}
-
-\item{subject, i}{A GRanges object. In case of subsetting by double brackets
-'i' is the index of the tile.}
 
 \item{maxgap, minoverlap}{Intervals with a separation of 'maxgap' or
 less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -50,6 +47,9 @@ than the subject.}
 
 \item{invert}{If TRUE, keep only the query ranges that do _not_ overlap
 the subject.}
+
+\item{subject, i}{A GRanges object. In case of subsetting by double brackets
+'i' is the index of the tile.}
 }
 \value{
 A subsetted GenoGAMDataSetList object.

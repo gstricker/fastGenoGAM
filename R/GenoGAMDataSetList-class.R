@@ -555,11 +555,11 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
 }
 
 #' @rdname GenoGAMDataSetList-subsetting
-setMethod("subsetByOverlaps", c("GenoGAMDataSetList", "GRanges"),
-          function(query, subject, maxgap = 0L, minoverlap = 1L,
+setMethod("subsetByOverlaps", signature(x = "GenoGAMDataSetList", ranges = "GRanges"),
+          function(x, ranges, maxgap = 0L, minoverlap = 1L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
-              res <- .subsetByOverlapsGGDL(query = query, subject = subject,
+              res <- .subsetByOverlapsGGDL(query = x, subject = ranges,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)
               return(res)
