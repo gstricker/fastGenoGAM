@@ -232,7 +232,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     nknots <- round(length(x)/bpknots)
     knots <- .placeKnots(x = x, nknots = nknots)
 
-    X <- .buildDesignMatrix(ggd, knots = knots, pos = x, order = order)
+    X <- .buildDesignMatrix(knots = knots, pos = x, order = order)
     des <- .getDesignFromFormula(design(ggd), colData(ggd))
     ## Number of betas = number of knots
     ## Number of functions = Count the functions in the formula
@@ -345,7 +345,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
 }
 
 #' Build design matrix from the data
-.buildDesignMatrix <- function(ggd, knots, pos, order) {
+.buildDesignMatrix <- function(knots, pos, order) {
 
     ## build matrix
     X <- as(.bspline(pos, knots, order),"dgCMatrix")

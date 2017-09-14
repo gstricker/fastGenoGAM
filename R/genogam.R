@@ -149,7 +149,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     ## Define function and some important variables
     ## relativeChunks, chunks and h5file needed only because of HDF5, maybe there is a more
     ## elegant solution. But good for now.
-    .local <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL) {
+    .local <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL,
+                       coefsFile = NULL) {
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         setup <- .initiate(data, init, coords, id)
@@ -164,13 +165,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         slot(setup, "fits") <- .getFits(setup)
         
         slot(setup, "se") <- .compute_SE(setup)
-        
-        slot(setup, "designMatrix") <- new("dgCMatrix")
-        slot(setup, "penaltyMatrix") <- new("dgCMatrix")
-        slot(setup, "response") <- numeric()
-        slot(setup, "offset") <- numeric()
         slot(setup, "params")$id <- id
-
+        
         ## procedure to gradually write results to HDF5, to safe memory footprint
         if(slot(ggd, "hdf5")) {
             if(any(is.null(chunks), is.null(h5file))) {
@@ -188,10 +184,21 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             normID <- which(subindx == getIndex(ggd)[id,])
 
             ## write data
+            ## Fits
             rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2)) 
             rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
+            ## Coefs
+            rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
+                           index = list(id, 1:length(betas$par)))
+
+            ## reset not needed slots
+            slot(setup, "designMatrix") <- new("dgCMatrix")
+            slot(setup, "penaltyMatrix") <- new("dgCMatrix")
+            slot(setup, "response") <- numeric()
+            slot(setup, "offset") <- numeric()
+            
             futile.logger::flog.info(paste("Processed tile", normID, "out of", length(subindx)))
             return(NULL)
         }
@@ -227,6 +234,17 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         identifier <- slot(ggd, "id")$id
         indx <- getIndex(ggd)
 
+        ## create Coefs file
+        seedFile <- assay(ggd)[[1]]@seed@file
+        ident <- strsplit(seedFile, split = "_")[[1]]
+        coefsFile <- .createH5File(ident[length(ident)], settings@hdf5Control$dir, prefix = "coefs")
+        ## the dimension of the matrix for coefsfile (betas * tile width)
+        nfun <- length(.getVars(design(ggd), type = "covar"))
+        nbetas <- dim(slot(ggs, "designMatrix"))[2]
+        d <- c(length(getIndex(ggd)), nbetas * nfun)
+        ## create datasets
+        .createH5DF(coefsFile$pointer, d, what = "coefs")
+
         ## lapply by identifier, i.e. chromosome
         selist <- lapply(identifier, function(y) {
             ## get correct ids
@@ -237,9 +255,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             futile.logger::flog.info(paste("Fitting", y))
             
             if(slot(ggd, "hdf5")) {
-                ## make filename for fits and SEs
+                ## make filename for fits, SEs and coefs
                 seedFile <- assay(ggd)[[y]]@seed@file
-                h5file <- .createH5File(seedFile, settings@hdf5Control$dir)
+                h5file <- .createH5File(seedFile, settings@hdf5Control$dir)                
                 
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), 2)
@@ -255,7 +273,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             res <- BiocParallel::bplapply(subids, .local, 
                                           data = ggd, init = ggs, coords = coords,
                                           relativeChunks = relativeChunks, h5file = h5file$pointer,
-                                          chunks = chunks)
+                                          chunks = chunks, coefsFile = coefsFile$pointer)
             futile.logger::flog.info(paste(y, "Done"))
 
             ## assemble results
@@ -283,6 +301,18 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         })
 
         names(selist) <- names(assay(ggd))
+
+        if(slot(ggd, "hdf5")) {
+            fc <- file.path(settings@hdf5Control$dir, coefsFile$file)
+            coefs <- HDF5Array::HDF5Array(fc, name = "coefs")
+        }
+        else {
+            ## process spline information
+            coefs <- t(sapply(res, function(y) {
+                slot(y, "beta")
+            }))
+        }
+        knots <- slot(ggs, "knots")[[1]]
         futile.logger::flog.info("Processing done")
 
         gg <- GenoGAMList(data = selist, id = ggd@id,
@@ -291,7 +321,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                           sizeFactors = sizeFactors(ggd),
                           factorialDesign = colData(ggd),
                           params = modelParams,
-                          settings = settings) ## smooths slot to be added
+                          settings = settings,
+                          coefs = coefs,
+                          knots = knots)
     }
     else {
 
@@ -303,6 +335,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         ## build GenoGAM object
         combinedFits <- .transformResults(res, relativeChunks, what = "fits")
         combinedSEs <- .transformResults(res, relativeChunks, what = "se")
+
+        ## process spline information
+        coefs <- t(sapply(res, function(y) {
+            slot(y, "beta")
+        }))
+        knots <- slot(res[[1]], "knots")[[1]]
 
         if(slot(ggd, "hdf5")) {
             ## make filename for fits and SEs
@@ -319,13 +357,16 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
                                                              assays = list(fits = h5fits,
                                                                  se = h5ses))
+            ## write betas to HDF5
+            coefsFile <- paste0("coefs_", seedFileSplit[length(seedFileSplit)])
+            coefs <- .writeToHDF5(coefs, file = coefsFile, name = "coefs", settings = settings, simple = TRUE)
         }
         else {
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
                                                              assays = list(fits = combinedFits,
                                                                  se = combinedSEs))
         }
-        
+
         futile.logger::flog.info("Processing done")
         
         gg <- GenoGAM(se, family = slot(ggs, "family"),
@@ -333,7 +374,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                       sizeFactors = sizeFactors(ggd),
                       factorialDesign = colData(ggd),
                       params = modelParams,
-                      settings = settings) ## smooths slot to be added
+                      settings = settings,
+                      coefs = coefs,
+                      knots = knots)
     }
 
     futile.logger::flog.info("Finished")
@@ -341,19 +384,28 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 }
 
 ## HDF5 functions
-.createH5File <- function(seed, dir) {
+.createH5File <- function(seed, dir, prefix = NULL) {
+    if(is.null(prefix)) {
+        prefix = "fits"
+    }
     seedFileSplit <- strsplit(seed, split = "/")[[1]]
-    f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
+    f <- paste0(prefix, "_", seedFileSplit[length(seedFileSplit)])
     h5file <- rhdf5::H5Fcreate(file.path(dir, f))
     return(list(pointer = h5file, file = f))
 }
 
-.createH5DF <- function(h5file, d) {
+.createH5DF <- function(h5file, d, what = c("fits", "coefs")) {
+    what <- match.arg(what)
     h5space <- rhdf5::H5Screate_simple(d,d)
-    h5fits <- rhdf5::H5Dcreate(h5file, "fits", "H5T_IEEE_F32LE", h5space) ## Type Float: "H5T_IEEE_F32LE"
-    h5ses <- rhdf5::H5Dcreate(h5file, "ses", "H5T_IEEE_F32LE", h5space)
+    if(what == "fits") {
+        h5fits <- rhdf5::H5Dcreate(h5file, "fits", "H5T_IEEE_F32LE", h5space) ## Type Float: "H5T_IEEE_F32LE"
+        h5ses <- rhdf5::H5Dcreate(h5file, "ses", "H5T_IEEE_F32LE", h5space)
+        H5Dclose(h5ses)
+    }
+    if(what == "coefs") {
+        h5fits <- rhdf5::H5Dcreate(h5file, "coefs", "H5T_IEEE_F32LE", h5space)
+    }
 
-    H5Dclose(h5ses)
     H5Dclose(h5fits)
     H5Sclose(h5space)
     return(NULL)

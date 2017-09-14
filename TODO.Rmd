@@ -18,4 +18,4 @@
 - make predict function, that has a 'fromHDF5' functionality, such that it can take in
 the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
 computed fits in HDF5.
-- Warning in the size factor function: .normalize in the function DESeq2::DESeqDataSetFromMatrix. Warning most likely due to coliding methods for "Ontology" in BiocGenerics and AnnotationDbi. Solution should come from DESeq side.
+-add splines object

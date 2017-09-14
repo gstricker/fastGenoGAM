@@ -204,6 +204,9 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     else {
         h5file <- .makeFilename(dir, file)
     }
+    if(file.exists(h5file)) {
+        stop(paste("File", h5file, "exists. Please remove before a new file can be written."))
+    }
     h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = name, chunk_dim = chunkdims, verbose = verbose)
     futile.logger::flog.info(paste(name, "written"))
     return(h5)

@@ -5,6 +5,8 @@
 #' @include GenoGAMSettings-class.R
 NULL
 
+setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
+
 #' GenoGAM class
 #'
 #' This is the class the holds the complete model as well all hyperparameters
@@ -34,19 +36,21 @@ NULL
 setClass("GenoGAM",
          contains = "RangedSummarizedExperiment",
          slots = list(family = "character",
-                      design = "formula",
-                      sizeFactors = "numeric",
-                      factorialDesign = "DataFrame",
-                      params = "list",
-                      settings = "GenoGAMSettings",
-                      smooths = "data.table"),
+             design = "formula",
+             sizeFactors = "numeric",
+             factorialDesign = "DataFrame",
+             params = "list",
+             settings = "GenoGAMSettings",
+             coefs = "HDF5OrMatrix",
+             knots = "numeric"),
          prototype = prototype(family = "nb",
-                               design = ~ s(x),
-                               sizeFactors = numeric(),
-                               factorialDesign = S4Vectors::DataFrame(),
-                               params = list(),
-                               settings = GenoGAMSettings(),
-                               smooths = data.table::data.table()))
+             design = ~ s(x),
+             sizeFactors = numeric(),
+             factorialDesign = S4Vectors::DataFrame(),
+             params = list(),
+             settings = GenoGAMSettings(),
+             coefs = matrix(),
+             knots = numeric()))
 
 ## Validity
 ## ========
@@ -92,9 +96,17 @@ setClass("GenoGAM",
     NULL
 }
 
-.validateSmoothsType <- function(object) {
-    if(class(slot(object, "smooths"))[1] != "data.table") {
-        return("'smooths' must be a data.table object")
+.validateCoefsType <- function(object) {
+    if(class(slot(object, "coefs")) != "HDF5Matrix" &
+        class(slot(object, "coefs")) != "matrix"){
+        return("'coefs' must be either a HDF5Matrix or matrix object")
+    }
+    NULL
+}
+
+.validateKnotsType <- function(object) {
+    if(class(slot(object, "knots")) != "numeric"){
+        return("'knots' must be a numeric vector")
     }
     NULL
 }
@@ -107,7 +119,8 @@ setClass("GenoGAM",
       .validateFactorialDesign(object),
       .validateParamsType(object),
       .validateSettingsType(object),
-      .validateSmoothsType(object))
+      .validateCoefsType(object),
+      .validateKnotsType(object))
 }
 
 S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)

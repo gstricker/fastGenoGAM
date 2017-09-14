@@ -299,7 +299,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                                        design = design,
                                        directory = directory,
                                        settings = settings,
-                                       split = split, ...)
+                                       split = split,
+                                       ignoreM = ignoreM, ...)
     }
     else {
         
@@ -601,7 +602,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(config)
 }
 
-mnames <- function() {
+.mnames <- function() {
     c("chrM", "MT", "chromosomeM", "ChromosomeMT")
 }
 
@@ -636,7 +637,7 @@ mnames <- function() {
 
     ## ignore Mito chromosome
     if(ignoreM) {
-        keep <- !(names(chroms) %in% mnames())
+        keep <- !(names(chroms) %in% .mnames())
         chroms <- chroms[keep]
     }
     
@@ -803,7 +804,7 @@ mnames <- function() {
 #'
 #' @noRd
 .GenoGAMDataSetFromHDF5 <- function(config, chunkSize, overhangSize,
-                                    design, directory, settings, split, ...) {
+                                    design, directory, settings, split, ignoreM = FALSE, ...) {
 
     ## initialize some variables
     args <- list()
@@ -814,6 +815,12 @@ mnames <- function() {
     ## get chromosomeLengths to check if a split of data along the chromosomes is necessary
     header <- Rsamtools::scanBamHeader(config$file[1])
     chroms <- header[[1]]$targets
+
+    ## ignore Mito chromosome
+    if(ignoreM) {
+        keep <- !(names(chroms) %in% .mnames())
+        chroms <- chroms[keep]
+    }
 
     ## generate rowRanges
     bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
