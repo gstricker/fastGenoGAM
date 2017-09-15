@@ -18,4 +18,4 @@
 - make predict function, that has a 'fromHDF5' functionality, such that it can take in
 the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
 computed fits in HDF5.
--add splines object
+- get rid of warnings in size factor computation

@@ -22,30 +22,32 @@ NULL
 #' used in cross validation are in the settings slot.
 #' @slot settings A GenoGAMSettings object representing the global
 #' settings that were used to compute the model.
-#' @slot smooths A data.table of knots and coefficients of the model
 #' @slot data A list of RangedSummarizedExperiment that holds the actual data
 #' @slot id A GRanges object keeping the identifiers assigning the regions to the
 #' respective list elements
+#' @slot coefs The coefficients of the knots
+#' @slot The relative knot positions
 #' @name GenoGAMList-class
 #' @rdname GenoGAMList-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 setClass("GenoGAMList",
          slots = list(family = "character",
-                      design = "formula",
-                      sizeFactors = "numeric",
-                      factorialDesign = "DataFrame",
-                      params = "list",
-                      settings = "GenoGAMSettings",
-                      smooths = "data.table",
-                      data = "list", id = "GRanges"),
+             design = "formula",
+             sizeFactors = "numeric",
+             factorialDesign = "DataFrame",
+             params = "list",
+             settings = "GenoGAMSettings",
+             data = "list", id = "GRanges",
+             coefs = "HDF5OrMatrix",
+             knots = "numeric"),
          prototype = prototype(family = "nb",
-                               design = ~ s(x),
-                               sizeFactors = numeric(),
-                               factorialDesign = S4Vectors::DataFrame(),
-                               params = list(),
-                               settings = GenoGAMSettings(),
-                               smooths = data.table::data.table(),
-                               data = list(), id = GenomicRanges::GRanges()))
+             design = ~ s(x),
+             sizeFactors = numeric(),
+             factorialDesign = S4Vectors::DataFrame(),
+             params = list(),
+             settings = GenoGAMSettings(),
+             data = list(), id = GenomicRanges::GRanges(),
+             coefs = matrix(), knots = numeric()))
 
 ## Validity
 ## ========
@@ -58,7 +60,8 @@ setClass("GenoGAMList",
       .validateFactorialDesign(object),
       .validateParamsType(object),
       .validateSettingsType(object),
-      .validateSmoothsType(object),
+      .validateCoefsType(object),
+      .validateGGKnotsType(object),
       .validateDataType(object), ## from GenoGAMDataSetList-class.R
       .validateIDType(object)) ## from GenoGAMDataSetList-class.R
 }

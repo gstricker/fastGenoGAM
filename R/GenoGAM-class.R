@@ -28,7 +28,8 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' used in cross validation are in the settings slot.
 #' @slot settings A GenoGAMSettings object representing the global
 #' settings that were used to compute the model.
-#' @slot smooths A data.table of knots and coefficients of the model
+#' @slot coefs The coefficients of the knots
+#' @slot The relative knot positions
 #' @name GenoGAM-class
 #' @rdname GenoGAM-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -104,7 +105,7 @@ setClass("GenoGAM",
     NULL
 }
 
-.validateKnotsType <- function(object) {
+.validateGGKnotsType <- function(object) {
     if(class(slot(object, "knots")) != "numeric"){
         return("'knots' must be a numeric vector")
     }
@@ -120,7 +121,7 @@ setClass("GenoGAM",
       .validateParamsType(object),
       .validateSettingsType(object),
       .validateCoefsType(object),
-      .validateKnotsType(object))
+      .validateGGKnotsType(object))
 }
 
 S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
