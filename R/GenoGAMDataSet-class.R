@@ -1403,7 +1403,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     return(indx)
 }
 
-.subsetByOverlapsGGD <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGD <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
     if(any((width(subject) %% 2) == 1)) {
@@ -1436,9 +1436,14 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("subsetByOverlaps", signature(x = "GenoGAMDataSet", ranges = "GRanges"),
-          function(x, ranges, maxgap = 0L, minoverlap = 1L,
+          function(x, ranges, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
+              type <- match.arg(type)
+              if(type == "any") {
+                  maxgap <- -1L
+                  minoverlap <- 0L
+              }
               res <- .subsetByOverlapsGGD(query = x, subject = ranges,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)

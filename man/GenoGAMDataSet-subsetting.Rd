@@ -9,8 +9,8 @@
 \usage{
 \S4method{subset}{GenoGAMDataSet}(x, ...)
 
-\S4method{subsetByOverlaps}{GenoGAMDataSet,GRanges}(x, ranges, maxgap = 0L,
-  minoverlap = 1L, type = c("any", "start", "end", "within", "equal"),
+\S4method{subsetByOverlaps}{GenoGAMDataSet,GRanges}(x, ranges, maxgap = -1L,
+  minoverlap = 0L, type = c("any", "start", "end", "within", "equal"),
   invert = FALSE, ...)
 
 \S4method{[}{GenoGAMDataSet,GRanges,ANY,ANY}(x, i)

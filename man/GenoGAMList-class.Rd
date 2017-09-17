@@ -15,6 +15,8 @@
 \alias{getFamily,GenoGAMList-method}
 \alias{colData,GenoGAMList-method}
 \alias{getParams,GenoGAMList-method}
+\alias{getCoefs,GenoGAMList-method}
+\alias{getKnots,GenoGAMList-method}
 \alias{assay,GenoGAMList,missing-method}
 \alias{assays,GenoGAMList-method}
 \alias{rowRanges,GenoGAMList-method}
@@ -47,6 +49,10 @@ GenoGAMList(...)
 \S4method{colData}{GenoGAMList}(x)
 
 \S4method{getParams}{GenoGAMList}(object)
+
+\S4method{getCoefs}{GenoGAMList}(object)
+
+\S4method{getKnots}{GenoGAMList}(object)
 
 \S4method{assay}{GenoGAMList,missing}(x, i)
 
@@ -108,6 +114,10 @@ to access them.
 
 \item \code{getParams}: An accessor to the params slot
 
+\item \code{getCoefs}: An accessor to the coefs slot
+
+\item \code{getKnots}: An accessor to the knots slot
+
 \item \code{assay}: The accessor to the fits and standard errors
 
 \item \code{assays}: get a list of list of assays from the
@@ -144,12 +154,14 @@ used in cross validation are in the settings slot.}
 \item{\code{settings}}{A GenoGAMSettings object representing the global
 settings that were used to compute the model.}
 
-\item{\code{smooths}}{A data.table of knots and coefficients of the model}
-
 \item{\code{data}}{A list of RangedSummarizedExperiment that holds the actual data}
 
 \item{\code{id}}{A GRanges object keeping the identifiers assigning the regions to the
 respective list elements}
+
+\item{\code{coefs}}{The coefficients of the knots}
+
+\item{\code{knots}}{The relative knot positions}
 }}
 
 \examples{
@@ -165,7 +177,8 @@ getSettings(gg)
 getFamily(gg)
 colData(gg)
 getParams(gg)
-getSmooths(gg)
+getCoefs(gg)
+getKnots(gg)
 rowRanges(gg)
 assay(gg)
 assays(gg)

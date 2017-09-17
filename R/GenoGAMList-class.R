@@ -26,7 +26,7 @@ NULL
 #' @slot id A GRanges object keeping the identifiers assigning the regions to the
 #' respective list elements
 #' @slot coefs The coefficients of the knots
-#' @slot The relative knot positions
+#' @slot knots The relative knot positions
 #' @name GenoGAMList-class
 #' @rdname GenoGAMList-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -96,7 +96,8 @@ S4Vectors::setValidity2("GenoGAMList", .validateGenoGAMList)
 #' getFamily(gg)
 #' colData(gg)
 #' getParams(gg)
-#' getSmooths(gg)
+#' getCoefs(gg)
+#' getKnots(gg)
 #' rowRanges(gg)
 #' assay(gg)
 #' assays(gg)
@@ -184,10 +185,16 @@ setMethod("getParams", "GenoGAMList", function(object) {
     slot(object, "params")
 })
 
-##' @describeIn GenoGAM An accessor to the smooths slot
-setMethod("getSmooths", "GenoGAMList", function(object) {
-    slot(object, "smooths")
+##' @describeIn GenoGAMList An accessor to the coefs slot
+setMethod("getCoefs", "GenoGAMList", function(object) {
+    slot(object, "coefs")
 })
+
+##' @describeIn GenoGAMList An accessor to the knots slot
+setMethod("getKnots", "GenoGAMList", function(object) {
+    slot(object, "knots")
+})
+
 
 ##' @describeIn GenoGAMList The accessor to the fits and standard errors
 setMethod("assay", c("GenoGAMList", "missing"), function(x, i) {
@@ -339,7 +346,8 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     sf <- sizeFactors(x)
     cd <- colData(x)
     params <- getParams(x)
-    smooths <- getSmooths(x)
+    coefs <- getCoefs(x)
+    knots <- getKnots(x)
     
     ## make data slot
     ## subset all SummarizedExperiments
@@ -375,14 +383,15 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     ggl <- new("GenoGAMList", settings = settings,
                design = design, sizeFactors = sf,
                family = fam, factorialDesign = cd,
-               params = params, smooths = smooths,
+               params = params, coefs = coefs,
+               knots = knots,
                data = reduced_se, id = splitid)
 
     return(ggl)
 })
 
 #' underlying function to subset by overlaps
-.subsetByOverlapsGGL <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGL <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
 
@@ -398,7 +407,8 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     sf <- sizeFactors(query)
     cd <- colData(query)
     params <- getParams(query)
-    smooths <- getSmooths(query)
+    coefs <- getCoefs(query)
+    knots <- getKnots(query)
 
     ## iterate over all SummarizedExperiments and subset
     se <- lapply(query@data, function(se) {
@@ -435,7 +445,8 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     ggl <- new("GenoGAMList", settings = settings,
                design = design, sizeFactors = sf,
                family = fam, factorialDesign = cd,
-               params = params, smooths = smooths,
+               params = params, coefs = coefs,
+               knots = knots,
                data = reduced_se, id = splitid)
     
     return(ggl)
@@ -443,9 +454,14 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
 
 #' @rdname GenoGAMList-subsetting
 setMethod("subsetByOverlaps", signature(x = "GenoGAMList", ranges = "GRanges"),
-          function(x, ranges, maxgap = 0L, minoverlap = 1L,
+          function(x, ranges, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
+              type <- match.arg(type)
+              if(type == "any") {
+                  maxgap <- -1L
+                  minoverlap <- 0L
+              }
               res <- .subsetByOverlapsGGL(query = x, subject = ranges,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)

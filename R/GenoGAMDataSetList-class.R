@@ -499,7 +499,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
 }
 
 #' underlying function to subset by overlaps
-.subsetByOverlapsGGDL <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGDL <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
 
@@ -556,9 +556,14 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
 
 #' @rdname GenoGAMDataSetList-subsetting
 setMethod("subsetByOverlaps", signature(x = "GenoGAMDataSetList", ranges = "GRanges"),
-          function(x, ranges, maxgap = 0L, minoverlap = 1L,
+          function(x, ranges, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
+              type <- match.arg(type)
+              if(type == "any") {
+                  maxgap <- -1L
+                  minoverlap <- 0L
+              }
               res <- .subsetByOverlapsGGDL(query = x, subject = ranges,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)
@@ -567,7 +572,7 @@ setMethod("subsetByOverlaps", signature(x = "GenoGAMDataSetList", ranges = "GRan
 
 #' @rdname GenoGAMDataSetList-subsetting
 setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
-    ggdl <- subsetByOverlaps(x, i)
+    ggdl <- subsetByOverlaps(x, i, type = "any", maxgap = 0L, minoverlap = 1L)
     return(ggdl)
 })
 
