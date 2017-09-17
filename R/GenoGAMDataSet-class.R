@@ -523,22 +523,23 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         nsamples <- count.fields(expDesign)[1]
     }
 
-    if(hdf5) {
-        maxBlockSize <- DelayedArray:::get_max_block_length("integer")
-        tileSize <- floor(maxBlockSize/nsamples)
-        chunkSize <- tileSize - 2*ov
-    }
-    else {
-        workers <- BiocParallel::registered()[[1]]$workers
+    ## if(hdf5) {
+    ##     maxBlockSize <- DelayedArray:::get_max_block_length("integer")
+    ##     tileSize <- floor(maxBlockSize/nsamples)
+    ##     chunkSize <- tileSize - 2*ov
+    ## }
+    ## else {
+        ## workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 400000L / bpknots
+        posPerGB <- 800000L / bpknots
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4L
         ## number of splines
         nsplines <- length(.getVars(design))
 
-        chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
-    }
+    ## chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
+    chunkSize <- (posPerGB * GBlimit) / (nsamples * nsplines)
+    ## }
 
     return(chunkSize)
 }
