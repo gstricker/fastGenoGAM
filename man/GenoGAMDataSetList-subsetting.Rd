@@ -10,7 +10,7 @@
 \S4method{subset}{GenoGAMDataSetList}(x, ...)
 
 \S4method{subsetByOverlaps}{GenoGAMDataSetList,GRanges}(x, ranges,
-  maxgap = 0L, minoverlap = 1L, type = c("any", "start", "end", "within",
+  maxgap = -1L, minoverlap = 0L, type = c("any", "start", "end", "within",
   "equal"), invert = FALSE, ...)
 
 \S4method{[}{GenoGAMDataSetList,GRanges,ANY,ANY}(x, i)

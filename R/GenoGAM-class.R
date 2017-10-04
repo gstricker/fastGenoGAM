@@ -28,7 +28,8 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' used in cross validation are in the settings slot.
 #' @slot settings A GenoGAMSettings object representing the global
 #' settings that were used to compute the model.
-#' @slot smooths A data.table of knots and coefficients of the model
+#' @slot coefs The coefficients of the knots
+#' @slot knots The relative knot positions
 #' @name GenoGAM-class
 #' @rdname GenoGAM-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -135,7 +136,7 @@ S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
 #' Rather to be a point of reference and documentation for slots and how
 #' to access them.
 #'
-#' @aliases getSettings getFamily colData getParams getSmooths fits se dimnames colnames
+#' @aliases getSettings getFamily colData getParams getKnots getCoefs fits se dimnames colnames
 #' @param object,x For use of S4 methods. The GenoGAM object.
 #' @param i A GRanges object (only for subsetting)
 #' @param ... Slots of the GenoGAM class. See the slot description.
@@ -153,7 +154,8 @@ S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
 #' getFamily(gg)
 #' colData(gg)
 #' getParams(gg)
-#' getSmooths(gg)
+#' getCoefs(gg)
+#' getKnots(gg)
 #' rowRanges(gg)
 #' assay(gg)
 #' assays(gg)
@@ -210,11 +212,19 @@ setMethod("getParams", "GenoGAM", function(object) {
 })
 
 ##' @export
-setGeneric("getSmooths", function(object) standardGeneric("getSmooths"))
+setGeneric("getCoefs", function(object) standardGeneric("getCoefs"))
 
-##' @describeIn GenoGAM An accessor to the smooths slot
-setMethod("getSmooths", "GenoGAM", function(object) {
-    slot(object, "smooths")
+##' @describeIn GenoGAM An accessor to the coefs slot
+setMethod("getCoefs", "GenoGAM", function(object) {
+    slot(object, "coefs")
+})
+
+##' @export
+setGeneric("getKnots", function(object) standardGeneric("getKnots"))
+
+##' @describeIn GenoGAM An accessor to the knots slot
+setMethod("getKnots", "GenoGAM", function(object) {
+    slot(object, "knots")
 })
 
 ##' @describeIn GenoGAM The accessor to the fits and standard errors

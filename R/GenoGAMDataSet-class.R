@@ -528,22 +528,23 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         }
     }
 
-    if(hdf5) {
-        maxBlockSize <- DelayedArray:::get_max_block_length("integer")
-        tileSize <- floor(maxBlockSize/nsamples)
-        chunkSize <- tileSize - 2*ov
-    }
-    else {
-        workers <- BiocParallel::registered()[[1]]$workers
+    ## if(hdf5) {
+    ##     maxBlockSize <- DelayedArray:::get_max_block_length("integer")
+    ##     tileSize <- floor(maxBlockSize/nsamples)
+    ##     chunkSize <- tileSize - 2*ov
+    ## }
+    ## else {
+        ## workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 400000L / bpknots
+        posPerGB <- 800000L / bpknots
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4L
         ## number of splines
         nsplines <- length(.getVars(design))
 
-        chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
-    }
+    ## chunkSize <- (workers * posPerGB * GBlimit) / (nsamples * nsplines)
+    chunkSize <- (posPerGB * GBlimit) / (nsamples * nsplines)
+    ## }
 
     return(chunkSize)
 }
@@ -1407,7 +1408,7 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
     return(indx)
 }
 
-.subsetByOverlapsGGD <- function(query, subject, maxgap = 0L, minoverlap = 1L,
+.subsetByOverlapsGGD <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
     if(any((width(subject) %% 2) == 1)) {
@@ -1440,9 +1441,14 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 
 #' @rdname GenoGAMDataSet-subsetting
 setMethod("subsetByOverlaps", signature(x = "GenoGAMDataSet", ranges = "GRanges"),
-          function(x, ranges, maxgap = 0L, minoverlap = 1L,
+          function(x, ranges, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
+              type <- match.arg(type)
+              if(type == "any") {
+                  maxgap <- -1L
+                  minoverlap <- 0L
+              }
               res <- .subsetByOverlapsGGD(query = x, subject = ranges,
                                        maxgap = maxgap, minoverlap = minoverlap,
                                        type = type, invert = invert)
