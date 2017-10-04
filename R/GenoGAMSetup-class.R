@@ -67,7 +67,7 @@ setClass("GenoGAMSetup",
     NULL
 }
 
-.validateKnotsType <- function(object) {
+.validateGGSKnotsType <- function(object) {
     if(class(slot(object, "knots")) != "list") {
         return("'knots' must be a list object")
     }
@@ -155,7 +155,7 @@ setClass("GenoGAMSetup",
 
 ## general validate function
 .validateGenoGAMSetup <- function(object) {
-    c(.validateParamsType(object), .validateKnotsType(object),
+    c(.validateParamsType(object), .validateGGSKnotsType(object),
       .validateDesignMatrixType(object), .validateBetaType(object),
       .validateSEType(object), .validatePenaltyMatrixType(object),
       .validateFormulaType(object), .validateGGSDesignType(object),

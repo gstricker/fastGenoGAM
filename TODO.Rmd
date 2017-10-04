@@ -18,4 +18,60 @@
 - make predict function, that has a 'fromHDF5' functionality, such that it can take in
 the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
 computed fits in HDF5.
--add splines object
+
+# Other TODO's (Julien asks)
+- computing SEs: 
+  - Try the method of Simon Wood [check]
+  - If not possible look for batch solutions and check threshold (relative or absolute) [check]
+- the beta's agree compared to optim's L-BFGS. [check]
+- the overlap agree at midpoint for s(x) and se_s(x)
+- We should also show empirically that we get the same results than with former genoGAM / mgcv. [half check]
+- keep in ggs object the design "i,e eg  (1,0,1,1)" and the spline templates matrices "ie, eg (X0, X1)".
+when computng spline errors i) do not rextract those and ii) compute directly the spline standard errors just once using and then put them back into the returned object by replicating values. You will gain a factor 4 on experiment with duplicates and much more if we apply it for large datasets (say groups of 100 vs 100 patients).
+
+
+# Original
+
+- in invertHessian, why is tolerance an absolute value (tol = 0.0001)? This should be relative in some way (e.g. to diagonal elements or the norm of the matrix)? Please Provide empirical proofs for various datasets and chunksize settings that *standard errors* agree at the midpoint. I also actually like very much using a “block-banded truncation of the inverse” ( in bp equivalent distance), since we have tiles anyway. It will make everything consistent (whithin tiles at midpoints). [What is the justification for any relative measure? Plots needed]
+
+- L-BFGS stopping criterion and tolerance: provide empirical proofs for various datasets and chunksize settings that the following things are OK: 
+* the beta's agree compared to optim's L-BFGS. (plots present)
+* the overlap agree at midpoint for s(x) and se_s(x) (partly present)
+
+- We should also show empirically that we get the same results than with former genoGAM / mgcv.
+
+- keep in ggs object the design "i,e eg  (1,0,1,1)" and the spline templates matrices "ie, eg (X0, X1)".
+when computng spline errors i) do not rextract those and ii) compute directly the spline standard errors just once using and then put them back into the returned object by replicating values. You will gain a factor 4 on experiment with duplicates and much more if we apply it for large datasets (say groups of 100 vs 100 patients).
+
+- If we publish as an algorithmic advancement, we will have to address Simon Wood's point "I think that the thing to do is to check out Hastie and Tibshirani's Generalized Additive model book, where the backfitting approach, including variance estimation is quite fully worked out. Because their approach can use O(n) splines to estimate the smooth effects it's the one to beat..."
+
+- Note on Simon Wood approach to standard errors (JASA short paper):
+Let L the number of base pairs and p the number of knots. Typically, L > p (eg L=20*p, though just 10*p when we have two smooths)
+We are computing the inverse of H thus p^2 numbers (at least O(p^2)) but then make it sparse by setting small values to 0. When getting to the standard errors we work with a rowSums over a sparse matrix so we make less than p*L operations. Instead, Simon Wood's approach needs the colSums of "L^(-T)PC^T" which is pxL non-sparse matrix. So Simon Wood's is likley a better exact approach but we have good truncated variant. 
+
+- Working by batch of rows when inverting the matrix seems useful. Here is some starting code (needs to be finished!!): 
+for 200,000 base pairs this inversion of H by batch comes from 40s to 15s:
+nbatch = 100
+batchsize = ncol(C)/nbatch
+system.time(
+  res <- lapply(
+    0:(nbatch-1),
+    function(k){
+      ek = Matrix::sparseMatrix(
+        i = k*batchsize + (1:batchsize),
+        j = 1:batchsize,
+        x = 1,
+        dims=c(nrow(H), batchsize)
+      )
+      s = Matrix::solve(C,ek)
+      keep <- which(abs(s@x) > tol)
+      
+      ## CAUTION: more work must be done for to get the right i and j. These below are wrong when combined to form the full matrix!!
+      x <- s@x[keep]
+      i <- keep - 1
+      j <- rep(k - 1, length(keep))
+      return(list(x = x, i = i, j = j))
+    })
+)
+
+- to speed up further: try some compilation functions and let have the Renjin folks have a go. This is their domain of excellence.

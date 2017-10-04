@@ -516,11 +516,16 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 .setOptimalChunkSize <- function(expDesign, design, ov, bpknots, hdf5) {
 
     ## determine number of samples
-    if(class(expDesign) == "data.frame") {
-        nsamples <- nrow(expDesign)
+    if(class(expDesign) == "RangedSummarizedExperiment") {
+        nsamples <- nrow(colData(expDesign))
     }
     else {
-        nsamples <- count.fields(expDesign)[1]
+        if(class(expDesign) == "data.frame") {
+            nsamples <- nrow(expDesign)
+        }
+        else {
+            nsamples <- count.fields(expDesign)[1]
+        }
     }
 
     if(hdf5) {

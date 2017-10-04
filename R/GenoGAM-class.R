@@ -104,7 +104,7 @@ setClass("GenoGAM",
     NULL
 }
 
-.validateKnotsType <- function(object) {
+.validateGGKnotsType <- function(object) {
     if(class(slot(object, "knots")) != "numeric"){
         return("'knots' must be a numeric vector")
     }
@@ -120,7 +120,7 @@ setClass("GenoGAM",
       .validateParamsType(object),
       .validateSettingsType(object),
       .validateCoefsType(object),
-      .validateKnotsType(object))
+      .validateGGKnotsType(object))
 }
 
 S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)

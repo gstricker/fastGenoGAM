@@ -84,7 +84,7 @@
 
 ## NOTE: Likelihood and gradient have to have the same arguments, because
 ## arguments passed through the ellipse are passed to both functions. If
-## they differ R will throw an error of unused parameter
+## they differ R will throw an error of unused parameter. Not true anymore.
 
 #' penalized Negative Binomial likelihood
 #' @noRd
