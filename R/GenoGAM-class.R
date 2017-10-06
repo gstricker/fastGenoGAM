@@ -44,7 +44,7 @@ setClass("GenoGAM",
              settings = "GenoGAMSettings",
              coefs = "HDF5OrMatrix",
              knots = "numeric"),
-         prototype = prototype(family = "nb",
+         prototype = prototype(family = NA_character_,
              design = ~ s(x),
              sizeFactors = numeric(),
              factorialDesign = S4Vectors::DataFrame(),
@@ -139,6 +139,11 @@ S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
 #' @aliases getSettings getFamily colData getParams getKnots getCoefs fits se dimnames colnames
 #' @param object,x For use of S4 methods. The GenoGAM object.
 #' @param i A GRanges object (only for subsetting)
+#' @param ggd The initial GenoGAMDataSet object. Only needed if fromHDF5 is TRUE.
+#' @param fromHDF5 A convenience argument to create a GenoGAM object from the already
+#' computed fits that are stored as HDF5 files
+#' @param split A logical argument indicating if the model was fitted in a
+#' per-chromosome fashion or not. Only needed if fromHDF5 is TRUE.
 #' @param ... Slots of the GenoGAM class. See the slot description.
 #' @return An object of the type GenoGAM.
 #' @examples
@@ -164,8 +169,56 @@ S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
 #' @name GenoGAM
 #' @rdname GenoGAM-class
 #' @export
-GenoGAM <- function(...) {
+GenoGAM <- function(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE) {
+    if(fromHDF5){
+        return(.GenoGAMFromHDF5(ggd = ggd, split = split, ...))
+    }
     return(new("GenoGAM", ...))
+}
+
+#' A function to create GenoGAM from HDF5
+.GenoGAMFromHDF5 <- function(ggd, split, ...) {
+    if(split) {
+        gg <- .GenoGAMListFromHDF5(ggd = ggd, ...)
+    }
+    
+    else {
+        settings <- slot(ggd, "settings")
+    
+        ## get Identifier for the data
+        path <- slot(settings, "hdf5Control")$dir
+        ident <- .getIdentifier(path, fits = TRUE)
+
+        rr <- rowRanges(ggd)
+
+        ## read HDF5 file
+        h5file <- file.path(path, paste0("fits_dataset", "_", ident))
+
+        ## read HDF5 data and make SummarizedExperiment objects
+        fits <- HDF5Array::HDF5Array(h5file, "fits")
+        ses <- HDF5Array::HDF5Array(h5file, "ses")
+
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
+                                                         assays = list(fits = h5fits,
+                                                                       se = h5ses))
+
+        ## generate knots and get coefficients
+        bpknots <- slot(settings, "dataControl")$bpknots
+        knots <- .generateKnotPositions(ggd, bpknots = 20)
+
+        h5coefs <- file.path(path, paste0("coefs_", ident))
+        coefs <- HDF5Array::HDF5Array(h5coefs, "coefs")
+
+        ggd <- new("GenoGAM", se, settings = settings,
+                   design = design, sizeFactors = sf, index = tiles)
+    
+        gg <- new("GenoGAM", se, design = design(ggd),
+               sizeFactors = sizeFactors(ggd), factorialDesign = colData(ggd),
+               settings = settings, knots = knots[[1]], coefs = coefs, ...)
+    }
+
+
+    return(gg)
 }
 
 

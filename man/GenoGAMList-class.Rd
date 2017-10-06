@@ -26,7 +26,7 @@
 \alias{dimnames,GenoGAMList-method}
 \title{GenoGAMList class}
 \usage{
-GenoGAMList(...)
+GenoGAMList(..., ggd = NULL, fromHDF5 = FALSE)
 
 \S4method{dim}{GenoGAMList}(x)
 
@@ -70,6 +70,11 @@ GenoGAMList(...)
 }
 \arguments{
 \item{...}{Slots of the GenoGAM class. See the slot description.}
+
+\item{ggd}{The initial GenoGAMDataSet object. Only needed if fromHDF5 is TRUE.}
+
+\item{fromHDF5}{A convenience argument to create a GenoGAM object from the already
+computed fits that are stored as HDF5 files}
 
 \item{object, x}{For use of S4 methods. The GenoGAMList object.}
 

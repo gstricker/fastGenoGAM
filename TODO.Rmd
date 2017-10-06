@@ -15,9 +15,7 @@
 - make gaussian part of release version?
 - get rid of warning messages during read data on makeTile level and on readingBAM level
 - deactivate ncv control within genogam
-- make predict function, that has a 'fromHDF5' functionality, such that it can take in
-the HDF5 written GenoGAMDataSet object and return a GenoGAM object by reading from already
-computed fits in HDF5.
+- make predict function
 - the overlap agree at midpoint for s(x) and se_s(x)
 - We should also show empirically that we get the same results than with former genoGAM / mgcv. [half check]
 - keep in ggs object the design "i,e eg  (1,0,1,1)" and the spline templates matrices "ie, eg (X0, X1)".
