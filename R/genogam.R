@@ -432,9 +432,15 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 #' @noRd
 .initiate <- function(ggd, setup, coords, id) {
 
+    ## build X from X0 and design
     des <- .getDesignFromFormula(design(ggd), colData(ggd))
     X <- as(.blockMatrixFromDesignMatrix(slot(setup, "designMatrix"), des), "dgCMatrix")
     slot(setup, "designMatrix") <- X
+
+    ## build S from S0 and design
+    Sdes <- diag(ncol(des))
+    S <- as(.blockMatrixFromDesignMatrix(slot(setup, "penaltyMatrix"), Sdes), "dgCMatrix")
+    slot(setup, "penaltyMatrix") <- S
 
     ## initiate response vector and betas
     slot(setup, "response") <- .buildResponseVector(ggd, coords, id)

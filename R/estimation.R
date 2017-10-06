@@ -136,8 +136,9 @@
         args <- list(y = y, theta = params$theta)
     }
     H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, f), args))
-    
-    Hinv <- .invertHessian(H)
+
+    batchsize <- slot(setup, "control")$batchsize
+    Hinv <- .invertHessian(H, batchsize = batchsize)
 
     ## get indeces of the design matrix and the Hessian
     ## by row and column according to the design
@@ -209,40 +210,72 @@
 ##     return(Hinv)
 ## }
 
-
-
 #' Computation of the inverse of H
 #' @noRd
-.invertHessian <- function(H, tol = 0.0001) {
-
-    if(length(H) == 0) {
-        return(as(matrix(, 0, 0), "dgCMatrix"))
-    }
+.invertHessian <- function(H, batchsize = 100) {
+    ## finding optimal batch size, is taken care of in the setup
+    ## if it fails here look at the setupGenoGAM function
+    nbatches <- ncol(H)/batchsize
+    
+    ij <- summary(H)
+    ij <- ij[,-3]
+    ij$jj <- (ij - 1)$j%/%batchsize + 1
+    ij$ii <- ij$i + dim(H)[1]*(ij$j - 1) - batchsize*dim(H)[1]*(ij$jj - 1)
+    pointers <- split(ij$ii, ij$jj)
 
     C <- Matrix::Cholesky(H)
     
-    res <- lapply(1:ncol(H), function(k) {
-        ek = rep(0, nrow(H))
-        ek[k] = 1
+    res <- lapply(1:nbatches, function(k) {
+        top <- matrix(0, batchsize*(k - 1), batchsize)
+        middle <- diag(1, batchsize, batchsize)
+        bottom <- matrix(0, dim(H)[1] - batchsize*k, batchsize)
+        ek <- rbind(top, middle, bottom)
         s = Matrix::solve(C,ek)
-        keep <- which(abs(s@x) > tol)
+        keep <- pointers[[k]]
         x <- s@x[keep]
-        i <- keep - 1
-        j <- rep(k - 1, length(keep))
-        return(list(x = x, i = i, j = j))
+        return(x)
     })
 
-    x <- unlist(lapply(res, function(m) m$x))
-    i <- unlist(lapply(res, function(m) m$i))
-    j <- unlist(lapply(res, function(m) m$j))
+    x <- unlist(res)
 
-    if(length(x) == 0 | length(i) == 0 | length(j) == 0) {
-        return(as(matrix(, 0, 0), "dgCMatrix"))
-    }
-    Hinv <- Matrix::sparseMatrix(i = i, j = j, x = x, index1 = FALSE)
+    Hinv <- Matrix::sparseMatrix(i = ij$i, j = ij$j, x = x, index1 = TRUE)
 
     return(Hinv)
 }
+
+
+## #' Computation of the inverse of H
+## #' @noRd
+## .invertHessian <- function(H, tol = 0.0001) {
+
+##     if(length(H) == 0) {
+##         return(as(matrix(, 0, 0), "dgCMatrix"))
+##     }
+
+##     C <- Matrix::Cholesky(H)
+    
+##     res <- lapply(1:ncol(H), function(k) {
+##         ek = rep(0, nrow(H))
+##         ek[k] = 1
+##         s = Matrix::solve(C,ek)
+##         keep <- which(abs(s@x) > tol)
+##         x <- s@x[keep]
+##         i <- keep - 1
+##         j <- rep(k - 1, length(keep))
+##         return(list(x = x, i = i, j = j))
+##     })
+
+##     x <- unlist(lapply(res, function(m) m$x))
+##     i <- unlist(lapply(res, function(m) m$i))
+##     j <- unlist(lapply(res, function(m) m$j))
+
+##     if(length(x) == 0 | length(i) == 0 | length(j) == 0) {
+##         return(as(matrix(, 0, 0), "dgCMatrix"))
+##     }
+##     Hinv <- Matrix::sparseMatrix(i = i, j = j, x = x, index1 = FALSE)
+
+##     return(Hinv)
+## }
 
 .computeDirection <- function(H, gradk, s, y, ro, len) {
     q <- gradk
@@ -393,7 +426,67 @@
     return(list(par = x, converged = converged, iterations = k))
 }
 
+#' finds all possible batch sizes based on prime number factorization
+.findBatchsize <- function(x) {
+    facs <- factorize(x)
+    res <- unlist(sapply(1:length(facs), function(y) {
+        combinations <- combn(facs, y)
+        apply(combinations, 2, prod)
+    }))
+    return(res)
+}
 
+#' Copied unchanged from Bill Venables package 'conf.design'
+#' Version: 2.0.0
+#' Published: 2013-02-23 15:18:29
+#' 
+#' Slightly changed the output
+factorize <- function(x, divisors = primes(max(x)), ...) {
+  stopifnot(is.numeric(x))
+  if (length(x) > 1) {
+    l <- vector("list", length(x))
+    names(l) <- as.character(x)
+    for (i in seq_along(x))
+      l[[i]] <- Recall(x[i], divisors = divisors, ...)
+    return(l)
+  }
+  if (x %% 1 > 0 || x < 2)
+    return(x)
+  tab <- divisors
+  fac <- numeric(0)
+  while(length(tab <- tab[x %% tab == 0]) > 0) {
+    x <- x/prod(tab)
+    fac <- c(fac, tab)
+  }
+  
+  sort(fac)
+}
+
+#' Copied unchanged from Bill Venables package 'conf.design'
+#' Version: 2.0.0
+#' Published: 2013-02-23 15:18:29
+primes <- function(n) {
+### Find all primes less than n (or max(n) if length(n) > 1).
+### Uses an obvious sieve method.  Nothing flash.
+###
+### 2013: This now uses a slightly improved coding of the version of
+###       the algorithm used in the pracma package primes() function
+###
+  stopifnot(is.numeric(n), all(n %% 1 == 0))
+  if ((M2 <- max(n)) <= 1)
+    return(numeric(0))
+  x <- seq(1, M2, 2)
+  np <- length(x)
+  x[1] <- 2
+  if(M2 > 8) {
+    top <- floor(sqrt(M2))
+    p <- 1
+    while((p <- p+2) <= top)
+        if(x[(p + 1)/2] > 0)
+            x[seq((p*p + 1)/2, np, p)] <- 0
+  }
+  x[x > 0]
+}
 
 
 ## setup <- fastGenoGAM:::.initiate(ggd, subggs, coords, id - 1)
@@ -415,4 +508,3 @@
 ##     res <- .lbfgs(x0 = betas, H0 = H, f = .ll_penalized_nb, gr = .gr_ll_penalized_nb, 
 ##                  X = X, y = y, offset = offset, theta = params$theta, lambda = params$lambda, S = S)
 ## )
-

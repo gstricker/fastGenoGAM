@@ -47,7 +47,8 @@ setClass("GenoGAMSetup",
                           design = matrix(,0,0),
                           offset = numeric(), family = "nb", 
                           response = integer(), fits = list(),
-                          control = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)))
+                          control = list(eps = 1e-6, maxiter = 1000, alpha = 1,
+                                         rho = 0.5, c = 1e-4, m = 6, batchsize = 100)))
 
 ## Validity
 ## ========
@@ -145,13 +146,11 @@ setClass("GenoGAMSetup",
 }
 
 .validateControlType <- function(object) {
-    if(mode(slot(object, "control")) != "list") {
-        return("'control' must be a list object")
+    if(!all(names(slot(object, "control")) %in% c("eps", "maxiter", "alpha", "rho", "c", "m", "batchsize"))) {
+        return("'control' must contain the elements 'eps', 'maxiter', 'alpha', 'rho', 'c', 'm', 'batchsize'")
     }
     NULL
 }
-
-
 
 ## general validate function
 .validateGenoGAMSetup <- function(object) {
@@ -171,13 +170,15 @@ S4Vectors::setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
 GenoGAMSetup <- function(...) {
     ggs <- new("GenoGAMSetup", ...)
     params <- slot(ggs, "params")
-    coreValues <- c(lambda = 0, theta = 0, eps = 0, order = 2, penorder = 2)
+    coreValues <- c(lambda = 0, theta = 0, eps = 0, order = 2,
+                    penorder = 2)
     params <- .fillParameters(l = params, coreValues)
     slot(ggs, "params") <- params
 
     ## check if all estimation algo params are there
     params <- slot(ggs, "control")
-    estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
+    estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5,
+                        c = 1e-4, m = 6, batchsize = 100)
     params <- .fillParameters(l = params, estimControl)
     slot(ggs, "control") <- params
     return(ggs)
@@ -238,8 +239,8 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     ## Number of functions = Count the functions in the formula
     nbetas <- nknots
     nfun <- length(.getVars(design(ggd), type = "covar"))
-    S <- .buildSMatrix(nbetas, penorder, nfun)
-    I <- .buildIMatrix(nbetas * nfun, eps)
+    S <- .buildSMatrix(nbetas, penorder)
+    I <- .buildIMatrix(nbetas, eps)
     S <- S + I
 
     ## turn knots into list to comply with object requirements
@@ -253,6 +254,20 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
                             knots = knots, formula = design(ggd),
                             design = des, offset = offset, family = family,
                             designMatrix = X, penaltyMatrix = S, control = control)
+
+    ## identify batchsize for later H inverse computation
+    ## the maximal size of a batch
+    MEM_THRESHOLD <- 200
+    DEFAULT_BATCH <- slot(ggsetup, "control")$batchsize
+
+    ## find optimal batch size if needed, by prime number factorization
+    ## most of the time the default should work fine
+    totalBetas <- nbetas * nfun
+    nbatches <- totalBetas/DEFAULT_BATCH
+    if(nbatches %% 2 != 0) {
+        bsizes <- .findBatchsize(totalBetas)
+        slot(ggsetup, "control")$batchsize <- max(bsizes[which(bsizes <= MEM_THRESHOLD)])
+    }
   
     return(ggsetup)
 }
@@ -292,7 +307,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
 #' A function to build the penalization matrix S
 #' Courtesy to Simon Wood (mgcv). Slightly changed
 #' @noRd
-.buildSMatrix <- function(p, order, nfun) {
+.buildSMatrix <- function(p, order) {
 
     ##initialize a diagonal identity matrix
     S <- Matrix::bandSparse(p, k = 0, diag = c(list(rep(1, p))))
@@ -301,9 +316,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
         S <- Matrix::diff(S) ## twice the difference   
     }
     S <- Matrix::t(S)%*%S ## square
-    design <- diag(nfun)
-    res <- as(.blockMatrixFromDesignMatrix(S, design), "dgCMatrix")
-    return(res)
+    return(S)
 }
 
 #' A function to build the identity matrix I with multiple epsilon
