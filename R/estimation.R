@@ -177,6 +177,7 @@
     return(ses)
 }
 
+## CROSSPROD
 #' Compute the penalized Hessian
 #' @noRd
 .compute_hessian <- function(beta, X, offset, S, lambda, f, ...){
@@ -189,7 +190,9 @@
     }
     
     D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
-    res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
+    ## using crossprod is slightly faster
+    ## res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
+    res <- (Matrix::crossprod(X, D) %*% X + 2*lambda*S)
     return (res)
 }
 
@@ -280,7 +283,7 @@
 .computeDirection <- function(H, gradk, s, y, ro, len) {
     q <- gradk
     if(len == 0) {
-        r <- Matrix::solve(H, q, sparse = TRUE)
+        r <- Matrix::solve(H, q)
         return(r)
     }
 
@@ -291,7 +294,16 @@
         q <- q - alpha[ii] * y[,ii]
     }
 
-    r <- Matrix::solve(H, q, sparse = TRUE)
+    r <- Matrix::solve(H, q)@x
+    ## r <- tryCatch({
+    ##     Matrix::solve(H, q)@x
+    ## }, error = function(e) {
+    ##     ## if inverting fails, due to instability use the
+    ##     ## usual L-BFGS approximation
+    ##     val <- crossprod(s[,len], y[,len])/crossprod(y[len,], y[len,])
+    ##     H <- Matrix::bandSparse(dim(H)[1], k = 0, diag = c(list(rep(val, dim(H)[1]))))
+    ##     Matrix::solve(H, q)@x
+    ## })
     
     for(jj in 1:len) {
         beta <- as.numeric(ro[jj] * crossprod(y[,jj], r))
