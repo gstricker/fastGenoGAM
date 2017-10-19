@@ -609,7 +609,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 }
 
 .mnames <- function() {
-    c("chrM", "MT", "chromosomeM", "ChromosomeMT")
+    c("chrM", "MT", "chromosomeM", "ChromosomeMT", "2micron")
 }
 
 #' The underlying function to build a GenoGAMDataSet from a

@@ -70,15 +70,22 @@
         args <- list(y = y, theta = params$theta)
     }
 
-    
-    H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, hf), args))
+    if(sum(slot(ggs, "response")) == 0){
+        par <- rep(0, nrow(betas))
+        res <- list(par = matrix(par, nrow = length(par), ncol = 1), converged = TRUE, iterations = 0)
+        matrix(res$par, nrow = length(res$par), ncol = 1)
+    }
+    else {
+        H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, hf), args))
 
-    ## fact argument needed to normalize likelihood with respect to data points
-    res <- .lbfgs(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
-                  offset = offset, theta = params$theta,
-                  lambda = params$lambda, S = S, fact = dim(X)[1], control = control)
-
-    res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
+        ## fact argument needed to normalize likelihood with respect to data points
+        res <- .lbfgs(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
+                      offset = offset, theta = params$theta,
+                      lambda = params$lambda, S = S, fact = dim(X)[1], control = control)
+        
+        res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
+    }
+        
     return(res)
 }
 

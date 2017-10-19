@@ -447,13 +447,15 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     numBetas <- dim(slot(setup, "designMatrix"))[2]
     
     if(length(slot(setup, "response")) != 0) {
-        ## set betas to the runmedian of the response
-        means <- IRanges::runmed(slot(setup, "response"), 11, endrule = "median")
-        ## take 250 values at equidistant positions
-        ks <- as.integer(seq(1, length(means), length.out = numBetas))
-        ## set all zero values to 1, because of log
-        betas <- means[ks]
-        betas[which(betas == 0)] <- 1
+        ## setup betas as all 1 in normal space = 0s in log space
+        betas <- rep(1, numBetas)
+        ## ## set betas to the runmedian of the response
+        ## means <- IRanges::runmed(slot(setup, "response"), 11, endrule = "median")
+        ## ## take 250 values at equidistant positions
+        ## ks <- as.integer(seq(1, length(means), length.out = numBetas))
+        ## ## set all zero values to 1, because of log
+        ## betas <- means[ks]
+        ## betas[which(betas == 0)] <- 1
         slot(setup, "beta") <- matrix(log(betas), numBetas, 1)
     }
         
