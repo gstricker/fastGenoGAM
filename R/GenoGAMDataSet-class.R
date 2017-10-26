@@ -828,6 +828,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         chroms <- chroms[keep]
     }
 
+    if(!is.null(slot(settings, "chromosomeList"))) {
+        chroms <- chroms[names(chroms) %in% slot(settings, "chromosomeList")]
+    }
+
     ## generate rowRanges
     bamParamsWhich <- Rsamtools::bamWhich(slot(settings, "bamParams"))
     if(length(bamParamsWhich) != 0) {

@@ -92,14 +92,6 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     futile.logger::flog.debug(show(settings))
 
     args <- list(...)
-    ## For the HDF5 directory
-    if(is.null(args$dir)) {
-        dir <- "./h5data"
-    }
-    else {
-        dir <- args$dir
-        args$dir <- NULL
-    }
 
     ## read settings parameters
     ## get chromosomeLengths and check again chromosomeList
@@ -137,30 +129,9 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     })
     names(rawData) <- config$ID
 
-    if(split) {
-        ## rearrange samples by chromosome
-        ans <- lapply(names(chromosomeLengths), function(chrom) {
-            temp <- lapply(rawData, function(elem) {
-                elem[[chrom]]
-            })
-            names(temp) <- names(rawData)
-            temp <- S4Vectors::DataFrame(temp)
-            return(temp)
-        })
-        names(ans) <- names(chromosomeLengths)
-
-        ## write to HDF5 if TRUE
-        if(hdf5) {
-            futile.logger::flog.info(paste("HDF5 directory for the data set to:", dir))
-            ans <- .writeToHDF5(ans, dir = dir)
-        }
-    }
-    
-    else {
-        ans <- lapply(rawData, unlist)
-        names(ans) <- names(rawData)
-        ans <- S4Vectors::DataFrame(ans)
-    }
+    ans <- lapply(rawData, unlist)
+    names(ans) <- names(rawData)
+    ans <- S4Vectors::DataFrame(ans)
 
     futile.logger::flog.info("Finished reading in data")
     return(ans)
