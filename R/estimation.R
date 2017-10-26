@@ -81,7 +81,7 @@
         ## fact argument needed to normalize likelihood with respect to data points
         res <- .lbfgs(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
                       offset = offset, theta = params$theta,
-                      lambda = params$lambda, S = S, fact = dim(X)[1], control = control)
+                      lambda = params$lambda, S = S, fact = dim(X), control = control)
         
         res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
     }
@@ -95,7 +95,7 @@
 
 #' penalized Negative Binomial likelihood
 #' @noRd
-.ll_penalized_nb <- function(beta, X, y, offset, theta, lambda, S, fact = 1){
+.ll_penalized_nb <- function(beta, X, y, offset, theta, lambda, S, fact = c(1,1)){
   n <- dim(X)[1]
   eta <- offset + X%*%beta
   mu <- exp(eta)
@@ -105,7 +105,7 @@
   ## possibly very high numbers
   l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
   pen <- t(beta) %*% S %*% beta
-  return(-1/fact * l[1] + lambda*pen[1,1])
+  return((-1/fact[1] * l[1]) + (1/fact[2] * lambda*pen[1,1]))
 }  
 
 #' gradient of penalized negative Binomial likelihood
@@ -357,7 +357,7 @@
 #' used and a linear system is solved via a direct solver is solved to obtain the
 #' respective values. (see Nocedal, p. 178)
 #' @noRd
-.lbfgs <- function(x0, H0, f, gr, control = list(), fact = 1, ...) {
+.lbfgs <- function(x0, H0, f, gr, control = list(), fact = c(1,1), ...) {
     ## If list is empty then replace with the proper settings
     if(length(control) == 0) {
         control <- list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
