@@ -223,6 +223,10 @@
 #' Computation of the inverse of H
 #' @noRd
 .invertHessian <- function(H, batchsize = 100) {
+    if(length(H) == 0) {
+        return(as(matrix(, 0, 0), "dgCMatrix"))
+    }
+        
     ## finding optimal batch size, is taken care of in the setup
     ## if it fails here look at the setupGenoGAM function
     nbatches <- ncol(H)/batchsize

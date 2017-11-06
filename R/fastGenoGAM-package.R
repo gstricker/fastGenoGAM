@@ -3,6 +3,7 @@
 # @name fastGenoGAM
 #' @import methods
 #' @import HDF5Array
+#' @import rhdf5
 #' @import BiocParallel
 #' @import IRanges
 #' @import GenomicRanges
