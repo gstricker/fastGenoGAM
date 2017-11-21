@@ -137,52 +137,6 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     return(ans)
 }
 
-.makeFilename <- function(dir, name) {
-    date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
-    suffix <- gsub("-", "", date)
-    f <- file.path(dir, paste0(name, "_", suffix, ".h5"))
-    return(f)
-}
-
-##' Function to write DataFrame to HDF5
-##' @noRd
-.writeToHDF5 <- function(df, file, name = file, settings, simple = FALSE) {
-  
-    if(futile.logger::flog.threshold() == "DEBUG") {
-        verbose <- TRUE
-    }
-    else {
-        verbose <- FALSE
-    }
-
-    dir <- slot(settings, "hdf5Control")$dir
-    if(!dir.exists(dir)) {
-        futile.logger::flog.info(paste("HDF5 directory created at:", dir))
-        dir.create(dir)
-    }
-
-    if(!is.null(slot(settings, "hdf5Control")$chunk)) {
-        chunkdims <- slot(settings, "hdf5Control")$chunk
-    }
-    else {
-        chunkdims <- HDF5Array::getHDF5DumpChunkDim(dim(df), "integer")
-    }
-
-    futile.logger::flog.info(paste("Writing", name, "to HDF5"))
-    if(simple) {
-        h5file <- file.path(dir, file)
-    }
-    else {
-        h5file <- .makeFilename(dir, file)
-    }
-    if(file.exists(h5file)) {
-        stop(paste("File", h5file, "exists. Please remove before a new file can be written."))
-    }
-    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = name, chunk_dim = chunkdims, verbose = verbose)
-    futile.logger::flog.info(paste(name, "written"))
-    return(h5)
-}
-
 ##' The intermediate function calling the correct
 ##' function to read in data based on the suffix and
 ##' computing the coverage from the GRanges output.
