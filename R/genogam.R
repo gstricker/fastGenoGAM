@@ -176,7 +176,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         ## the dimension of the matrix for coefsfile (betas * tile width)
         nfun <- length(.getVars(design(ggd), type = "covar"))
         nbetas <- dim(slot(ggs, "designMatrix"))[2]
-        d <- c(length(getIndex(ggd)), nbetas * nfun)
+        d <- c(nbetas * nfun, length(getIndex(ggd)))
 
         ## create Coefs file
         coefsFile <- .createH5DF(ggd, d, what = "coefs")
@@ -201,13 +201,19 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 seqlevels(chromIndex, pruning.mode = "coarse") <- seqlevelsInUse(chromIndex)
                 chunks <- .getChunkCoords(chromIndex)
             }
-            
+
+            ## initialize queue and start fitting in parallel
+            qdir <- .init_Queue(h5file)
             res <- BiocParallel::bplapply(subids, .fitGenoGAM, 
                                           data = ggd, init = ggs, coords = coords,
                                           relativeChunks = relativeChunks, h5file = h5file,
-                                          chunks = chunks, coefsFile = coefsFile)
+                                          chunks = chunks, coefsFile = coefsFile,
+                                          qdir = qdir)
+            ## remove temporary queue folder
+            .end_Queue(qdir)
+            
             futile.logger::flog.info(paste(y, "Done"))
-
+      
             ## assemble results
             futile.logger::flog.info("Processing Fits")
             
@@ -313,7 +319,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 }
 
 .fitGenoGAM <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL,
-                       coefsFile = NULL) {
+                       coefsFile = NULL, qdir = NULL) {
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         setup <- .initiate(data, init, coords, id)
@@ -346,23 +352,30 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             subindx <- getIndex(data)[GenomeInfoDb::seqnames(getIndex(data)) == chrom,]
             normID <- which(subindx == getIndex(data)[id,])
 
-            ## lock data before writing. Only one of the two files h5file or coefsFile has
-            ## to be provided, as they are in the same directory
-            h5Lock <- .lock_file(h5file)
+            ## queue write process
+            qid <- .queue(qdir)
+            ## wait till it's your turn
             
+            while(list.files(qdir)[1] != qid){
+                Sys.sleep(0.1)
+            }
+
             ## write data
             ## Fits
             rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2)) 
+                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2),
+                           level = ggd@settings@hdf5Control$level)
             rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
+                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2),
+                           level = ggd@settings@hdf5Control$level)
             ## Coefs
             rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
-                           index = list(id, 1:length(betas$par)))
+                           index = list(1:length(betas$par), id),
+                           level = ggd@settings@hdf5Control$level)
 
-            ## Unlock files again
-            .unlock_file(h5Lock)
-
+            ## Unqueue file by removing
+            .unqueue(qid, qdir)
+            
             ## reset not needed slots
             slot(setup, "designMatrix") <- new("dgCMatrix")
             slot(setup, "penaltyMatrix") <- new("dgCMatrix")

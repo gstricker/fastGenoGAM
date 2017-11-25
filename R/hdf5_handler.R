@@ -64,67 +64,117 @@
 }
 
 ##' initialize HDF5 dataset with dimensions d
-.createH5DF <- function(ggd, d, id = 1, what = c("fits", "coefs")) {   
+.createH5DF <- function(ggd, d, id = 1, what = c("fits", "coefs"), chunk = NULL) {   
     what <- match.arg(what)
+    settings <- slot(ggd, "settings")
 
     seedFile <- assay(ggd)[[id]]@seed@file
-    dir <- ggd@settings@hdf5Control$dir
+    dir <- slot(settings, "hdf5Control")$dir
+    level <- slot(settings, "hdf5Control")$level
 
     h5file <- .createH5File(seedFile, dir, what)
    
-    h5space <- rhdf5::H5Screate_simple(d,d)
     if(what == "fits") {
-        h5fits <- rhdf5::H5Dcreate(h5file$pointer, "fits", "H5T_IEEE_F32LE", h5space) ## Type Float: "H5T_IEEE_F32LE"
-        h5ses <- rhdf5::H5Dcreate(h5file$pointer, "ses", "H5T_IEEE_F32LE", h5space)
-        H5Dclose(h5ses)
+        ## Type Float: "H5T_IEEE_F32LE"
+        if(!rhdf5::h5createDataset(h5file$pointer, "fits", d, d,
+                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
+                                   level = level)) {
+            stop("Couldn't create HDF5 dataset.")
+        }
+        if(!rhdf5::h5createDataset(h5file$pointer, "ses", d, d,
+                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
+                                   level = level)) {
+            stop("Couldn't create HDF5 dataset.")
+        }
     }
     if(what == "coefs") {
-        h5fits <- rhdf5::H5Dcreate(h5file$pointer, "coefs", "H5T_IEEE_F32LE", h5space)
+        if(!rhdf5::h5createDataset(h5file$pointer, "coefs", d, d,
+                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
+                                   level = level)) {
+            stop("Couldn't create HDF5 dataset.")
+        }
     }
 
-    H5Dclose(h5fits)
-    H5Sclose(h5space)
     H5Fclose(h5file$pointer)
     return(h5file$file)
 }
 
+## Queue mechanism
+## -------------------------------------------------------------------------
+
+.init_Queue <- function(file){
+    dir <- strsplit(file, split = "\\.")[[1]][1]
+    if(dir.exists(dir)) {
+        warning(paste("Directory:", dir, "exists. Overwriting"))
+        unlink(dir, recursive = TRUE)
+    }
+    dir.create(dir)
+    return(dir)
+}
+
+.queue <- function(dir) {
+    qid <- as.integer(Sys.time())
+    pid <- Sys.getpid()
+    f <- paste(qid, pid, sep = "_")
+    if(!file.create(file.path(dir,f))) {
+        stop(paste("Could not queue. Check if directory folder:", dir, "is correct or has writing permissions"))
+    }
+    Sys.sleep(0.5)
+    return(f)
+}
+
+.unqueue <- function(qid, dir) {
+    f <- file.path(dir, qid)
+    if(!file.remove(f)) {
+        stop(paste("Could not unqueue. Check if file:", f, "exists the writing permissions"))
+    }
+    invisible()
+}
+
+.end_Queue <- function(dir) {
+    unlink(dir, recursive = TRUE)
+    invisible()
+}
+
 ### The folowing is modified from HDF5Array package. Thanks to Herve Pagès.
+## NOT USED as locking does not work for too many parallel workers
 
 ### - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 ### A simple mechanism to lock/unlock a file so processes can get temporary
 ### exclusive access to it
 ###
 
-##' creates the lock file
-.locked_path <- function(filepath)
-{
-    if (!isSingleString(filepath) || filepath == "") {
-        stop("'filepath' must be a single non-empty string")
-    }
-    dir <- dirname(filepath)
-    return(file.path(dir, ".lock"))
-}
+## ##' creates the lock file
+## .locked_path <- function(filepath)
+## {
+##     if (!isSingleString(filepath) || filepath == "") {
+##         stop("'filepath' must be a single non-empty string")
+##     }
+##     dir <- dirname(filepath)
+##     return(file.path(dir, ".lock"))
+## }
 
-##' locks the file by creating an empty ".lock" file
-.lock_file <- function(filepath)
-{
-    locked_path <- .locked_path(filepath)
+## ##' locks the file by creating an empty ".lock" file
+## .lock_file <- function(filepath)
+## {
+##     locked_path <- .locked_path(filepath)
     
-    ## Must wait if the file is already locked.
-    while (file.exists(locked_path)) {
-        Sys.sleep(runif(1, 0, 0.5))
-    }
+##     ## Must wait if the file is already locked.
+##     while (file.exists(locked_path)) {
+##         ## Sys.sleep(runif(1, 0.1, 1))
+##         Sys.sleep(2)
+##     }
 
-    if(!file.create(locked_path)) {
-        stop("failed to lock '", filepath, "' file")
-    }
-    return(locked_path)
-}
+##     if(!file.create(locked_path)) {
+##         stop("failed to lock '", filepath, "' file")
+##     }
+##     return(locked_path)
+## }
 
-##' unlocks file by removing the empty ".lock" file
-.unlock_file <- function(lock)
-{
-    if (!file.remove(lock)) {
-        stop("failed to unlock '", filepath, "' file")
-    }
-}
+## ##' unlocks file by removing the empty ".lock" file
+## .unlock_file <- function(lock)
+## {
+##     if (!file.remove(lock)) {
+##         stop("failed to unlock file")
+##     }
+## }
