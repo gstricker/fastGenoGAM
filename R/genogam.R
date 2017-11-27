@@ -192,9 +192,9 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             
             if(slot(ggd, "hdf5")) {               
                 ## the dimension of the matrix for given chromosome
-                d <- c(length(rr), 2)
+                d <- c(length(rr), nfun)
                 ## create datasets
-                h5file <- .createH5DF(ggd, d, id = y, chunk = c(getChunkSize(ggd), 2))
+                h5file <- .createH5DF(ggd, d, id = y, chunk = c(getChunkSize(ggd), nfun))
 
                 ## create chunks coordinates for given chromosome
                 chromIndex <- getIndex(ggd)[seqnames(getIndex(ggd)) == y,]
