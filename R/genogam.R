@@ -282,11 +282,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             seedFile <- assay(ggd)@seed@file
             seedFileSplit <- strsplit(seedFile, split = "/")[[1]]
             f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
-            
+       
             ## write fits and SEs to same file but under different name
             ## use rhdf5::h5ls(filename) to see the storage
-            h5fits <- .writeToHDF5(combinedFits, file = f, name = "fits", settings = settings, simple = TRUE)
-            h5ses <- .writeToHDF5(combinedFits, file = f, name = "ses", settings = settings, simple = TRUE)
+            h5fits <- .writeToHDF5(combinedFits, file = f, chunks = chunks, name = "fits", settings = settings, simple = TRUE)
+            h5ses <- .writeToHDF5(combinedFits, file = f, chunks = chunks, name = "ses", settings = settings, simple = TRUE)
 
             ## make SummarizedExperiment
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),

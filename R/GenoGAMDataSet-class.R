@@ -568,8 +568,21 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
 #' make sum matrix for each DataFrame
 .makeSumMatrix <- function(x, by) {
-    rle <- IRanges::extractList(x, by)
-    t(sapply(rle, function(y) sapply(y, sum)))
+    cols <- names(x)
+    res <- sapply(cols, function(y) {
+        ## extract cuts. Because of overlaps the data will be partly replicated
+        ## and thus increase in row dimension. It is important to
+        ## compute further things on the 'stretched' data
+        rle <- IRanges::extractList(x[,y], by)
+
+        values <- cumsum(rle@unlistData)
+        sums <- values[end(rle@partitioning)]
+        ## keep first values and change the rest to the differences
+        sums[2:length(sums)] <- diff(sums)
+        return(as.integer(sums))
+    })
+
+    return(res)
 }
 
 #' get the identifier of the HDF5 files, that belong together to one dataset
@@ -666,10 +679,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         if(!is.null(slot(settings, "chromosomeList"))) {
             chroms <- chroms[names(chroms) %in% slot(settings, "chromosomeList")]
         }
-        starts <- rep(1, length(chroms))
-        ends <- chroms
         gr <- GenomicRanges::GRanges(names(chroms),
-                                               IRanges::IRanges(starts, ends))
+                                               IRanges::IRanges(1, chroms))
         GenomeInfoDb::seqlengths(gr) <- chroms
     }
 
@@ -731,7 +742,14 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
             ## make SummarizedExperiment objects and write to HDD if necessary
             if(hdf5) {
-                h5df <- .writeToHDF5(countData, file = id, settings = settings)
+                ## make chunks for faster writing
+                l <- list(chromosomes = gr,
+                          chunkSize = chunkSize,
+                          overhangSize = 0)
+                hdf5_tiles <- fastGenoGAM:::.makeTiles(l)
+                hdf5_ranges <- hdf5_tiles[GenomeInfoDb::seqnames(hdf5_tiles) == id]
+                
+                h5df <- .writeToHDF5(countData, file = id, chunks = hdf5_ranges, settings = settings)
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(h5df), colData = colData)
             }

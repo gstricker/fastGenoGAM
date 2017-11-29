@@ -8,40 +8,50 @@
 
 ##' Function to write DataFrame pre-processed counts to HDF5
 ##' @noRd
-.writeToHDF5 <- function(df, file, name = file, settings, simple = FALSE) {
-  
-    if(futile.logger::flog.threshold() == "DEBUG") {
-        verbose <- TRUE
-    }
-    else {
-        verbose <- FALSE
-    }
+.writeToHDF5 <- function(df, file, chunks, name = file, settings, simple = FALSE) {
 
+    ## create dir if not present
     dir <- slot(settings, "hdf5Control")$dir
     if(!dir.exists(dir)) {
         futile.logger::flog.info(paste("HDF5 directory created at:", dir))
         dir.create(dir)
     }
 
-    if(!is.null(slot(settings, "hdf5Control")$chunk)) {
-        chunkdims <- slot(settings, "hdf5Control")$chunk
+    futile.logger::flog.info(paste("Writing", name, "to HDF5"))
+
+    ## should an unique identifier be appended to file name
+    if(simple) {
+        f <- file.path(dir, file)
     }
     else {
-        chunkdims <- HDF5Array::getHDF5DumpChunkDim(dim(df), "integer")
+        f <- .makeFilename(dir, file)
     }
 
-    futile.logger::flog.info(paste("Writing", name, "to HDF5"))
-    if(simple) {
-        h5file <- file.path(dir, file)
-    }
-    else {
-        h5file <- .makeFilename(dir, file)
-    }
-    if(file.exists(h5file)) {
-        stop(paste("File", h5file, "exists. Please remove before a new file can be written."))
-    }
-    h5 <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(df), file = h5file, name = name, chunk_dim = chunkdims, verbose = verbose)
+    ## make chunks
+    d <- dim(df)
+    chunk <- c(max(width(chunks)), ncol(df))
+
+    ## create HDF5 file
+    h5file <- rhdf5::H5Fcreate(f)
+    rhdf5::h5createDataset(h5file, name, d, d,
+                       H5type = "H5T_STD_I32LE", chunk = chunk,
+                       level = settings@hdf5Control$level)
+    H5Fclose(h5file)
+    
+    ## split to writeable chunks
+    rle <- extractList(df, ranges(chunks))
+
+    ## write to file
+    sapply(1:length(rle), function(y) {
+        rhdf5::h5write(as.matrix(as.data.frame(rle[[y]])), file = f, name = name,
+                       index = list(start(chunks[y,]):end(chunks[y,]), 1:d[2]))
+    })
+
+    ## link to DelayedArray
+    h5 <- HDF5Array::HDF5Array(f, name = name)
+    
     futile.logger::flog.info(paste(name, "written"))
+    
     return(h5)
 }
 
