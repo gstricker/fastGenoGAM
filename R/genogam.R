@@ -363,15 +363,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             ## write data
             ## Fits
             rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2),
-                           level = ggd@settings@hdf5Control$level)
+                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
             rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2),
-                           level = ggd@settings@hdf5Control$level)
+                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
             ## Coefs
             rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
-                           index = list(1:length(betas$par), id),
-                           level = ggd@settings@hdf5Control$level)
+                           index = list(1:length(betas$par), id))
 
             ## Unqueue file by removing
             .unqueue(qid, qdir)
