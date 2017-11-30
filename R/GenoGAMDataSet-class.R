@@ -578,7 +578,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         values <- cumsum(rle@unlistData)
         sums <- values[end(rle@partitioning)]
         ## keep first values and change the rest to the differences
-        sums[2:length(sums)] <- diff(sums)
+        if(length(sums) > 1) {
+            sums[2:length(sums)] <- diff(sums)
+        }
+
         return(as.integer(sums))
     })
 
@@ -679,8 +682,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         if(!is.null(slot(settings, "chromosomeList"))) {
             chroms <- chroms[names(chroms) %in% slot(settings, "chromosomeList")]
         }
+        starts <- rep(1, length(chroms))
+        ends <- chroms
         gr <- GenomicRanges::GRanges(names(chroms),
-                                               IRanges::IRanges(1, chroms))
+                                               IRanges::IRanges(starts, ends))
         GenomeInfoDb::seqlengths(gr) <- chroms
     }
 
@@ -705,6 +710,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
               chunkSize = slot(settings, "dataControl")$regionSize,
               overhangSize = min(overhangSize, slot(settings, "dataControl")$regionSize - 1))
     sumTiles <- .makeTiles(suml)
+
+    if(hdf5) {
+        
+    }
    
     ## make colData
     colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]

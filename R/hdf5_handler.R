@@ -1,3 +1,27 @@
+##' make HDF5 name for the different files to be written
+.makeFilename <- function(dir, name, seed = NULL, split = " ", id = FALSE) {
+    if(!is.null(seed)) {
+        ident <- strsplit(seed, split = split)[[1]]
+        suffix <- ident[length(ident)]
+        f <- paste0(name, "_", suffix)
+    }
+
+    if(id) {
+        date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
+        suffix <- paste0(gsub("-", "", date), ".h5")
+        f <- paste0(name, "_", suffix)
+    }
+    else {
+        f <- name
+    }
+
+
+    h5 <- file.path(dir, f)
+    return(h5)
+}
+
+
+
 ##' make HDF5 filename for initial pre-processed data
 .makeFilename <- function(dir, name) {
     date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
@@ -57,7 +81,7 @@
 
 
 ##' create HDF5 file
-.createH5File <- function(seed, dir, what = c("fits", "coefs")) {
+.createH5File <- function(seed, dir, what = c("fits", "coefs", "sumMatrix")) {
     what <- match.arg(what)
 
     if(what == "coefs") {
@@ -65,6 +89,11 @@
     }
     if(what == "fits") {
         ident <- strsplit(seed, split = "/")[[1]]
+    }
+    if(what == "sumMatrix") {
+        f <- .makeFilename(dir, seed)
+        h5file <- rhdf5::H5Fcreate(f)
+        return(list(pointer = h5file, file = f))
     }
     
     suffix <- ident[length(ident)]
