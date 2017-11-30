@@ -55,7 +55,7 @@
     h5file <- .createH5File(dir, file, id = !simple)
 
     ## initialize HDF5 dataset
-    .createH5Dataset(h5file$pointer, name, settings, d,
+    f <- .createH5Dataset(h5file$pointer, name, settings, d,
                        type = type, chunk = h5chunk)
     
     ## split to writeable chunks
@@ -63,12 +63,12 @@
 
     ## write to file
     sapply(1:length(rle), function(y) {
-        rhdf5::h5write(as.matrix(as.data.frame(rle[[y]])), file = f, name = name,
+        rhdf5::h5write(as.matrix(as.data.frame(rle[[y]])), file = h5file$file, name = name,
                        index = list(start(chunks[y,]):end(chunks[y,]), 1:d[2]))
     })
 
     ## link to DelayedArray
-    h5 <- HDF5Array::HDF5Array(f, name = name)
+    h5 <- HDF5Array::HDF5Array(h5file$file, name = name)
     
     futile.logger::flog.info(paste(name, "written"))
     

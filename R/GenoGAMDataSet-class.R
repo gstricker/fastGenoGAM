@@ -782,7 +782,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         })
 
         if(hdf5) {
-            sumMatrix <- HDF5Array::HDF5Array(h5SumMatrix)
+            sumMatrix <- HDF5Array::HDF5Array(h5SumMatrix, name = "/sumMatrix")
         }
         else {
             ## combine sum matrices to one and

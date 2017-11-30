@@ -173,7 +173,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         identifier <- slot(ggd, "id")$id
         indx <- getIndex(ggd)
 
-        if(hdf5) {
+        if(slot(ggd, "hdf5")) {
             ## create HDF5 file for coefficients
             ## the dimension of the matrix for coefsfile (betas * tile width)
             nfun <- length(.getVars(design(ggd), type = "covar"))
