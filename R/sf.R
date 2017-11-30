@@ -51,6 +51,8 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
         zeros <- rep(0, length(idx))
         names(zeros) <- colnames(ggd)[idx]
         sf <- c(sf, zeros)
+        sf <- sf[match(colnames(ggd), names(sf))]
+        names(sf) <- colnames(sf)
     }
     
     ## add to GenomicTiles
