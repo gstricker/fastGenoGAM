@@ -30,7 +30,6 @@
         stop("Couldn't create HDF5 dataset.")
     }
     
-    rhdf5::H5Fclose(h5file)
     invisible(NULL)
 }
 
@@ -56,17 +55,18 @@
 
     ## initialize HDF5 dataset
     f <- .createH5Dataset(h5file$pointer, name, settings, d,
-                       type = type, chunk = h5chunk)
+                          type = type, chunk = h5chunk)
     
     ## split to writeable chunks
     rle <- extractList(df, ranges(chunks))
 
     ## write to file
     sapply(1:length(rle), function(y) {
-        rhdf5::h5write(as.matrix(as.data.frame(rle[[y]])), file = h5file$file, name = name,
+        rhdf5::h5write(as.matrix(as.data.frame(rle[[y]])), file = h5file$pointer, name = name,
                        index = list(start(chunks[y,]):end(chunks[y,]), 1:d[2]))
     })
-
+    rhdf5::H5Fclose(h5file$pointer)
+    
     ## link to DelayedArray
     h5 <- HDF5Array::HDF5Array(h5file$file, name = name)
     
@@ -109,7 +109,7 @@
                          chunk = chunk, type = "H5T_STD_I32LE")
     }
 
-    return(h5file$file)
+    return(h5file)
 }
 
 ## Queue mechanism

@@ -212,11 +212,13 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             qdir <- .init_Queue(h5file)
             res <- BiocParallel::bplapply(subids, .fitGenoGAM, 
                                           data = ggd, init = ggs, coords = coords,
-                                          relativeChunks = relativeChunks, h5file = h5file,
-                                          chunks = chunks, coefsFile = coefsFile,
+                                          relativeChunks = relativeChunks, h5file = h5file$pointer,
+                                          chunks = chunks, coefsFile = coefsFile$pointer,
                                           qdir = qdir)
-            ## remove temporary queue folder
+            ## remove temporary queue folder and close files
             .end_Queue(qdir)
+            rhdf5::H5Fclose(h5file$pointer)
+            rhdf5::H5Fclose(coefsFile$pointer)
             
             futile.logger::flog.info(paste(y, "Done"))
       
