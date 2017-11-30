@@ -92,7 +92,7 @@ setClass("GenoGAMSettings",
              processFunction = NULL, optimMethod = "Nelder-Mead",
              optimControl = list(maxit = 50L, fnscale = -1L, trace = 1L),
              estimControl = list(eps = 1e-6, maxiter = 1000L, alpha = 1L, rho = 0.5, c = 1e-4, m = 6L),
-             hdf5Control = list(dir = NULL, level = NULL, chunk = NULL),
+             hdf5Control = list(dir = NULL, level = NULL),
              dataControl = list(regionSize = 4000L, bpknots = 20L)))
 
 ## Validity
@@ -213,7 +213,6 @@ GenoGAMSettings <- function(...) {
         }
     }
 
-    ## no need to initiate chunk dimensions
     return(params)
 }
 
@@ -247,12 +246,6 @@ GenoGAMSettings <- function(...) {
     cat("-------------------- HDF5 settings ----------------------\n")
     cat("HDF5 Directory:", ggs@hdf5Control$dir, "\n")
     cat("HDF5 Compression Level (0-9):", ggs@hdf5Control$level, "\n")
-    if(is.null(ggs@hdf5Control$chunk)) {
-        cat("HDF5 Chunk dimensions: Will be set automatically \n")
-    }
-    else {
-        cat("HDF5 chunk dimensions:", ggs@hdf5Control$chunk, "\n")
-    }
     cat("\n")
     cat("-------------------- Data settings ----------------------\n")
     cat("Region size:", ggs@dataControl$regionSize, "\n")

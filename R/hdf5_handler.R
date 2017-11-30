@@ -5,34 +5,38 @@
         suffix <- ident[length(ident)]
         f <- paste0(name, "_", suffix)
     }
-
-    if(id) {
-        date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
-        suffix <- paste0(gsub("-", "", date), ".h5")
-        f <- paste0(name, "_", suffix)
-    }
     else {
-        f <- name
+        if(id) {
+            date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
+            suffix <- paste0(gsub("-", "", date), ".h5")
+            f <- paste0(name, "_", suffix)
+        }
+        else {
+            f <- name
+        }
     }
-
 
     h5 <- file.path(dir, f)
     return(h5)
 }
 
-
-
-##' make HDF5 filename for initial pre-processed data
-.makeFilename <- function(dir, name) {
-    date <- strsplit(as.character(Sys.time()), " ")[[1]][1]
-    suffix <- gsub("-", "", date)
-    f <- file.path(dir, paste0(name, "_", suffix, ".h5"))
-    return(f)
+.createH5Dataset <- function(h5file, name, settings, d, chunk, type) {
+    
+    level <- slot(settings, "hdf5Control")$level
+    
+    if(!rhdf5::h5createDataset(h5file, name, d, d,
+                           H5type = type, chunk = chunk,
+                           level = level)) {
+        stop("Couldn't create HDF5 dataset.")
+    }
+    
+    rhdf5::H5Fclose(h5file)
+    invisible(NULL)
 }
 
-##' Function to write DataFrame pre-processed counts to HDF5
+##' Function to write DataFrame of pre-processed counts to HDF5
 ##' @noRd
-.writeToHDF5 <- function(df, file, chunks, name = file, settings, simple = FALSE) {
+.writeToHDF5 <- function(df, file, chunks, name = file, settings, simple = FALSE, type = "H5T_STD_I32LE") {
 
     ## create dir if not present
     dir <- slot(settings, "hdf5Control")$dir
@@ -43,24 +47,16 @@
 
     futile.logger::flog.info(paste("Writing", name, "to HDF5"))
 
-    ## should an unique identifier be appended to file name
-    if(simple) {
-        f <- file.path(dir, file)
-    }
-    else {
-        f <- .makeFilename(dir, file)
-    }
-
-    ## make chunks
+    ## make HDF5 chunks
     d <- dim(df)
-    chunk <- c(max(width(chunks)), ncol(df))
+    h5chunk <- c(max(width(chunks)), ncol(df))
 
     ## create HDF5 file
-    h5file <- rhdf5::H5Fcreate(f)
-    rhdf5::h5createDataset(h5file, name, d, d,
-                       H5type = "H5T_STD_I32LE", chunk = chunk,
-                       level = settings@hdf5Control$level)
-    H5Fclose(h5file)
+    h5file <- .createH5File(dir, file, id = !simple)
+
+    ## initialize HDF5 dataset
+    .createH5Dataset(h5file$pointer, name, settings, d,
+                       type = type, chunk = h5chunk)
     
     ## split to writeable chunks
     rle <- extractList(df, ranges(chunks))
@@ -81,60 +77,38 @@
 
 
 ##' create HDF5 file
-.createH5File <- function(seed, dir, what = c("fits", "coefs", "sumMatrix")) {
-    what <- match.arg(what)
+.createH5File <- function(dir, name, seed = NULL, split = " ", id = FALSE) {
 
-    if(what == "coefs") {
-        ident <- strsplit(seed, split = "_")[[1]]
-    }
-    if(what == "fits") {
-        ident <- strsplit(seed, split = "/")[[1]]
-    }
-    if(what == "sumMatrix") {
-        f <- .makeFilename(dir, seed)
-        h5file <- rhdf5::H5Fcreate(f)
-        return(list(pointer = h5file, file = f))
-    }
+    f <- .makeFilename(dir, name, seed = seed, split = split, id = id)
+    h5file <- rhdf5::H5Fcreate(f)
     
-    suffix <- ident[length(ident)]
-    f <- paste0(what, "_", suffix)
-    h5file <- rhdf5::H5Fcreate(file.path(dir, f))
-    return(list(pointer = h5file, file = file.path(dir, f)))
+    return(list(pointer = h5file, file = f))
 }
 
-##' initialize HDF5 dataset with dimensions d
-.createH5DF <- function(ggd, d, id = 1, what = c("fits", "coefs"), chunk = NULL) {   
+##' initialize HDF5 dataset with specified dimensions and chunk
+.createH5DF <- function(seed, settings, d, chunk = NULL, what = c("fits", "coefs", "sumMatrix")) {
     what <- match.arg(what)
-    settings <- slot(ggd, "settings")
 
-    seedFile <- assay(ggd)[[id]]@seed@file
     dir <- slot(settings, "hdf5Control")$dir
-    level <- slot(settings, "hdf5Control")$level
-
-    h5file <- .createH5File(seedFile, dir, what)
-   
+    
     if(what == "fits") {
-        ## Type Float: "H5T_IEEE_F32LE"
-        if(!rhdf5::h5createDataset(h5file$pointer, "fits", d, d,
-                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
-                                   level = level)) {
-            stop("Couldn't create HDF5 dataset.")
-        }
-        if(!rhdf5::h5createDataset(h5file$pointer, "ses", d, d,
-                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
-                                   level = level)) {
-            stop("Couldn't create HDF5 dataset.")
-        }
+        h5file <- .createH5File(dir, name = what, seed = seed, split = "/")
+        .createH5Dataset(h5file$pointer, name = "fits", settings = settings, d = d,
+                         chunk = chunk, type = "H5T_IEEE_F32LE")
+        .createH5Dataset(h5file$pointer, name = "ses", settings = settings, d = d,
+                         chunk = chunk, type = "H5T_IEEE_F32LE")
     }
     if(what == "coefs") {
-        if(!rhdf5::h5createDataset(h5file$pointer, "coefs", d, d,
-                                   H5type = "H5T_IEEE_F32LE", chunk = chunk,
-                                   level = level)) {
-            stop("Couldn't create HDF5 dataset.")
-        }
+        h5file <- .createH5File(dir, name = what, seed = seed, split = "_")
+        .createH5Dataset(h5file$pointer, name = "coefs", settings = settings, d = d,
+                         chunk = chunk, type = "H5T_IEEE_F32LE")
+    }
+    if(what == "sumMatrix") {
+        h5file <- .createH5File(dir, name = seed, id = TRUE)
+        .createH5Dataset(h5file$pointer, name = seed, settings = settings, d = d,
+                         chunk = chunk, type = "H5T_STD_I32LE")
     }
 
-    H5Fclose(h5file$pointer)
     return(h5file$file)
 }
 

@@ -711,10 +711,6 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
               overhangSize = min(overhangSize, slot(settings, "dataControl")$regionSize - 1))
     sumTiles <- .makeTiles(suml)
 
-    if(hdf5) {
-        
-    }
-   
     ## make colData
     colData <- S4Vectors::DataFrame(config)[,-c(1:3), drop = FALSE]
     rownames(colData) <- config$ID
@@ -722,7 +718,13 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     
     ## initiate size factors
     sf <- rep(0, nrow(colData))
-    ##names(sf) <- config$ID
+
+    ## initialize sumMatrix on hdf5 if needed
+    if(hdf5) {
+        d <- c(length(sumTiles), nrow(colData))
+        chunk <- c(1, nrow(colData))
+        h5SumMatrix <- .createH5DF("sumMatrix", settings, d, chunk, what = "sumMatrix")
+    }
 
     ## finally build object
     ## if split make sure to keep the seqinfo same for all list elements,
@@ -758,29 +760,40 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                 hdf5_tiles <- fastGenoGAM:::.makeTiles(l)
                 hdf5_ranges <- hdf5_tiles[GenomeInfoDb::seqnames(hdf5_tiles) == id]
                 
+                ## write chromosome data to HDF5
                 h5df <- .writeToHDF5(countData, file = id, chunks = hdf5_ranges, settings = settings)
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(h5df), colData = colData)
+
+                ## write sum matrix to HDF5
+                rows <- which(GenomeInfoDb::seqnames(sumTiles) == id)
+                rhdf5::h5write(sumMatrix, file = h5SumMatrix, name = "/sumMatrix",
+                               index = list(rows, 1:ncol(sumMatrix)))
+                res <- se
             }
             else {
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(countData), colData = colData)
+                res <- list(se = se, sm = sumMatrix)
             }
             rm(countData)
             gc()
-            return(list(se = se, sm = sumMatrix))
+            return(res)
         })
-        ## combine sum matrices to one and write to HDF5 if necessary
-        sumMatrix <- lapply(selist, function(y) y$sm)
-        sumMatrix <- do.call("rbind", sumMatrix)
+
         if(hdf5) {
-            sumMatrix <- .writeToHDF5(sumMatrix, file = "sumMatrix", settings = settings)
+            sumMatrix <- HDF5Array::HDF5Array(h5SumMatrix)
+        }
+        else {
+            ## combine sum matrices to one and
+            ## extract the SummarizedExperiment objects only
+            sumMatrix <- lapply(selist, function(y) y$sm)
+            sumMatrix <- do.call("rbind", sumMatrix)
+            selist <- lapply(selist, function(y) y$se)
+            names(selist) <- chrBackup
         }
 
-        ## extract the SummarizedExperiment objects only
-        ## and make new GenoGAMDataSetList object
-        selist <- lapply(selist, function(y) y$se)
-        names(selist) <- chrBackup
+        ## Make new GenoGAMDataSetList object
         slot(settings, "chromosomeList") <- chrBackup
         ggd <- new("GenoGAMDataSetList", settings = settings,
                    design = design, sizeFactors = sf, index = tiles,
@@ -817,11 +830,18 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
         ## set tiles back to original
         slot(ggd, "index") <- index_backup
-
+      
         if(hdf5){
-            h5df <- .writeToHDF5(countData, file = "dataset", settings = settings)
+            ## write assay to HDF5 and substitute
+            coords <- .getCoordinates(ggd)
+            chunks <- .getChunkCoords(coords)
+            h5df <- .writeToHDF5(countData, file = "dataset", chunks = chunks,
+                                 settings = settings)
             assays(ggd) <- list(h5df)
-            h5sm <- .writeToHDF5(sumMatrix, file = "sumMatrix", settings = settings)
+
+            ## write sumMatrix to HDF5 and substitute
+            f <- .makeFilenamen(settings@hdf5Control$dir, "sumMatrix", id = TRUE)
+            h5sm <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(sumMatrix), file = f, name = "sumMatrix")
             slot(ggd, "countMatrix") <- h5sm
         }
     }

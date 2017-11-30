@@ -173,13 +173,18 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         identifier <- slot(ggd, "id")$id
         indx <- getIndex(ggd)
 
-        ## the dimension of the matrix for coefsfile (betas * tile width)
-        nfun <- length(.getVars(design(ggd), type = "covar"))
-        nbetas <- dim(slot(ggs, "designMatrix"))[2]
-        d <- c(nbetas * nfun, length(getIndex(ggd)))
+        if(hdf5) {
+            ## create HDF5 file for coefficients
+            ## the dimension of the matrix for coefsfile (betas * tile width)
+            nfun <- length(.getVars(design(ggd), type = "covar"))
+            nbetas <- dim(slot(ggs, "designMatrix"))[2]
+            d <- c(nbetas * nfun, length(getIndex(ggd)))
 
-        ## create Coefs file
-        coefsFile <- .createH5DF(ggd, d, what = "coefs")
+            ## create Coefs file
+            seedFile <- assay(ggd)[[1]]@seed@file
+            chunk <- c(nbetas * nfun, 1)
+            coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
+        }
 
         ## lapply by identifier, i.e. chromosome
         selist <- lapply(identifier, function(y) {
@@ -194,7 +199,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), nfun)
                 ## create datasets
-                h5file <- .createH5DF(ggd, d, id = y, chunk = c(getChunkSize(ggd), nfun))
+                seedFile <- assay(ggd)[[y]]@seed@file
+                h5file <- .createH5DF(seedFile, settings, d, chunk = c(getChunkSize(ggd), nfun))
 
                 ## create chunks coordinates for given chromosome
                 chromIndex <- getIndex(ggd)[seqnames(getIndex(ggd)) == y,]
@@ -224,29 +230,36 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 h5ses <- HDF5Array::HDF5Array(h5file, name = "ses")
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(fits = h5fits,
-                                                                     se = h5ses))
+                                                                               se = h5ses))
+                return(se)
             }
             else {
                 combinedFits <- .transformResults(res, relativeChunks, what = "fits")
                 combinedSEs <- .transformResults(res, relativeChunks, what = "se")
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(fits = combinedFits,
-                                                                     se = combinedSEs))
+                                                                               se = combinedSEs))
+                ## extract coefficients from fits
+                coefs <- sapply(res, function(y) {
+                    slot(y, "beta")
+                })
+                return(list(se = se, coefs = coefs))
             }
-            return(se)
         })
 
-        names(selist) <- names(assay(ggd))
-
         if(slot(ggd, "hdf5")) {
+            names(selist) <- names(assay(ggd))
             coefs <- HDF5Array::HDF5Array(coefsFile, name = "coefs")
         }
         else {
             ## process spline information
-            coefs <- t(sapply(res, function(y) {
-                slot(y, "beta")
-            }))
+            coefs <- do.call("cbind", lapply(selist, function(y) y$coefs))
+
+            ## process SummarizedExperiments
+            selist <- lapply(selist, function(y) y$se)
+            names(selist) <- names(assay(ggd))
         }
+        
         knots <- slot(ggs, "knots")[[1]]
         futile.logger::flog.info("Processing done")
 
@@ -272,29 +285,28 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         combinedSEs <- .transformResults(res, relativeChunks, what = "se")
 
         ## process spline information
-        coefs <- t(sapply(res, function(y) {
+        coefs <- sapply(res, function(y) {
             slot(y, "beta")
-        }))
+        })
         knots <- slot(res[[1]], "knots")[[1]]
 
         if(slot(ggd, "hdf5")) {
             ## make filename for fits and SEs
             seedFile <- assay(ggd)@seed@file
-            seedFileSplit <- strsplit(seedFile, split = "/")[[1]]
-            f <- paste0("fits_", seedFileSplit[length(seedFileSplit)])
        
             ## write fits and SEs to same file but under different name
             ## use rhdf5::h5ls(filename) to see the storage
-            h5fits <- .writeToHDF5(combinedFits, file = f, chunks = chunks, name = "fits", settings = settings, simple = TRUE)
-            h5ses <- .writeToHDF5(combinedFits, file = f, chunks = chunks, name = "ses", settings = settings, simple = TRUE)
+            f <- .makeFilenamen(settings@hdf5Control$dir, "fits", seed = seedFile, split = "/")
+            h5fits <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(combinedFits), file = f, name = "fits")
+            h5ses <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(combinedSEs), file = f, name = "ses")
 
             ## make SummarizedExperiment
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
                                                              assays = list(fits = h5fits,
                                                                  se = h5ses))
             ## write betas to HDF5
-            coefsFile <- paste0("coefs_", seedFileSplit[length(seedFileSplit)])
-            coefs <- .writeToHDF5(coefs, file = coefsFile, name = "coefs", settings = settings, simple = TRUE)
+            f <- .makeFilenamen(settings@hdf5Control$dir, "coefs", seed = seedFile, split = "/")
+            coefs <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(coefs), file = f, name = "coefs")
         }
         else {
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = SummarizedExperiment::rowRanges(ggd),
