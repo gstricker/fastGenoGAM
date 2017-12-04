@@ -79,11 +79,14 @@
     ## m = number of workers (the parameter of interest)
     ## u = wakeUpTime = the time it takes a worker to start in SnowParam
     nworkers <- as.integer(sqrt((currentFits * computationTime)/wakeUpTime))
-    
-    worker_backup <- currentBackend[[1]]$workers
-    ## note, setting the workers in the variable, does change it in the
-    ## overall setting because it is of class envRefClass
-    currentBackend[[1]]$workers <- nworkers 
+
+    if(currentWorkers > nworkers) {
+        futile.logger::flog.debug(paste("Reducing number of workers during hyperparameter optimization to", nworkers))
+        worker_backup <- currentBackend[[1]]$workers
+        ## note, setting the workers in the variable, does change it in the
+        ## overall setting because it is of class envRefClass
+        currentBackend[[1]]$workers <- nworkers 
+    }
     
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
                   ov = ov, method = method, control = control, 
@@ -91,7 +94,10 @@
     params <- exp(pars$par)
 
     ## set the number of workers back to the specified number
-    currentBackend[[1]]$workers <- worker_backup
+    if(currentWorkers > nworkers) {
+        futile.logger::flog.debug(paste("Re-setting number of workers to", worker_backup))
+        currentBackend[[1]]$workers <- worker_backup
+    }
 
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
     
