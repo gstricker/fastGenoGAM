@@ -735,7 +735,10 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
         ## backup chromosomeList
         chrBackup <- slot(settings, "chromosomeList")
-       
+
+        ## make queue for sum matrix
+        qdir <- .init_Queue(h5SumMatrix)
+        
         selist <- BiocParallel::bplapply(splitid$id, function(id) {
             
             ## read data and make SummarizedExperiment objects
@@ -765,10 +768,20 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(h5df), colData = colData)
 
+                qid <- .queue(qdir)
+                ## wait till it's your turn
+                while(list.files(qdir)[1] != qid){
+                    Sys.sleep(0.1)
+                }
+                
                 ## write sum matrix to HDF5
                 rows <- which(GenomeInfoDb::seqnames(sumTiles) == id)
                 rhdf5::h5write(sumMatrix, file = h5SumMatrix, name = "/sumMatrix",
                                index = list(rows, 1:ncol(sumMatrix)))
+                
+                ## unqueue
+                .unqueue(qid, qdir)
+                
                 res <- se
             }
             else {
@@ -781,6 +794,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
             return(res)
         })
 
+        .end_Queue(qdir)
+        
         if(hdf5) {
             names(selist) <- chrBackup
             sumMatrix <- HDF5Array::HDF5Array(h5SumMatrix, name = "/sumMatrix")

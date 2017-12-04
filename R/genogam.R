@@ -212,13 +212,11 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             qdir <- .init_Queue(h5file)
             res <- BiocParallel::bplapply(subids, .fitGenoGAM, 
                                           data = ggd, init = ggs, coords = coords,
-                                          relativeChunks = relativeChunks, h5file = h5file$pointer,
-                                          chunks = chunks, coefsFile = coefsFile$pointer,
+                                          relativeChunks = relativeChunks, h5file = h5file,
+                                          chunks = chunks, coefsFile = coefsFile,
                                           qdir = qdir)
             ## remove temporary queue folder and close files
             .end_Queue(qdir)
-            rhdf5::H5Fclose(h5file$pointer)
-            rhdf5::H5Fclose(coefsFile$pointer)
             
             futile.logger::flog.info(paste(y, "Done"))
       
@@ -334,21 +332,21 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 
 .fitGenoGAM <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL,
                        coefsFile = NULL, qdir = NULL) {
-        ## suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
+        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
 
         setup <- .initiate(data, init, coords, id)
-        ## betas <- .estimateParams(setup)
+        betas <- .estimateParams(setup)
 
-        ## futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
-        ## if(betas$converged == FALSE) {
-        ##     futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'estimControl' slot in the settings might help, but should be done at own risk.")
-        ## }
+        futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
+        if(betas$converged == FALSE) {
+            futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'estimControl' slot in the settings might help, but should be done at own risk.")
+        }
         
-        ## slot(setup, "beta") <- betas$par
-        ## slot(setup, "fits") <- .getFits(setup)
+        slot(setup, "beta") <- betas$par
+        slot(setup, "fits") <- .getFits(setup)
         
-        ## slot(setup, "se") <- .compute_SE(setup)
-        ## slot(setup, "params")$id <- id
+        slot(setup, "se") <- .compute_SE(setup)
+        slot(setup, "params")$id <- id
         
         ## procedure to gradually write results to HDF5, to safe memory footprint
         if(slot(data, "hdf5")) {
@@ -358,8 +356,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             }
 
             ## extract fits and SEs
-            ## combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
-            ## combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
+            combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
+            combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
 
             ## normalize ID chromosome-wise, as it is usually based on the entire genome
             chrom <- as.character(GenomeInfoDb::seqnames(getIndex(data)[id,]))
@@ -376,20 +374,12 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 
             ## write data
             ## Fits
-            ## rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
-            ##                index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            ## rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
-            ##                index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            ## ## Coefs
-            ## rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
-            ##                index = list(1:length(betas$par), id))
-
-            rhdf5::h5write(as.matrix(setup@response), file = h5file, name = "/fits",
+            rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            rhdf5::h5write(as.matrix(setup@response), file = h5file, name = "/ses",
+            rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
                            index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
             ## Coefs
-            rhdf5::h5write(setup@beta, file = coefsFile, name = "coefs",
+            rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
                            index = list(1:length(betas$par), id))
 
             ## Unqueue file by removing

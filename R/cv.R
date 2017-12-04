@@ -1,7 +1,5 @@
-## TODO: control parameter given to .doCV contains bethaMaxiter which has to
-## be passed to the loglik function. Make new argument betaControls in loglik function
-## and pass control there as well. Then within the function switch betaMaxiter to
-## maxiter and delete maxiter and trace, just like within genogam function
+## TODO: startup time of workers is approx 1/4 of the computation time. try to reduce
+## e.g. package loading or passing setup object and initialize in the parallel
 
 ################################
 ## Cross Validation functions ##
@@ -64,10 +62,36 @@
     if(flog.threshold() == "DEBUG" | flog.threshold() == "TRACE") {
         control$trace <- 10
     }
+
+    ## reduce number of workers to reduce overhead if necessary
+    ## Parameters
+    currentBackend <- BiocParallel::registered()
+    currentWorkers <- currentBackend[[1]]$workers
+    currentFits <- folds * length(id)
+    computationTime <- 2
+    wakeUpTime <- 16
+
+    ## Compute optimal number
+    ## This is the solution to the equation argmin_m = (n * t)/m + u * m
+    ## where
+    ## n = currentFits = the total number of models to fit
+    ## t = computationTime per Fit/Model
+    ## m = number of workers (the parameter of interest)
+    ## u = wakeUpTime = the time it takes a worker to start in SnowParam
+    nworkers <- as.integer(sqrt((currentFits * computationTime)/wakeUpTime))
+    
+    worker_backup <- currentBackend[[1]]$workers
+    ## note, setting the workers in the variable, does change it in the
+    ## overall setting because it is of class envRefClass
+    currentBackend[[1]]$workers <- nworkers 
+    
     pars <- optim(initpars, fn, setup = setups, CV_intervals = cvint,
                   ov = ov, method = method, control = control, 
                   fixedpars = fixedpars, ...)
     params <- exp(pars$par)
+
+    ## set the number of workers back to the specified number
+    currentBackend[[1]]$workers <- worker_backup
 
     futile.logger::flog.debug("Optimal parameter values:", params, capture = TRUE)
     
@@ -112,7 +136,7 @@
     ids <- expand.grid(folds = 1:length(CV_intervals), tiles = 1:length(setup))
 
     .local <- function(iter, ids, setup, CV_intervals) {
-        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
+        ## suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
         id <- ids[iter,]
         
         trainsetup <- setup[[id$tiles]]
@@ -133,7 +157,7 @@
         slot(setup[[ii]], "params")$theta <- fixedpars$theta
         slot(setup[[ii]], "params")$lambda <- fixedpars$lambda
     }
-    
+   
     cvs <- BiocParallel::bplapply(1:nrow(ids), .local, ids = ids,
                                   setup = setup, CV_intervals = CV_intervals)
 

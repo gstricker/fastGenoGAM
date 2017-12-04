@@ -16,12 +16,9 @@
 - get rid of warning messages during read data on makeTile level and on readingBAM level
 - deactivate ncv control within genogam
 - make predict function
-- the overlap agree at midpoint for s(x) and se_s(x)
-- We should also show empirically that we get the same results than with former genoGAM / mgcv. [half check]
 - keep in ggs object the design "i,e eg  (1,0,1,1)" and the spline templates matrices "ie, eg (X0, X1)".
 when computng spline errors i) do not rextract those and ii) compute directly the spline standard errors just once using and then put them back into the returned object by replicating values. You will gain a factor 4 on experiment with duplicates and much more if we apply it for large datasets (say groups of 100 vs 100 patients).
 
 - to speed up further: try some compilation functions and let have the Renjin folks have a go. This is their domain of excellence.
 
-- get rid of warnings in size factor computation
-
+- add logging in parallel computation (see vignette on BiocParallel: Logging)

@@ -54,8 +54,8 @@
     h5file <- .createH5File(dir, file, id = !simple)
 
     ## initialize HDF5 dataset
-    f <- .createH5Dataset(h5file$pointer, name, settings, d,
-                          type = type, chunk = h5chunk)
+    .createH5Dataset(h5file$pointer, name, settings, d,
+                     type = type, chunk = h5chunk)
     
     ## split to writeable chunks
     rle <- extractList(df, ranges(chunks))
@@ -80,6 +80,11 @@
 .createH5File <- function(dir, name, seed = NULL, split = " ", id = FALSE) {
 
     f <- .makeFilename(dir, name, seed = seed, split = split, id = id)
+    if(file.exists(f)) {
+        warning(paste("File:", f, "exists. Overwriting"))
+        rhdf5::H5close()
+        file.remove(f)
+    }
     h5file <- rhdf5::H5Fcreate(f)
     
     return(list(pointer = h5file, file = f))
@@ -108,8 +113,9 @@
         .createH5Dataset(h5file$pointer, name = seed, settings = settings, d = d,
                          chunk = chunk, type = "H5T_STD_I32LE")
     }
+    rhdf5::H5Fclose(h5file$pointer)
 
-    return(h5file)
+    return(h5file$file)
 }
 
 ## Queue mechanism
