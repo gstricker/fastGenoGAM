@@ -125,7 +125,7 @@ GenoGAMList <- function(..., ggd = NULL, fromHDF5 = FALSE) {
 
     ## finally build object
     rr <- rowRanges(ggd)
-    splitid <- .extractGR(rr)
+    splitid <- dataRange(ggd)
     splitid$id <- as.character(GenomeInfoDb::seqnames(splitid))
     
     selist <- lapply(splitid$id, function(id) {
@@ -136,7 +136,7 @@ GenoGAMList <- function(..., ggd = NULL, fromHDF5 = FALSE) {
         ## read HDF5 data and make SummarizedExperiment objects
         h5fits <- HDF5Array::HDF5Array(h5file, "fits")
         h5ses <- HDF5Array::HDF5Array(h5file, "ses")
-        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr[GenomeInfoDb::seqnames(rr) == id,],
+        se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr[[id]],
                                                          assays = list(fits = h5fits,
                                                                        se = h5ses))
         return(se)
@@ -150,11 +150,20 @@ GenoGAMList <- function(..., ggd = NULL, fromHDF5 = FALSE) {
 
     h5coefs <- file.path(path, paste0("coefs_", ident))
     coefs <- HDF5Array::HDF5Array(h5coefs, "coefs")
+
+    args <- list(...)
+    if("params" %in% names(args)) {
+        params <- c(args$params, chromosomes = granges(splitid))
+        args$params <- NULL
+    }
+    else {
+        params <- list(chromosomes = granges(splitid))
+    }
     
-    ggl <- new("GenoGAMList", design = design(ggd),
+    ggl <- do.call(new, c(list("GenoGAMList", design = design(ggd),
                sizeFactors = sizeFactors(ggd), factorialDesign = colData(ggd),
                settings = settings, data = selist, id = splitid,
-               knots = knots[[1]], coefs = coefs, ...)
+               knots = knots[[1]], coefs = coefs, params = params), args))
 
     return(ggl)
 }
@@ -169,7 +178,7 @@ setMethod("dim", "GenoGAMList", function(x) {
     if(length(dims) == 0) {
         return(c(0, 0))
     }
-    res <- c(sum(dims[1,]), max(dims[2,]))
+    res <- c(sum(as.numeric(dims[1,])), max(dims[2,]))
     return(res)
 })
 
