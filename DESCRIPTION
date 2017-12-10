@@ -28,6 +28,7 @@ Depends:
     S4Vectors (>= 0.9.34),
     Matrix (>= 1.2-8)
 Imports:
+    Rcpp (>= 0.12.14),
     Rsamtools (>= 1.18.2),
     GenomicRanges (>= 1.23.16),
     BiocParallel (>= 1.5.17),
@@ -41,6 +42,7 @@ Imports:
     DelayedArray (>= 0.3.19),
     methods,
     stats
+LinkingTo: Rcpp, RcppArmadillo
 Suggests:
     BiocStyle,
     chipseq (>= 1.21.2),
@@ -65,12 +67,14 @@ Collate:
     'GenoGAMList-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'
+    'RcppExports.R'
     'cv.R'
     'devel.R'
     'estimation.R'
     'fastGenoGAM-package.R'
     'genogam.R'
     'hdf5_handler.R'
+    'misc.R'
     'readData.R'
     'sf.R'
 URL: https://github.com/gstricker/GenoGAM

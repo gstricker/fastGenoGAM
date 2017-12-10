@@ -90,8 +90,8 @@ setClass("GenoGAMSettings",
          prototype = list(center = TRUE, chromosomeList = NULL,
              bamParams = Rsamtools::ScanBamParam(what = c("pos", "qwidth")),
              processFunction = NULL, optimMethod = "Nelder-Mead",
-             optimControl = list(maxit = 100L, fnscale = -1L, trace = 1L),
-             estimControl = list(eps = 1e-6, maxiter = 1000L, alpha = 1L, rho = 0.5, c = 1e-4, m = 6L),
+             optimControl = list(maxit = 60L, fnscale = -1L, trace = 1L),
+             estimControl = list(eps = 1e-6, maxiter = 1000L),
              hdf5Control = list(dir = NULL, level = NULL),
              dataControl = list(regionSize = 4000L, bpknots = 20L)))
 
@@ -173,7 +173,7 @@ GenoGAMSettings <- function(...) {
 
     ## check if all estimation algo params are there
     params <- slot(ggs, "estimControl")
-    estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4, m = 6)
+    estimControl = list(eps = 1e-6, maxiter = 1000L)
     params <- .fillParameters(l = params, estimControl)
     slot(ggs, "estimControl") <- params
 

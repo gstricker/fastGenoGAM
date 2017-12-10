@@ -43,44 +43,50 @@
 ##   return(res)
 ## })
 
-## #' @rdname GenomicTiles-view
-## #' @export
-## setGeneric("view", function(object, ...) standardGeneric("view"))
+#' @rdname GenomicTiles-view
+#' @export
+setGeneric("view", function(object, ...) standardGeneric("view"))
 
-## #' View the dataset
-## #'
-## #' Cbinding the columns all together and coercing to data.frame
-## #'
-## #' @param object A \code{GenomicTiles} object
-## #' @param ranges A \code{GRanges} object. Makes it possible to
-## #' select regions by \code{GRanges}. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param seqnames A chromosomes name. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param start A start site. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param end An end site. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param ... Additional arguments
-## #' @return A data.frame of the selected data.
-## #' @examples
-## #' gt <- makeTestGenomicTiles()
-## #' gr <- GRanges(c("chrI", "chrII"), IRanges(c(1, 10), c(40, 30)))
-## #' head(view(gt, ranges = gr))
-## #' head(view(gt, seqnames = "chrI", start = 1, end = 20))
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @rdname GenomicTiles-view
-## #' @export
-## setMethod("view", c("GenomicTiles"), function(object, ranges = NULL, seqnames = NULL,
-##                                               start = NULL, end = NULL) {
-##     if((is.null(seqnames) | is.null(start) | is.null(end)) & is.null(ranges)) {
-##         return(as.data.frame(object))
-##     }
-##     if(!is.null(ranges)) {
-##         res <- .exactSubsetByOverlaps(object, ranges)
-##     }
-##     else {
-##         res <- subset(object, seqnames == seqnames & pos >= start & pos <= end)
-##     }
-##     return(as.data.frame(res))
-## })
+#' View the dataset
+#'
+#' Cbinding the columns all together and coercing to data.frame
+#'
+#' @param object A \code{GenomicTiles} object
+#' @param ranges A \code{GRanges} object. Makes it possible to
+#' select regions by \code{GRanges}. Either ranges or seqnames, start and
+#' end must be supplied
+#' @param seqnames A chromosomes name. Either ranges or seqnames, start and
+#' end must be supplied
+#' @param start A start site. Either ranges or seqnames, start and
+#' end must be supplied
+#' @param end An end site. Either ranges or seqnames, start and
+#' end must be supplied
+#' @param ... Additional arguments
+#' @return A data.frame of the selected data.
+#' @examples
+#' gt <- makeTestGenomicTiles()
+#' gr <- GRanges(c("chrI", "chrII"), IRanges(c(1, 10), c(40, 30)))
+#' head(view(gt, ranges = gr))
+#' head(view(gt, seqnames = "chrI", start = 1, end = 20))
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @rdname GenomicTiles-view
+#' @export
+setMethod("view", c("GenoGAMDataSetList"), function(object, ranges = NULL, seqnames = NULL,
+                                              start = NULL, end = NULL) {
+    if((is.null(seqnames) | is.null(start) | is.null(end)) & is.null(ranges)) {
+        if(dim(object)[1] > 1000) {
+            stop("No dimensions provided and the object is too big returning a complete view. Please provide dimensions through the arguments")
+        }
+        else {
+            ## return data frame of complete object
+        }
+    }
+    if(!is.null(ranges)) {
+        ## subset GGDL by GRanges
+    }
+    else {
+        ## subset(object, seqnames == seqnames & pos >= start & pos <= end)
+    }
+    
+    return(res)
+})

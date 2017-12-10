@@ -14,4 +14,6 @@
 #' @importFrom futile.logger flog.trace
 #' @importFrom futile.logger flog.debug
 #' @importFrom futile.logger flog.threshold
+#' @useDynLib fastGenoGAM
+#' @importFrom Rcpp sourceCpp
 "_PACKAGE"
