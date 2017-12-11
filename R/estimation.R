@@ -142,7 +142,6 @@
     return(ses)
 }
 
-## CROSSPROD
 #' Compute the penalized Hessian
 #' @noRd
 .compute_hessian <- function(beta, X, offset, S, lambda, f, ...){
@@ -158,6 +157,25 @@
     ## using crossprod is slightly faster
     ## res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
     res <- (Matrix::crossprod(X, D) %*% X + 2*lambda*S)
+    return (res)
+}
+
+#' Compute the penalized Hessian
+#' @noRd
+.compute_hessian_rcpp <- function(beta, X, offset, S, lambda, f, ...){
+    
+    eta <- offset + mult_spmat(X, beta)
+    d <- f(eta[,1], ...)
+    
+    if(length(d) == 0) {
+        return(as(matrix(,0, 0), "dgCMatrix"))
+    }
+    
+    D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
+    ## using crossprod is slightly faster
+    ## res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
+    res <- compute_hessian_nb(Matrix::t(X), X, D, S, lambda)
+    ## res <- (Matrix::crossprod(X, D) %*% X + 2*lambda*S)
     return (res)
 }
 
