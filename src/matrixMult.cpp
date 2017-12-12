@@ -1,3 +1,5 @@
+#define ARMA_USE_SUPERLU 1
+
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
 
