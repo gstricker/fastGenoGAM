@@ -23,10 +23,10 @@
     }
 
     if (distr == "nb") {
-        f <- .ll_penalized_nb
-        gr <- .gr_ll_penalized_nb
-        hf <- .hessian_nb
-        args <- list(y = y, theta = params$theta)
+        f <- ll_pen_nb
+        gr <- gr_ll_pen_nb
+        args <- list(beta = betas, X = X, XT = Matrix::t(X), offset = unname(offset),
+                     y = y, S = S, lambda = params$lambda, theta = params$theta)
     }
 
     if(sum(slot(ggs, "response")) == 0){
@@ -35,51 +35,16 @@
         matrix(res$par, nrow = length(res$par), ncol = 1)
     }
     else {
-        H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, hf), args))
+        H <- do.call(.compute_hessian, c(list(family = distr), args))
 
         res <- .newton(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
                        offset = offset, theta = params$theta,
                        lambda = params$lambda, S = S, fact = dim(X), control = control)
-       
-        res$par <- matrix(res$par, nrow = length(res$par), ncol = 1)
     }
         
     return(res)
 }
 
-## NOTE: Likelihood and gradient have to have the same arguments, because
-## arguments passed through the ellipse are passed to both functions. If
-## they differ R will throw an error of unused parameter. Not true anymore.
-
-#' penalized Negative Binomial likelihood
-#' @noRd
-.ll_penalized_nb <- function(beta, X, y, offset, theta, lambda, S, fact = c(1,1)){
-  n <- dim(X)[1]
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  aux1 <- theta + y
-  aux2 <- theta + mu
-  ## pull the log inside to use gamma and factorial in log space due to 
-  ## possibly very high numbers
-  l <- sum(lgamma(aux1) - (lfactorial(y) + lgamma(theta))) + t(y) %*% eta + n*theta*log(theta) - t(aux1) %*% log(aux2)
-  pen <- t(beta) %*% S %*% beta
-  return((-1/fact[1] * l[1]) + (1/fact[2] * lambda*pen[1,1]))
-}  
-
-#' gradient of penalized negative Binomial likelihood
-#' the gradients are divided by N to make lambda length independent
-#' @noRd
-.gr_ll_penalized_nb <- function(beta,X,y,offset,theta,lambda,S){
-  eta <- offset + X%*%beta
-  mu <- exp(eta)
-  z <- (y-mu)/(1+mu/theta)
-  res <- Matrix::t(X)%*%z
-  pen <- S %*% beta
-  return (-res[,1]+2*lambda*pen[,1])
-}
-
-#' Compute basepair Standard deviation from Hessian
-#' @noRd
 .compute_SE <- function(setup){
     if(length(setup) == 0) {
         return(numeric())
@@ -97,10 +62,10 @@
     des <- slot(setup, "design")
 
     if(distr == "nb") {
-        f <- .hessian_nb
         args <- list(y = y, theta = params$theta)
     }
-    H <- do.call(.compute_hessian, c(list(betas, X, offset, S, params$lambda, f), args))
+
+    H <- do.call(.compute_hessian, c(list(family = distr), args))
 
     batchsize <- slot(setup, "control")$batchsize
     Hinv <- .invertHessian(H, batchsize = batchsize)
@@ -130,8 +95,13 @@
         res <- sapply(1:nSamples, function(i) {
             Xsub <- X[rows[[i]], cols[[j]]]
             HinvSub <- Hinv[cols[[j]],cols[[j]]]
-            se <- sqrt(Matrix::rowSums((Xsub%*%HinvSub) * Xsub))
-            return(se)
+            se <- compute_stdError(Xsub, HinvSub)
+            if(length(se@x) != 0) {
+                return(se@x)
+            }
+            else {
+                return(rep(0L, nrow(Xsub)))
+            }
         })
         res <- as.vector(res)
         return(res)
@@ -144,57 +114,19 @@
 
 #' Compute the penalized Hessian
 #' @noRd
-.compute_hessian <- function(beta, X, offset, S, lambda, f, ...){
+.compute_hessian <- function(family, ...){
+    res <- as(matrix(,0, 0), "dgCMatrix")
     
-    eta <- offset + X%*%beta    
-    d <- f(eta, ...)
-    
-    if(length(d) == 0) {
-        return(as(matrix(,0, 0), "dgCMatrix"))
+    if(family == "nb") {
+        res <- compute_pen_hessian(...)
     }
     
-    D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
-    ## using crossprod is slightly faster
-    ## res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
-    res <- (Matrix::crossprod(X, D) %*% X + 2*lambda*S)
-    return (res)
-}
-
-#' Compute the penalized Hessian
-#' @noRd
-.compute_hessian_rcpp <- function(beta, X, offset, S, lambda, f, ...){
+    ## if(length(d) == 0) {
+    ##     return(as(matrix(,0, 0), "dgCMatrix"))
+    ## }
     
-    eta <- offset + mult_spmat(X, beta)
-    d <- f(eta[,1], ...)
-    
-    if(length(d) == 0) {
-        return(as(matrix(,0, 0), "dgCMatrix"))
-    }
-    
-    D <- Matrix::bandSparse(dim(X)[1], k = 0, diag = c(list(d)))
-    ## using crossprod is slightly faster
-    ## res <- (Matrix::t(X) %*% D %*% X + 2*lambda*S)
-    res <- compute_hessian_nb(Matrix::t(X), X, D, S, lambda)
-    ## res <- (Matrix::crossprod(X, D) %*% X + 2*lambda*S)
-    return (res)
+    return(res)
 }
-
-.hessian_nb <- function(eta, y, theta) {
-
-    mu <- exp(eta)
-    d <- mu * (1 + y/theta) / ((1 + mu/theta)^2)
-    return(d)
-}
-
-## #' Computation of the inverse of H
-## #' @noRd
-## .invertHessian <- function(H, tol = 0.0001) {
-##     if(length(H) == 0) {
-##         return(as(matrix(, 0, 0), "dgCMatrix"))
-##     }
-##     Hinv <- invisible(Matrix::solve(H))
-##     return(Hinv)
-## }
 
 #' Computation of the inverse of H
 #' @noRd
@@ -233,14 +165,14 @@
     return(Hinv)
 }
 
-#' compute approximate Hessian
-.Hupdate <- function(x, ...) {
-    H <- .compute_hessian(beta = x, f = .hessian_nb, ...)
+.Hupdate <- function(x, X = X, XT = XT, ...) {
+    
+    H <- compute_pen_hessian(beta = x, X = X, XT = XT, ...)
     return(H)
+    
 }
 
-
-.newton <- function(x0, H0, f, gr, control = list(), fact = c(1,1), ...) {
+.newton <- function(x0, H0, f, gr, X, control = list(), fact = c(1,1), ...) {
     ## If list is empty then replace with the proper settings
     if(length(control) == 0) {
         control <- list(eps = 1e-6, maxiter = 1000)
@@ -255,6 +187,7 @@
     k <- 1
     x <- x0
     H <- H0
+    XT <- Matrix::t(X)
     epsilon <- control$eps
     converged <- TRUE
 
@@ -262,7 +195,7 @@
     llk <- epsilon + 1
     lldiff <- abs(llk - lllast)
     normGrad <- epsilon + 1
-    grad <- matrix(gr(beta = x, ...), ncol = 1)
+    grad <- gr(beta = x, X = X, XT = XT, ...)
     
     ## Start L-BFGS loop
     while(lldiff > epsilon & normGrad > epsilon & k <= control$maxiter) {
@@ -275,13 +208,13 @@
 
         ## update ll and gradient
         lllast <- llk
-        llk <- f(xnext, fact = fact, ...)
+        llk <- f(xnext, X = X, ll_factor = fact[1], lambda_factor = fact[2], n = fact[1], ...)
         lldiff <- abs(llk - lllast)
-        gradNext <- matrix(gr(beta = xnext, ...), ncol = 1)
+        gradNext <- gr(beta = xnext, X = X, XT = XT, ...)
         normGrad <- sqrt(as.numeric(crossprod(gradNext))) 
 
         ## create new Hessian
-        H <- .Hupdate(xnext, ...)
+        H <- .Hupdate(xnext, X = X, XT = XT, ...)
 
         ## reset params variables
         x <- xnext

@@ -6,41 +6,6 @@
 
 using namespace Rcpp;
 
-// mult_sp
-arma::sp_mat mult_sp(arma::sp_mat X, arma::sp_mat Y);
-RcppExport SEXP _fastGenoGAM_mult_sp(SEXP XSEXP, SEXP YSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type Y(YSEXP);
-    rcpp_result_gen = Rcpp::wrap(mult_sp(X, Y));
-    return rcpp_result_gen;
-END_RCPP
-}
-// trans_
-arma::sp_mat trans_(arma::sp_mat X);
-RcppExport SEXP _fastGenoGAM_trans_(SEXP XSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    rcpp_result_gen = Rcpp::wrap(trans_(X));
-    return rcpp_result_gen;
-END_RCPP
-}
-// mult_spmat
-arma::mat mult_spmat(arma::sp_mat X, arma::mat Y);
-RcppExport SEXP _fastGenoGAM_mult_spmat(SEXP XSEXP, SEXP YSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type Y(YSEXP);
-    rcpp_result_gen = Rcpp::wrap(mult_spmat(X, Y));
-    return rcpp_result_gen;
-END_RCPP
-}
 // ll_pen_nb
 double ll_pen_nb(arma::vec beta, arma::sp_mat X, arma::vec y, arma::vec offset, double theta, double lambda, arma::sp_mat S, double ll_factor, double lambda_factor, int n);
 RcppExport SEXP _fastGenoGAM_ll_pen_nb(SEXP betaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP, SEXP ll_factorSEXP, SEXP lambda_factorSEXP, SEXP nSEXP) {
@@ -62,25 +27,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // gr_ll_pen_nb
-arma::vec gr_ll_pen_nb(arma::vec beta, arma::sp_mat X, arma::vec y, arma::vec offset, double theta, double lambda, arma::sp_mat S);
-RcppExport SEXP _fastGenoGAM_gr_ll_pen_nb(SEXP betaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type offset(offsetSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
-    rcpp_result_gen = Rcpp::wrap(gr_ll_pen_nb(beta, X, y, offset, theta, lambda, S));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gr_ll_pen_nb_alt
-arma::vec gr_ll_pen_nb_alt(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::vec y, arma::vec offset, double theta, double lambda, arma::sp_mat S);
-RcppExport SEXP _fastGenoGAM_gr_ll_pen_nb_alt(SEXP betaSEXP, SEXP XSEXP, SEXP XTSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP) {
+arma::vec gr_ll_pen_nb(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::vec y, arma::vec offset, double theta, double lambda, arma::sp_mat S);
+RcppExport SEXP _fastGenoGAM_gr_ll_pen_nb(SEXP betaSEXP, SEXP XSEXP, SEXP XTSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -92,70 +40,7 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
     Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
     Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
-    rcpp_result_gen = Rcpp::wrap(gr_ll_pen_nb_alt(beta, X, XT, y, offset, theta, lambda, S));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gr_ll_pen_nb_mat
-arma::vec gr_ll_pen_nb_mat(arma::mat beta, arma::sp_mat X, arma::mat y, arma::mat offset, double theta, double lambda, arma::sp_mat S);
-RcppExport SEXP _fastGenoGAM_gr_ll_pen_nb_mat(SEXP betaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type beta(betaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type y(ySEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type offset(offsetSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
-    rcpp_result_gen = Rcpp::wrap(gr_ll_pen_nb_mat(beta, X, y, offset, theta, lambda, S));
-    return rcpp_result_gen;
-END_RCPP
-}
-// gr_ll_pen_nb_mat_alt
-arma::vec gr_ll_pen_nb_mat_alt(arma::mat beta, arma::sp_mat X, arma::sp_mat XT, arma::mat y, arma::mat offset, double theta, double lambda, arma::sp_mat S);
-RcppExport SEXP _fastGenoGAM_gr_ll_pen_nb_mat_alt(SEXP betaSEXP, SEXP XSEXP, SEXP XTSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type beta(betaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type XT(XTSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type y(ySEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type offset(offsetSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
-    rcpp_result_gen = Rcpp::wrap(gr_ll_pen_nb_mat_alt(beta, X, XT, y, offset, theta, lambda, S));
-    return rcpp_result_gen;
-END_RCPP
-}
-// hessian_nb_d
-arma::vec hessian_nb_d(arma::vec eta, arma::vec y, double theta);
-RcppExport SEXP _fastGenoGAM_hessian_nb_d(SEXP etaSEXP, SEXP ySEXP, SEXP thetaSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type eta(etaSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    rcpp_result_gen = Rcpp::wrap(hessian_nb_d(eta, y, theta));
-    return rcpp_result_gen;
-END_RCPP
-}
-// compute_hessian_nb
-arma::sp_mat compute_hessian_nb(arma::sp_mat XT, arma::sp_mat X, arma::sp_mat D, arma::sp_mat S, double lambda);
-RcppExport SEXP _fastGenoGAM_compute_hessian_nb(SEXP XTSEXP, SEXP XSEXP, SEXP DSEXP, SEXP SSEXP, SEXP lambdaSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type XT(XTSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type D(DSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
-    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
-    rcpp_result_gen = Rcpp::wrap(compute_hessian_nb(XT, X, D, S, lambda));
+    rcpp_result_gen = Rcpp::wrap(gr_ll_pen_nb(beta, X, XT, y, offset, theta, lambda, S));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -177,45 +62,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// standard_error
-arma::sp_mat standard_error(arma::sp_mat X, arma::sp_mat H);
-RcppExport SEXP _fastGenoGAM_standard_error(SEXP XSEXP, SEXP HSEXP) {
+// compute_stdError
+arma::sp_mat compute_stdError(arma::sp_mat X, arma::sp_mat H);
+RcppExport SEXP _fastGenoGAM_compute_stdError(SEXP XSEXP, SEXP HSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
     Rcpp::traits::input_parameter< arma::sp_mat >::type H(HSEXP);
-    rcpp_result_gen = Rcpp::wrap(standard_error(X, H));
-    return rcpp_result_gen;
-END_RCPP
-}
-// solve_hessian
-arma::vec solve_hessian(arma::sp_mat H, arma::vec e);
-RcppExport SEXP _fastGenoGAM_solve_hessian(SEXP HSEXP, SEXP eSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type H(HSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type e(eSEXP);
-    rcpp_result_gen = Rcpp::wrap(solve_hessian(H, e));
+    rcpp_result_gen = Rcpp::wrap(compute_stdError(X, H));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_fastGenoGAM_mult_sp", (DL_FUNC) &_fastGenoGAM_mult_sp, 2},
-    {"_fastGenoGAM_trans_", (DL_FUNC) &_fastGenoGAM_trans_, 1},
-    {"_fastGenoGAM_mult_spmat", (DL_FUNC) &_fastGenoGAM_mult_spmat, 2},
     {"_fastGenoGAM_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_ll_pen_nb, 10},
-    {"_fastGenoGAM_gr_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb, 7},
-    {"_fastGenoGAM_gr_ll_pen_nb_alt", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb_alt, 8},
-    {"_fastGenoGAM_gr_ll_pen_nb_mat", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb_mat, 7},
-    {"_fastGenoGAM_gr_ll_pen_nb_mat_alt", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb_mat_alt, 8},
-    {"_fastGenoGAM_hessian_nb_d", (DL_FUNC) &_fastGenoGAM_hessian_nb_d, 3},
-    {"_fastGenoGAM_compute_hessian_nb", (DL_FUNC) &_fastGenoGAM_compute_hessian_nb, 5},
+    {"_fastGenoGAM_gr_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb, 8},
     {"_fastGenoGAM_compute_pen_hessian", (DL_FUNC) &_fastGenoGAM_compute_pen_hessian, 8},
-    {"_fastGenoGAM_standard_error", (DL_FUNC) &_fastGenoGAM_standard_error, 2},
-    {"_fastGenoGAM_solve_hessian", (DL_FUNC) &_fastGenoGAM_solve_hessian, 2},
+    {"_fastGenoGAM_compute_stdError", (DL_FUNC) &_fastGenoGAM_compute_stdError, 2},
     {NULL, NULL, 0}
 };
 
