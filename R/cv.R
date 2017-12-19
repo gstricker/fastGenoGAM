@@ -68,7 +68,7 @@
     currentBackend <- BiocParallel::registered()
     currentWorkers <- currentBackend[[1]]$workers
     currentFits <- folds * length(id)
-    computationTime <- 2
+    computationTime <- 0.2
     wakeUpTime <- 16
 
     ## Compute optimal number
@@ -131,10 +131,12 @@
         fixedpars$theta <- exp(pars[["theta"]])
     }
 
-    if(fixedpars$theta < 1e-3) {
-        fixedpars$theta <- 1e-3
-    }
+    ## if(fixedpars$lambda/fixedpars$theta < 100) {
+    ##     fixedpars$lambda <- fixedpars$theta * 100
+    ## }
 
+    futile.logger::flog.debug(paste0("Using values: lambda = ", fixedpars$lambda, "and theta = ", fixedpars$theta))
+    
     fullpred <- lapply(1:length(setup), function(y) {
         rep(NA, length(slot(setup[[1]], "response")))
     })

@@ -435,7 +435,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     if(length(slot(setup, "response")) != 0) {
         ## setup betas as all 1 in normal space = 0s in log space
         betas <- rep(1, numBetas)
-        ## ## set betas to the runmedian of the response
+        ## set betas to the runmedian of the response
         ## means <- IRanges::runmed(slot(setup, "response"), 11, endrule = "median")
         ## ## take 250 values at equidistant positions
         ## ks <- as.integer(seq(1, length(means), length.out = numBetas))

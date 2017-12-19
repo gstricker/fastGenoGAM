@@ -62,7 +62,8 @@
     des <- slot(setup, "design")
 
     if(distr == "nb") {
-        args <- list(y = y, theta = params$theta)
+        args <- list(beta = betas, X = X, XT = Matrix::t(X), offset = unname(offset),
+                     y = y, S = S, lambda = params$lambda, theta = params$theta)
     }
 
     H <- do.call(.compute_hessian, c(list(family = distr), args))
