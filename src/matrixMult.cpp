@@ -1,5 +1,6 @@
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
+#include <cmath>
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -84,4 +85,50 @@ arma::sp_mat compute_stdError(arma::sp_mat X, arma::sp_mat H) {
   arma::sp_mat Diag = sum(V, 1);
   arma::sp_mat res = sqrt(Diag);
   return res;
+}
+
+// [[Rcpp::export]]
+arma::sp_mat inverseH(arma::sp_mat L, arma::vec r, arma::vec c, arma::vec x) {
+  int size_n = max(r);
+  int counter = r.n_elem - 1;
+  int k;
+  int j;
+  int i = c(counter);
+  double Lki;
+  double Skj;
+  double sigma_1;
+  double sigma_2;
+  double Lii;
+  arma::sp_mat Sigma(size_n + 1, size_n + 1);
+
+  // one main pointer that goes along the non-zero values for r and c vectors
+  // and one pointer for k that identifies the set I(i)
+  while(i >= 0) {
+    k = r(counter);
+    j = r(counter);
+    sigma_1 = 0;
+    sigma_2 = 0;
+    Lii = L(i, i);
+    cout << "value of i: " << i << endl;
+    
+    while(j >= i) {
+      cout << "value of j: " << j << endl;
+      if(i == j) {
+	sigma_1 = 1/pow(Lii, 2);
+      }
+      while(k > i) {
+	cout << "value of k: " << k << endl;
+	Lki = x(counter);
+	Skj = Sigma(k, j);
+	sigma_2 = (sigma_2 + Lki * Skj)/Lii;
+	counter--;
+	k = r(counter);
+      }
+      j--;
+      Sigma(i, j) = sigma_1 - sigma_2;
+    }
+    counter--;
+    i = c(counter);
+  }
+  return(Sigma);
 }
