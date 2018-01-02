@@ -79,8 +79,9 @@
     ## m = number of workers (the parameter of interest)
     ## u = wakeUpTime = the time it takes a worker to start in SnowParam
     nworkers <- as.integer(sqrt((currentFits * computationTime)/wakeUpTime))
+    backend <- BiocParallel::registered()[[1]]
 
-    if(currentWorkers > nworkers) {
+    if(class(backend) != "MulticoreParam" & currentWorkers > nworkers) {
         futile.logger::flog.debug(paste("Reducing number of workers during hyperparameter optimization to", nworkers))
         worker_backup <- currentBackend[[1]]$workers
         ## note, setting the workers in the variable, does change it in the
@@ -94,7 +95,7 @@
     params <- exp(pars$par)
 
     ## set the number of workers back to the specified number
-    if(currentWorkers > nworkers) {
+    if(class(backend) != "MulticoreParam" & currentWorkers > nworkers) {
         futile.logger::flog.debug(paste("Re-setting number of workers to", worker_backup))
         currentBackend[[1]]$workers <- worker_backup
     }
