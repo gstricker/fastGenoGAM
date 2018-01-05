@@ -74,27 +74,12 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// inverseH
-arma::sp_mat inverseH(arma::sp_mat L, arma::vec r, arma::vec c, arma::vec x);
-RcppExport SEXP _fastGenoGAM_inverseH(SEXP LSEXP, SEXP rSEXP, SEXP cSEXP, SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type L(LSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type r(rSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type c(cSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(inverseH(L, r, c, x));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_fastGenoGAM_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_ll_pen_nb, 10},
     {"_fastGenoGAM_gr_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb, 8},
     {"_fastGenoGAM_compute_pen_hessian", (DL_FUNC) &_fastGenoGAM_compute_pen_hessian, 8},
     {"_fastGenoGAM_compute_stdError", (DL_FUNC) &_fastGenoGAM_compute_stdError, 2},
-    {"_fastGenoGAM_inverseH", (DL_FUNC) &_fastGenoGAM_inverseH, 4},
     {NULL, NULL, 0}
 };
 

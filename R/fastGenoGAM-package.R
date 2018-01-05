@@ -1,6 +1,6 @@
 #' fastGenoGAM: A package providing a framework to analyse ChIP-Seq data
 #' 
-# @name fastGenoGAM
+#' @name fastGenoGAM
 #' @import methods
 #' @import HDF5Array
 #' @import rhdf5

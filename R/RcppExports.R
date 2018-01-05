@@ -17,7 +17,3 @@ compute_stdError <- function(X, H) {
     .Call('_fastGenoGAM_compute_stdError', PACKAGE = 'fastGenoGAM', X, H)
 }
 
-inverseH <- function(L, r, c, x) {
-    .Call('_fastGenoGAM_inverseH', PACKAGE = 'fastGenoGAM', L, r, c, x)
-}
-

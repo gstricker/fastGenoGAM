@@ -48,7 +48,7 @@ setClass("GenoGAMSetup",
                           offset = numeric(), family = "nb", 
                           response = integer(), fits = list(),
                           control = list(eps = 1e-6, maxiter = 1000, alpha = 1,
-                                         rho = 0.5, c = 1e-4, m = 6, batchsize = 100)))
+                                         rho = 0.5, c = 1e-4, m = 6)))
 
 ## Validity
 ## ========
@@ -146,8 +146,8 @@ setClass("GenoGAMSetup",
 }
 
 .validateControlType <- function(object) {
-    if(!all(names(slot(object, "control")) %in% c("eps", "maxiter", "alpha", "rho", "c", "m", "batchsize"))) {
-        return("'control' must contain the elements 'eps', 'maxiter', 'alpha', 'rho', 'c', 'm', 'batchsize'")
+    if(!all(names(slot(object, "control")) %in% c("eps", "maxiter", "alpha", "rho", "c", "m"))) {
+        return("'control' must contain the elements 'eps', 'maxiter', 'alpha', 'rho', 'c', 'm'")
     }
     NULL
 }
@@ -178,7 +178,7 @@ GenoGAMSetup <- function(...) {
     ## check if all estimation algo params are there
     params <- slot(ggs, "control")
     estimControl = list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5,
-                        c = 1e-4, m = 6, batchsize = 100)
+                        c = 1e-4, m = 6)
     params <- .fillParameters(l = params, estimControl)
     slot(ggs, "control") <- params
     return(ggs)
@@ -254,20 +254,6 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
                             knots = knots, formula = design(ggd),
                             design = des, offset = offset, family = family,
                             designMatrix = X, penaltyMatrix = S, control = control)
-
-    ## identify batchsize for later H inverse computation
-    ## the maximal size of a batch
-    MEM_THRESHOLD <- 200
-    DEFAULT_BATCH <- slot(ggsetup, "control")$batchsize
-
-    ## find optimal batch size if needed, by prime number factorization
-    ## most of the time the default should work fine
-    totalBetas <- nbetas * nfun
-    nbatches <- totalBetas/DEFAULT_BATCH
-    if(nbatches %% 2 != 0) {
-        bsizes <- .findBatchsize(totalBetas)
-        slot(ggsetup, "control")$batchsize <- max(bsizes[which(bsizes <= MEM_THRESHOLD)])
-    }
   
     return(ggsetup)
 }

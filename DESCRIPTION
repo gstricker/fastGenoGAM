@@ -77,6 +77,7 @@ Collate:
     'misc.R'
     'readData.R'
     'sf.R'
+    'zzz.R'
 URL: https://github.com/gstricker/GenoGAM
 BugReports: https://github.com/gstricker/GenoGAM/issues
 Author: Georg Stricker [aut, cre], Alexander Engelhardt [aut], Julien

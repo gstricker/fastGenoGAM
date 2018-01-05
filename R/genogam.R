@@ -332,69 +332,70 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 
 .fitGenoGAM <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL,
                        coefsFile = NULL, qdir = NULL) {
-        suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
+    suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
+    suppressPackageStartupMessages(require(sparseinv, quietly = TRUE))
 
-        setup <- .initiate(data, init, coords, id)
-        betas <- .estimateParams(setup)
+    setup <- .initiate(data, init, coords, id)
+    betas <- .estimateParams(setup)
 
-        futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
-        if(betas$converged == FALSE) {
-            futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'estimControl' slot in the settings might help, but should be done at own risk.")
-        }
-        
-        slot(setup, "beta") <- betas$par
-        slot(setup, "fits") <- .getFits(setup)
-        
-        slot(setup, "se") <- .compute_SE(setup)
-        slot(setup, "params")$id <- id
-        
-        ## procedure to gradually write results to HDF5, to safe memory footprint
-        if(slot(data, "hdf5")) {
-            if(any(is.null(chunks), is.null(h5file))) {
-                ## An error rather for the developer
-                stop("Chunk coordinates missing in the fitting function")
-            }
-
-            ## extract fits and SEs
-            combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
-            combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
-
-            ## normalize ID chromosome-wise, as it is usually based on the entire genome
-            chrom <- as.character(GenomeInfoDb::seqnames(getIndex(data)[id,]))
-            subindx <- getIndex(data)[GenomeInfoDb::seqnames(getIndex(data)) == chrom,]
-            normID <- which(subindx == getIndex(data)[id,])
-
-            ## queue write process
-            qid <- .queue(qdir)
-            ## wait till it's your turn
-            
-            while(list.files(qdir)[1] != qid){
-                Sys.sleep(0.1)
-            }
-
-            ## write data
-            ## Fits
-            rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
-                           index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
-            ## Coefs
-            rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
-                           index = list(1:length(betas$par), id))
-
-            ## Unqueue file by removing
-            .unqueue(qid, qdir)
-            
-            ## reset not needed slots
-            slot(setup, "designMatrix") <- new("dgCMatrix")
-            slot(setup, "penaltyMatrix") <- new("dgCMatrix")
-            slot(setup, "response") <- numeric()
-            slot(setup, "offset") <- numeric()
-            
-            return(NULL)
+    futile.logger::flog.debug(paste("Beta estimation for tile", id, "took", betas$iterations, "iterations"))
+    if(betas$converged == FALSE) {
+        futile.logger::flog.warn("Beta estimation did not converge. Increasing the 'maxiter' or 'eps' parameter in 'estimControl' slot in the settings might help, but should be done at own risk.")
+    }
+    
+    slot(setup, "beta") <- betas$par
+    slot(setup, "fits") <- .getFits(setup)
+    
+    slot(setup, "se") <- .compute_SE(setup)
+    slot(setup, "params")$id <- id
+    
+    ## procedure to gradually write results to HDF5, to safe memory footprint
+    if(slot(data, "hdf5")) {
+        if(any(is.null(chunks), is.null(h5file))) {
+            ## An error rather for the developer
+            stop("Chunk coordinates missing in the fitting function")
         }
 
-        return(setup)
+        ## extract fits and SEs
+        combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
+        combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
+
+        ## normalize ID chromosome-wise, as it is usually based on the entire genome
+        chrom <- as.character(GenomeInfoDb::seqnames(getIndex(data)[id,]))
+        subindx <- getIndex(data)[GenomeInfoDb::seqnames(getIndex(data)) == chrom,]
+        normID <- which(subindx == getIndex(data)[id,])
+
+        ## queue write process
+        qid <- .queue(qdir)
+        ## wait till it's your turn
+        
+        while(list.files(qdir)[1] != qid){
+            Sys.sleep(0.1)
+        }
+
+        ## write data
+        ## Fits
+        rhdf5::h5write(as.matrix(combinedFits), file = h5file, name = "/fits",
+                       index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
+        rhdf5::h5write(as.matrix(combinedSEs), file = h5file, name = "/ses",
+                       index = list(start(chunks)[normID]:end(chunks)[normID], 1:2))
+        ## Coefs
+        rhdf5::h5write(betas$par, file = coefsFile, name = "coefs",
+                       index = list(1:length(betas$par), id))
+
+        ## Unqueue file by removing
+        .unqueue(qid, qdir)
+        
+        ## reset not needed slots
+        slot(setup, "designMatrix") <- new("dgCMatrix")
+        slot(setup, "penaltyMatrix") <- new("dgCMatrix")
+        slot(setup, "response") <- numeric()
+        slot(setup, "offset") <- numeric()
+        
+        return(NULL)
+    }
+
+    return(setup)
 }
 
 ##########################
