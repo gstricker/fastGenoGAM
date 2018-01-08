@@ -132,9 +132,9 @@
         fixedpars$theta <- exp(pars[["theta"]])
     }
 
-    ## if(fixedpars$lambda/fixedpars$theta < 100) {
-    ##     fixedpars$lambda <- fixedpars$theta * 100
-    ## }
+    if(fixedpars$lambda/fixedpars$theta < 100) {
+        fixedpars$lambda <- fixedpars$theta * 100
+    }
 
     futile.logger::flog.debug(paste0("Using values: lambda = ", fixedpars$lambda, "and theta = ", fixedpars$theta))
     
