@@ -98,8 +98,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         ## ncv set to a number, such that CV does not compute more models than
         ## the actual genogam run. 
         ## 40 is the average expected number of iterations
-        ## ncv <- min(regions, ceiling(length(new_coords)/(kfolds*40)))
-        ncv <- regions
+        ncv <- min(regions, ceiling(length(new_coords)/(kfolds*40)))
 
         if(ncv < regions) {
             futile.logger::flog.debug(paste("Reducing the number of regions to", ncv))
