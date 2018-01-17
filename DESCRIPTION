@@ -29,6 +29,7 @@ Depends:
     Matrix (>= 1.2-8)
 Imports:
     Rcpp (>= 0.12.14),
+    sparseinv (>= 0.1.1),
     Rsamtools (>= 1.18.2),
     GenomicRanges (>= 1.23.16),
     BiocParallel (>= 1.5.17),

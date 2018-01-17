@@ -334,7 +334,6 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
 .fitGenoGAM <- function(id, data, init, coords, relativeChunks = NULL, chunks = NULL, h5file = NULL,
                        coefsFile = NULL, qdir = NULL) {
     suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
-    suppressPackageStartupMessages(require(sparseinv, quietly = TRUE))
 
     setup <- .initiate(data, init, coords, id)
     betas <- .estimateParams(setup)
