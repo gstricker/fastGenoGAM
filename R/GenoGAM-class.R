@@ -43,7 +43,8 @@ setClass("GenoGAM",
              params = "list",
              settings = "GenoGAMSettings",
              coefs = "HDF5OrMatrix",
-             knots = "numeric"),
+             knots = "numeric",
+             hdf5 = "logical"),
          prototype = prototype(family = NA_character_,
              design = ~ s(x),
              sizeFactors = numeric(),
@@ -51,7 +52,8 @@ setClass("GenoGAM",
              params = list(),
              settings = GenoGAMSettings(),
              coefs = matrix(),
-             knots = numeric()))
+             knots = numeric(),
+             hdf5 = FALSE))
 
 ## Validity
 ## ========
@@ -121,7 +123,8 @@ setClass("GenoGAM",
       .validateParamsType(object),
       .validateSettingsType(object),
       .validateCoefsType(object),
-      .validateGGKnotsType(object))
+      .validateGGKnotsType(object),
+      .validateH5Type(object))
 }
 
 S4Vectors::setValidity2("GenoGAM", .validateGenoGAM)
@@ -208,13 +211,11 @@ GenoGAM <- function(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE) {
 
         h5coefs <- file.path(path, paste0("coefs_", ident))
         coefs <- HDF5Array::HDF5Array(h5coefs, "coefs")
-
-        ggd <- new("GenoGAM", se, settings = settings,
-                   design = design, sizeFactors = sf, index = tiles)
     
         gg <- new("GenoGAM", se, design = design(ggd),
                sizeFactors = sizeFactors(ggd), factorialDesign = colData(ggd),
-               settings = settings, knots = knots[[1]], coefs = coefs, ...)
+               settings = settings, knots = knots[[1]], coefs = coefs,
+               hdf5 = TRUE, ...)
     }
 
 

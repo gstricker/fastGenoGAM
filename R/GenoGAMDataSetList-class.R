@@ -304,6 +304,12 @@ setMethod("getTileNumber", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$numTiles
 })
 
+##' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
+setMethod("is.HDF5", signature(object = "GenoGAMDataSetList"), function(object) {
+    res <- slot(object, "hdf5")
+    return(res)
+})
+
 ##' @describeIn GenoGAMDataSetList Access to the design slot.
 setMethod("design", "GenoGAMDataSetList", function(object) {
     slot(object, "design")

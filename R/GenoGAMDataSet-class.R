@@ -364,7 +364,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
 
     ggd <- new("GenoGAMDataSet", se, settings = settings,
-               design = design, sizeFactors = sf, index = tiles)
+               design = design, sizeFactors = sf, index = tiles,
+               hdf5 = hdf5)
 
     ## compute sum matrix
     ## backup original tile index
@@ -405,7 +406,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     if(length(l) == 0) return(GenomicRanges::GRanges())
     if(l$overhangSize < 0) stop("Overhang size must be equal or greater than 0")
-    if(l$chunkSize < 1000) stop("Chunk size must be equal or greater than 1000")
+    if((l$tileSize - 2*l$overhangSize) <= 0) stop("Tile size must be greater than twice the overhang size")
     if(length(l$chromosomes) == 0) stop("Chromosome list should contain at least one entry")
 
     ## tiles should be not bigger than any pre-specified region
@@ -536,7 +537,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     ## else {
         ## workers <- BiocParallel::registered()[[1]]$workers
         ## maximal chunk size to work with and use only 1GB per core
-        posPerGB <- 800000L / bpknots
+        posPerGB <- 8000000L / bpknots
         ## we don't want to exceed this number of GByte per core
         GBlimit <- 4L
         ## number of splines
@@ -725,6 +726,9 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         chunk <- c(1, nrow(colData))
         h5SumMatrix <- .createH5DF("sumMatrix", settings, d, chunk, what = "sumMatrix")
     }
+    else {
+        h5SumMatrix <- NULL
+    }
 
     ## finally build object
     ## if split make sure to keep the seqinfo same for all list elements,
@@ -831,7 +835,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         ## this avoids special functions for those particular steps
         ## only.
         ggd <- new("GenoGAMDataSet", se, settings = settings,
-                   design = design, sizeFactors = sf, index = tiles)
+                   design = design, sizeFactors = sf, index = tiles,
+                   hdf5 = hdf5)
 
         ## compute sum matrix
         ## backup original tile index
@@ -851,13 +856,13 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
             ## write assay to HDF5 and substitute
             coords <- .getCoordinates(ggd)
             chunks <- .getChunkCoords(coords)
-            h5df <- .writeToHDF5(countData, file = "dataset", chunks = chunks,
+            h5df <- .writeToHDF5(countData, file = "dataset", chunks = as(chunks, "IRanges"),
                                  settings = settings)
             assays(ggd) <- list(h5df)
 
             ## write sumMatrix to HDF5 and substitute
-            f <- .makeFilenamen(settings@hdf5Control$dir, "sumMatrix", id = TRUE)
-            h5sm <- HDF5Array::writeHDF5Array(HDF5Array::DelayedArray(sumMatrix), file = f, name = "sumMatrix")
+            rhdf5::h5write(sumMatrix, file = h5SumMatrix, name = "sumMatrix")
+            h5sm <- HDF5Array::HDF5Array(h5SumMatrix, name = "/sumMatrix")
             slot(ggd, "countMatrix") <- h5sm
         }
     }
@@ -976,7 +981,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
                                                          assays = list(h5df), colData = colData)
         
         ggd <- new("GenoGAMDataSet", se, settings = settings,
-                   design = design, sizeFactors = sf, index = tiles)
+                   design = design, sizeFactors = sf, index = tiles,
+                   hdf5 = TRUE)
         
     }
 
@@ -1255,6 +1261,14 @@ setGeneric("getTileNumber", function(object) standardGeneric("getTileNumber"))
 ##' @describeIn GenoGAMDataSet The total number of tiles
 setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
     tileSettings(object)$numTiles
+})
+
+setGeneric("is.HDF5", function(object) standardGeneric("is.HDF5"))
+
+##' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
+setMethod("is.HDF5", signature(object = "GenoGAMDataSet"), function(object) {
+    res <- slot(object, "hdf5")
+    return(res)
 })
 
 ##' @describeIn GenoGAMDataSet Access to the design slot.

@@ -22,3 +22,6 @@ when computng spline errors i) do not rextract those and ii) compute directly th
 - to speed up further: try some compilation functions and let have the Renjin folks have a go. This is their domain of excellence.
 
 - add logging in parallel computation (see vignette on BiocParallel: Logging)
+
+- ensure data read in works for all for types = hdf5 + split, hdf5 only, split only, none of both
+- ensure analysis can be performed for all for types = hdf5 + split, hdf5 only, split only, none of both

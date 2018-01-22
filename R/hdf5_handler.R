@@ -122,6 +122,10 @@
 ## -------------------------------------------------------------------------
 
 .init_Queue <- function(file){
+    if(is.null(file)) {
+        return(NULL)
+    }
+    
     dir <- strsplit(file, split = "\\.")[[1]][1]
     if(dir.exists(dir)) {
         warning(paste("Directory:", dir, "exists. Overwriting"))
@@ -151,7 +155,10 @@
 }
 
 .end_Queue <- function(dir) {
-    unlink(dir, recursive = TRUE)
+    if(!is.null(dir)) {
+        unlink(dir, recursive = TRUE)
+    }
+    
     invisible()
 }
 

@@ -39,7 +39,8 @@ setClass("GenoGAMList",
              settings = "GenoGAMSettings",
              data = "list", id = "GRanges",
              coefs = "HDF5OrMatrix",
-             knots = "numeric"),
+             knots = "numeric",
+             hdf5 = "logical"),
          prototype = prototype(family = NA_character_,
              design = ~ s(x),
              sizeFactors = numeric(),
@@ -47,7 +48,8 @@ setClass("GenoGAMList",
              params = list(),
              settings = GenoGAMSettings(),
              data = list(), id = GenomicRanges::GRanges(),
-             coefs = matrix(), knots = numeric()))
+             coefs = matrix(), knots = numeric(),
+             hdf5 = FALSE))
 
 ## Validity
 ## ========
@@ -63,7 +65,8 @@ setClass("GenoGAMList",
       .validateCoefsType(object),
       .validateGGKnotsType(object),
       .validateDataType(object), ## from GenoGAMDataSetList-class.R
-      .validateIDType(object)) ## from GenoGAMDataSetList-class.R
+      .validateIDType(object), ## from GenoGAMDataSetList-class.R
+      .validateH5Type(object)) ## from GenoGAMDataSet-class.R
 }
 
 S4Vectors::setValidity2("GenoGAMList", .validateGenoGAMList)
@@ -163,7 +166,8 @@ GenoGAMList <- function(..., ggd = NULL, fromHDF5 = FALSE) {
     ggl <- do.call(new, c(list("GenoGAMList", design = design(ggd),
                sizeFactors = sizeFactors(ggd), factorialDesign = colData(ggd),
                settings = settings, data = selist, id = splitid,
-               knots = knots[[1]], coefs = coefs, params = params), args))
+               knots = knots[[1]], coefs = coefs, params = params,
+               hdf5 = TRUE), args))
 
     return(ggl)
 }
