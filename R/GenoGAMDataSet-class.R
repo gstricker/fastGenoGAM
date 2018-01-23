@@ -406,13 +406,14 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     if(length(l) == 0) return(GenomicRanges::GRanges())
     if(l$overhangSize < 0) stop("Overhang size must be equal or greater than 0")
-    if((l$tileSize - 2*l$overhangSize) <= 0) stop("Tile size must be greater than twice the overhang size")
     if(length(l$chromosomes) == 0) stop("Chromosome list should contain at least one entry")
 
     ## tiles should be not bigger than any pre-specified region
     l$tileSize <- min(l$chunkSize + 2*l$overhangSize, min(width(l$chromosomes)))
     ## adjust chunks and overhang accordingly
     l$chunkSize <- l$tileSize - 2*l$overhangSize
+
+    if(l$chunkSize <= 0) stop("Tile size must be greater than twice the overhang size. Check your chromosome lengths. Your smallest chromosome might be smaller than 2 * overhangSize")
     
     input <- paste0("Building Tiles with the following parameters:\n",
                     "  Chunk size: ", l$chunkSize, "\n",
