@@ -16,7 +16,7 @@ It is not meant to be used directly, but rather for development convenience.
 
 \item{\code{gradient}}{The first derivative of the log-likelihood functions. Gives a vector.}
 
-\item{\code{hessian}}{The second derivative of the log-likelihood functions. Gives a matrix.}
+\item{\code{hessian}}{An integer indicating the family. Negative Binomial = 1, Quasi-Binomial = 2.}
 }}
 
 \author{

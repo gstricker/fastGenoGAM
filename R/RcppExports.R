@@ -9,8 +9,12 @@ gr_ll_pen_nb <- function(beta, X, XT, y, offset, theta, lambda, S) {
     .Call('_fastGenoGAM_gr_ll_pen_nb', PACKAGE = 'fastGenoGAM', beta, X, XT, y, offset, theta, lambda, S)
 }
 
-compute_pen_hessian <- function(beta, X, XT, offset, y, S, lambda, theta) {
-    .Call('_fastGenoGAM_compute_pen_hessian', PACKAGE = 'fastGenoGAM', beta, X, XT, offset, y, S, lambda, theta)
+negbin_hessian <- function(y, mu, theta) {
+    .Call('_fastGenoGAM_negbin_hessian', PACKAGE = 'fastGenoGAM', y, mu, theta)
+}
+
+compute_pen_hessian <- function(beta, X, XT, offset, y, S, lambda, theta, hessid) {
+    .Call('_fastGenoGAM_compute_pen_hessian', PACKAGE = 'fastGenoGAM', beta, X, XT, offset, y, S, lambda, theta, hessid)
 }
 
 compute_stdError <- function(X, H) {

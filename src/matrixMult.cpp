@@ -62,15 +62,27 @@ arma::vec gr_ll_pen_nb(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::ve
 }
 
 // [[Rcpp::export]]
+arma::vec negbin_hessian(arma::vec y, arma::vec mu, double theta) {
+  arma::vec ls = mu % (1 + y/theta);
+  arma::vec rs = square(1 + mu/theta);
+  arma::vec dd = ls/rs;
+  return dd;
+}
+
+// [[Rcpp::export]]
 arma::sp_mat compute_pen_hessian(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::vec offset,
-				 arma::vec y, arma::sp_mat S, double lambda, double theta) {
+				 arma::vec y, arma::sp_mat S, double lambda, double theta, int hessid) {
   arma::vec lin = vectorise(X * beta);
   arma::vec eta = offset + lin;
   arma::vec mu = exp(eta);
 
-  arma::vec ls = mu % (1 + y/theta);
-  arma::vec rs = square(1 + mu/theta);
-  arma::vec dd = ls/rs;
+  // 1 = negative binomial
+  // 2 = quasi-binomial
+  arma::vec dd = ones<vec>(size(y));
+
+  if(hessid == 1) {
+    arma::vec dd = negbin_hessian(y, mu, theta);
+  }
 
   arma::sp_mat D = diagmat(sp_mat(dd));
 
