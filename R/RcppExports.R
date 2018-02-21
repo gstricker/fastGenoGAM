@@ -13,6 +13,10 @@ negbin_hessian <- function(y, mu, theta) {
     .Call('_fastGenoGAM_negbin_hessian', PACKAGE = 'fastGenoGAM', y, mu, theta)
 }
 
+ll_pen_qbd <- function(beta, X, y, offset, theta, lambda, S, ll_factor, lambda_factor, n) {
+    .Call('_fastGenoGAM_ll_pen_qbd', PACKAGE = 'fastGenoGAM', beta, X, y, offset, theta, lambda, S, ll_factor, lambda_factor, n)
+}
+
 compute_pen_hessian <- function(beta, X, XT, offset, y, S, lambda, theta, hessid) {
     .Call('_fastGenoGAM_compute_pen_hessian', PACKAGE = 'fastGenoGAM', beta, X, XT, offset, y, S, lambda, theta, hessid)
 }

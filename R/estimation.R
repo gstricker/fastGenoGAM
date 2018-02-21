@@ -180,7 +180,7 @@
         normGrad <- sqrt(as.numeric(crossprod(gradNext))) 
 
         ## create new Hessian
-        H <- .Hupdate(family = fam, xnext, X = X, XT = XT, ...)
+        H <- .Hupdate(family = fam, x = xnext, X = X, XT = XT, ...)
 
         ## reset params variables
         x <- xnext

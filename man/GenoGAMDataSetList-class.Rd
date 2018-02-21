@@ -23,6 +23,7 @@
 \alias{getChunkSize,GenoGAMDataSetList-method}
 \alias{getOverhangSize,GenoGAMDataSetList-method}
 \alias{getTileNumber,GenoGAMDataSetList-method}
+\alias{is.HDF5,GenoGAMDataSetList-method}
 \alias{design,GenoGAMDataSetList-method}
 \alias{design<-,GenoGAMDataSetList,ANY-method}
 \alias{sizeFactors,GenoGAMDataSetList-method}
@@ -72,6 +73,8 @@ GenoGAMDataSetList(...)
 \S4method{getOverhangSize}{GenoGAMDataSetList}(object)
 
 \S4method{getTileNumber}{GenoGAMDataSetList}(object)
+
+\S4method{is.HDF5}{GenoGAMDataSetList}(object)
 
 \S4method{design}{GenoGAMDataSetList}(object)
 
@@ -159,6 +162,8 @@ or chromosome regions on which the model will be computed
 \item \code{getOverhangSize}: The size of the overhang (on one side)
 
 \item \code{getTileNumber}: The total number of tiles
+
+\item \code{is.HDF5}: A boolean function that is true if object uses HDF5 backend
 
 \item \code{design}: Access to the design slot.
 

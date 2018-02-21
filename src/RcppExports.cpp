@@ -57,6 +57,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// ll_pen_qbd
+double ll_pen_qbd(arma::vec beta, arma::sp_mat X, arma::vec y, arma::vec offset, double theta, double lambda, arma::sp_mat S, double ll_factor, double lambda_factor, int n);
+RcppExport SEXP _fastGenoGAM_ll_pen_qbd(SEXP betaSEXP, SEXP XSEXP, SEXP ySEXP, SEXP offsetSEXP, SEXP thetaSEXP, SEXP lambdaSEXP, SEXP SSEXP, SEXP ll_factorSEXP, SEXP lambda_factorSEXP, SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< arma::sp_mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type offset(offsetSEXP);
+    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
+    Rcpp::traits::input_parameter< double >::type lambda(lambdaSEXP);
+    Rcpp::traits::input_parameter< arma::sp_mat >::type S(SSEXP);
+    Rcpp::traits::input_parameter< double >::type ll_factor(ll_factorSEXP);
+    Rcpp::traits::input_parameter< double >::type lambda_factor(lambda_factorSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(ll_pen_qbd(beta, X, y, offset, theta, lambda, S, ll_factor, lambda_factor, n));
+    return rcpp_result_gen;
+END_RCPP
+}
 // compute_pen_hessian
 arma::sp_mat compute_pen_hessian(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::vec offset, arma::vec y, arma::sp_mat S, double lambda, double theta, int hessid);
 RcppExport SEXP _fastGenoGAM_compute_pen_hessian(SEXP betaSEXP, SEXP XSEXP, SEXP XTSEXP, SEXP offsetSEXP, SEXP ySEXP, SEXP SSEXP, SEXP lambdaSEXP, SEXP thetaSEXP, SEXP hessidSEXP) {
@@ -93,6 +113,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_fastGenoGAM_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_ll_pen_nb, 10},
     {"_fastGenoGAM_gr_ll_pen_nb", (DL_FUNC) &_fastGenoGAM_gr_ll_pen_nb, 8},
     {"_fastGenoGAM_negbin_hessian", (DL_FUNC) &_fastGenoGAM_negbin_hessian, 3},
+    {"_fastGenoGAM_ll_pen_qbd", (DL_FUNC) &_fastGenoGAM_ll_pen_qbd, 10},
     {"_fastGenoGAM_compute_pen_hessian", (DL_FUNC) &_fastGenoGAM_compute_pen_hessian, 9},
     {"_fastGenoGAM_compute_stdError", (DL_FUNC) &_fastGenoGAM_compute_stdError, 2},
     {NULL, NULL, 0}

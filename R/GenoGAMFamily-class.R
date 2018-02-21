@@ -67,8 +67,9 @@ setClass("GenoGAMFamily",
 
 S4Vectors::setValidity2("GenoGAMFamily", .validateGenoGAMFamily)
 
+#' Constructor
 #' @noRd
 GenoGAMFamily <- function(...) {
-    new("GenoGAMFamily", ...)
+    return(new("GenoGAMFamily", ...))
 }
 

@@ -60,12 +60,12 @@ biocViews: Regression, DifferentialPeakCalling, ChIPSeq,
     ChipOnChip
 Collate: 
     'Coordinates-class.R'
+    'GenoGAMFamily-class.R'
     'helper.R'
     'GenoGAMSettings-class.R'
     'GenoGAM-class.R'
     'GenoGAMDataSet-class.R'
     'GenoGAMDataSetList-class.R'
-    'GenoGAMFamily-class.R'
     'GenoGAMList-class.R'
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'

@@ -3,6 +3,7 @@
 ############################
 
 #' @include GenoGAMSettings-class.R
+#' @include GenoGAM-class.R
 NULL
 
 #' GenoGAMList class
@@ -31,7 +32,7 @@ NULL
 #' @rdname GenoGAMList-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 setClass("GenoGAMList",
-         slots = list(family = "character",
+         slots = list(family = "GenoGAMFamily",
              design = "formula",
              sizeFactors = "numeric",
              factorialDesign = "DataFrame",
@@ -41,7 +42,7 @@ setClass("GenoGAMList",
              coefs = "HDF5OrMatrix",
              knots = "numeric",
              hdf5 = "logical"),
-         prototype = prototype(family = NA_character_,
+         prototype = prototype(family = GenoGAMFamily(),
              design = ~ s(x),
              sizeFactors = numeric(),
              factorialDesign = S4Vectors::DataFrame(),
@@ -286,18 +287,28 @@ setMethod("se", "GenoGAMList", function(object) {
     lapply(assays(object), function(y) y[["se"]])
 })
 
+##' @describeIn GenoGAMList An accessor to the pvalues
+setMethod("pval", "GenoGAMList", function(object) {
+    lapply(assays(object), function(y) y[["pval"]])
+})
+
 ##' @describeIn GenoGAMList column names of GenoGAMList
 setMethod("colnames", "GenoGAMList", function(x) {
     if(length(x@data) == 0) {
         return(NULL)
     }
-        
-    names(colData(x))
+    rownames(slot(gg@data[[1]], "colData"))
 })
 
 ##' @describeIn GenoGAMList The names of the dimensions of GenoGAMList
 setMethod("dimnames", "GenoGAMList", function(x) {
     list(names(x@data[[1]]), colnames(x))
+})
+
+##' @describeIn GenoGAMList A boolean function that is true if object uses HDF5 backend
+setMethod("is.HDF5", signature(object = "GenoGAMList"), function(object) {
+    res <- slot(object, "hdf5")
+    return(res)
 })
 
 ## Test GenoGAM
@@ -571,11 +582,7 @@ setMethod("[", c("GenoGAMList", "GRanges"), function(x, i) {
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
     
-    if(getFamily(gg) == "nb") {
-        fam <- "Negative Binomial"
-    }
-    
-    cat("Family: ", fam, "\n")
+    cat("Family: ", fam@name, "\n")
     cat("Formula: ", paste(as.character(form), collapse = " "), "\n")
 
     tsize <- params$tileSize
