@@ -191,7 +191,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)[[1]]@seed@file
+            seedFile <- assay(ggd)[[1]]@seed@filepath
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
         }
@@ -212,7 +212,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), nfun)
                 ## create datasets
-                seedFile <- assay(ggd)[[y]]@seed@file
+                seedFile <- assay(ggd)[[y]]@seed@filepath
                 h5file <- .createH5DF(seedFile, settings, d, chunk = c(getChunkSize(ggd), nfun))
 
                 ## create chunks coordinates for given chromosome
@@ -249,12 +249,18 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             
             if(slot(ggd, "hdf5")) {
 
+                ## make names, as HDF5 does not store them
+                colDataNames <- .makeNames(design(ggd))
+                df <- DataFrame(matrix(,length(colDataNames),0))
+                rownames(df) <- colDataNames
+
                 ## TODO: In Hdf5 write function need to attach log entry to HDF5 dumpLog
                 h5fits <- HDF5Array::HDF5Array(h5file, name = "fits")
                 h5ses <- HDF5Array::HDF5Array(h5file, name = "ses")
                 se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                                  assays = list(fits = h5fits,
                                                                                se = h5ses))
+                colData(se) <- df
                 return(se)
             }
 
@@ -299,7 +305,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                           params = modelParams,
                           settings = settings,
                           coefs = coefs,
-                          knots = knots)
+                          knots = knots,
+                          hdf5 = slot(ggd, "hdf5"))
     }
 
     ## Dataset not split
@@ -318,7 +325,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)@seed@file
+            seedFile <- assay(ggd)@seed@filepath
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
 
@@ -397,7 +404,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                       params = modelParams,
                       settings = settings,
                       coefs = coefs,
-                      knots = knots)
+                      knots = knots,
+                      slot(ggd, "hdf5"))
     }
 
     futile.logger::flog.info("Finished")

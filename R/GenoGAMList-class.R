@@ -297,7 +297,7 @@ setMethod("colnames", "GenoGAMList", function(x) {
     if(length(x@data) == 0) {
         return(NULL)
     }
-    rownames(slot(gg@data[[1]], "colData"))
+    rownames(slot(x@data[[1]], "colData"))
 })
 
 ##' @describeIn GenoGAMList The names of the dimensions of GenoGAMList
@@ -581,6 +581,7 @@ setMethod("[", c("GenoGAMList", "GRanges"), function(x, i) {
     tracks <- colnames(gg)
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
+    fam <- getFamily(gg)
     
     cat("Family: ", fam@name, "\n")
     cat("Formula: ", paste(as.character(form), collapse = " "), "\n")
