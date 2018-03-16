@@ -12,18 +12,18 @@ setClassUnion("FunctionOrNULL", c("function", "NULL"))
 #'
 #' @slot ll The log-likelihood function. Gives a scalar
 #' @slot gradient The first derivative of the log-likelihood functions. Gives a vector.
-#' @slot hessian The second derivative of the log-likelihood functions. Gives a matrix.
+#' @slot hessian An integer indicating the family. Negative Binomial = 1, Quasi-Binomial = 2.
 #' @name GenoGAMFamily-class
 #' @rdname GenoGAMFamily-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 setClass("GenoGAMFamily",
          slots = list(ll = "FunctionOrNULL",
                       gradient = "FunctionOrNULL",
-                      hessian = "FunctionOrNULL",
+                      hessian = "integer",
                       name = "character"),
          prototype = list(ll = NULL,
                           gradient = NULL,
-                          hessian = NULL,
+                          hessian = 0L,
                           name = NA_character_))
 
 ## ===========
@@ -45,8 +45,8 @@ setClass("GenoGAMFamily",
 }
 
 .validateHessian <- function(object) {
-    if(class(slot(object, "hessian")) != "function") {
-        return("'hessian' must be a function object")
+    if(class(slot(object, "hessian")) != "integer") {
+        return("'hessian' must be an integer object")
     }
     NULL
 }
@@ -66,3 +66,10 @@ setClass("GenoGAMFamily",
 }
 
 S4Vectors::setValidity2("GenoGAMFamily", .validateGenoGAMFamily)
+
+#' Constructor
+#' @noRd
+GenoGAMFamily <- function(...) {
+    return(new("GenoGAMFamily", ...))
+}
+

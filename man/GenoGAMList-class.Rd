@@ -22,8 +22,10 @@
 \alias{rowRanges,GenoGAMList-method}
 \alias{fits,GenoGAMList-method}
 \alias{se,GenoGAMList-method}
+\alias{pval,GenoGAMList-method}
 \alias{colnames,GenoGAMList-method}
 \alias{dimnames,GenoGAMList-method}
+\alias{is.HDF5,GenoGAMList-method}
 \title{GenoGAMList class}
 \usage{
 GenoGAMList(..., ggd = NULL, fromHDF5 = FALSE)
@@ -64,9 +66,13 @@ GenoGAMList(..., ggd = NULL, fromHDF5 = FALSE)
 
 \S4method{se}{GenoGAMList}(object)
 
+\S4method{pval}{GenoGAMList}(object)
+
 \S4method{colnames}{GenoGAMList}(x)
 
 \S4method{dimnames}{GenoGAMList}(x)
+
+\S4method{is.HDF5}{GenoGAMList}(object)
 }
 \arguments{
 \item{...}{Slots of the GenoGAM class. See the slot description.}
@@ -135,9 +141,13 @@ GenoGAMList object
 
 \item \code{se}: An accessor to the standard errors
 
+\item \code{pval}: An accessor to the pvalues
+
 \item \code{colnames}: column names of GenoGAMList
 
 \item \code{dimnames}: The names of the dimensions of GenoGAMList
+
+\item \code{is.HDF5}: A boolean function that is true if object uses HDF5 backend
 }}
 
 \section{Slots}{

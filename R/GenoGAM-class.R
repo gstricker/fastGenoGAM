@@ -3,6 +3,7 @@
 ##################
 
 #' @include GenoGAMSettings-class.R
+#' @include GenoGAMFamily-class.R
 NULL
 
 setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
@@ -36,7 +37,7 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' @exportClass GenoGAM
 setClass("GenoGAM",
          contains = "RangedSummarizedExperiment",
-         slots = list(family = "character",
+         slots = list(family = "GenoGAMFamily",
              design = "formula",
              sizeFactors = "numeric",
              factorialDesign = "DataFrame",
@@ -45,7 +46,7 @@ setClass("GenoGAM",
              coefs = "HDF5OrMatrix",
              knots = "numeric",
              hdf5 = "logical"),
-         prototype = prototype(family = NA_character_,
+         prototype = prototype(family = GenoGAMFamily(),
              design = ~ s(x),
              sizeFactors = numeric(),
              factorialDesign = S4Vectors::DataFrame(),
@@ -59,8 +60,8 @@ setClass("GenoGAM",
 ## ========
 
 .validateFamilyType <- function(object) {
-    if(class(slot(object, "family")) != "character") {
-        return("'family' must be a character object")
+    if(class(slot(object, "family")) != "GenoGAMFamily") {
+        return("'family' must be a GenoGAMFamily object")
     }
     NULL
 }
@@ -306,6 +307,14 @@ setMethod("se", "GenoGAM", function(object) {
     assays(object)[["se"]]
 })
 
+##' @export
+setGeneric("pval", function(object) standardGeneric("pval"))
+
+##' @describeIn GenoGAM An accessor to the pvalues
+setMethod("pval", "GenoGAM", function(object) {
+    assays(object)[["pval"]]
+})
+
 ##' @describeIn GenoGAM column names of GenoGAM
 setMethod("colnames", "GenoGAM", function(x) {
     rownames(slot(x, "colData"))
@@ -314,6 +323,14 @@ setMethod("colnames", "GenoGAM", function(x) {
 ##' @describeIn GenoGAM The names of the dimensions of GenoGAM
 setMethod("dimnames", "GenoGAM", function(x) {
     list(names(x), rownames(slot(x, "colData")))
+})
+
+setGeneric("is.HDF5", function(object) standardGeneric("is.HDF5"))
+
+##' @describeIn GenoGAM A boolean function that is true if object uses HDF5 backend
+setMethod("is.HDF5", signature(object = "GenoGAM"), function(object) {
+    res <- slot(object, "hdf5")
+    return(res)
 })
 
 
@@ -398,12 +415,8 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     tracks <- colnames(gg)
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
-    
-    if(getFamily(gg) == "nb") {
-        fam <- "Negative Binomial"
-    }
-    
-    cat("Family: ", fam, "\n")
+       
+    cat("Family: ", fam@name, "\n")
     cat("Formula: ", paste(as.character(form), collapse = " "), "\n")
 
     tsize <- params$tileSize

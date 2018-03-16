@@ -25,8 +25,10 @@
 \alias{assay,GenoGAM,missing-method}
 \alias{fits,GenoGAM-method}
 \alias{se,GenoGAM-method}
+\alias{pval,GenoGAM-method}
 \alias{colnames,GenoGAM-method}
 \alias{dimnames,GenoGAM-method}
+\alias{is.HDF5,GenoGAM-method}
 \alias{[,GenoGAM,GRanges,ANY,ANY-method}
 \title{GenoGAM class}
 \usage{
@@ -54,9 +56,13 @@ GenoGAM(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE)
 
 \S4method{se}{GenoGAM}(object)
 
+\S4method{pval}{GenoGAM}(object)
+
 \S4method{colnames}{GenoGAM}(x)
 
 \S4method{dimnames}{GenoGAM}(x)
+
+\S4method{is.HDF5}{GenoGAM}(object)
 
 \S4method{[}{GenoGAM,GRanges,ANY,ANY}(x, i)
 }
@@ -116,9 +122,13 @@ to access them.
 
 \item \code{se}: An accessor to the standard errors
 
+\item \code{pval}: An accessor to the pvalues
+
 \item \code{colnames}: column names of GenoGAM
 
 \item \code{dimnames}: The names of the dimensions of GenoGAM
+
+\item \code{is.HDF5}: A boolean function that is true if object uses HDF5 backend
 
 \item \code{[}: Additional subsetting by single brackets
 }}

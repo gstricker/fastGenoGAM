@@ -3,6 +3,7 @@
 #################
 
 #' @include helper.R
+#' @include GenoGAMFamily-class.R
 NULL
 
 #' GenoGAMSEtup class
@@ -36,7 +37,7 @@ setClass("GenoGAMSetup",
                       designMatrix = "dgCMatrix", beta = "matrix",
                       se = "list", penaltyMatrix = "dgCMatrix",
                       formula = "formula", design = "matrix",
-                      offset = "numeric", family = "character",
+                      offset = "numeric", family = "GenoGAMFamily",
                       response = "numeric", fits = "list",
                       control = "list"),
          prototype = list(params = list(lambda = 0, theta = 0, eps = 0,
@@ -45,7 +46,7 @@ setClass("GenoGAMSetup",
                           beta = matrix(,0,0), se = list(),
                           penaltyMatrix = new("dgCMatrix"), formula = ~1,
                           design = matrix(,0,0),
-                          offset = numeric(), family = "nb", 
+                          offset = numeric(), family = GenoGAMFamily(), 
                           response = integer(), fits = list(),
                           control = list(eps = 1e-6, maxiter = 1000, alpha = 1,
                                          rho = 0.5, c = 1e-4, m = 6)))
@@ -125,8 +126,8 @@ setClass("GenoGAMSetup",
 }
 
 .validateFamilyType <- function(object) {
-    if(class(slot(object, "family")) != "character") {
-        return("'family' must be a character object")
+    if(class(slot(object, "family")) != "GenoGAMFamily") {
+        return("'family' must be a GenoGAMFamily object")
     }
     NULL
 }
@@ -249,10 +250,20 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
 
     offset <- rep(sizeFactors(ggd), each = getTileSize(ggd))
 
+    if(family == "nb") {
+        fam <- GenoGAMFamily(ll = ll_pen_nb,
+                             gradient = gr_ll_pen_nb,
+                             hessian = 1L,
+                             name = "nb")
+    }
+    else {
+        fam <- GenoGAMFamily()
+    }
+
     ggsetup <- GenoGAMSetup(params = list(lambda = lambda, theta = theta, eps = eps,
                                           order = order, penorder = penorder),
                             knots = knots, formula = design(ggd),
-                            design = des, offset = offset, family = family,
+                            design = des, offset = offset, family = fam,
                             designMatrix = X, penaltyMatrix = S, control = control)
   
     return(ggsetup)

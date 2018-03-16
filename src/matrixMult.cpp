@@ -2,6 +2,7 @@
 
 #include <RcppArmadillo.h>
 #include <Rcpp.h>
+#include <cmath>
 
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -62,15 +63,45 @@ arma::vec gr_ll_pen_nb(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::ve
 }
 
 // [[Rcpp::export]]
+arma::vec negbin_hessian(arma::vec y, arma::vec mu, double theta) {
+  arma::vec ls = mu % (1 + y/theta);
+  arma::vec rs = square(1 + mu/theta);
+  arma::vec dd = ls/rs;
+  return dd;
+}
+
+// [[Rcpp::export]]
+double ll_pen_qbd(arma::vec beta, arma::sp_mat X, arma::vec y, arma::vec offset,
+		     double theta, double lambda, arma::sp_mat S, double ll_factor,
+		     double lambda_factor, int n) {
+  
+  arma::vec lin = vectorise(X * beta);
+  arma::vec eta = offset + lin;
+  arma::vec mu = exp(eta)/(exp(eta) + 1);
+
+  arma::vec a = log(mu);
+  arma::vec b = -log(lgamma(y)) - log(lgamma(1 - y));
+  arma::vec aux = mu + y * theta;
+  arma::vec c = log(aux) * (y - 1);
+  arma::vec d = (1 - y) * (log(1 - aux));
+  double res = accu(a + b + c + d);
+  return res;
+}
+
+// [[Rcpp::export]]
 arma::sp_mat compute_pen_hessian(arma::vec beta, arma::sp_mat X, arma::sp_mat XT, arma::vec offset,
-				 arma::vec y, arma::sp_mat S, double lambda, double theta) {
+				 arma::vec y, arma::sp_mat S, double lambda, double theta, int hessid) {
   arma::vec lin = vectorise(X * beta);
   arma::vec eta = offset + lin;
   arma::vec mu = exp(eta);
 
-  arma::vec ls = mu % (1 + y/theta);
-  arma::vec rs = square(1 + mu/theta);
-  arma::vec dd = ls/rs;
+  // 1 = negative binomial
+  // 2 = quasi-binomial
+  arma::vec dd = ones<vec>(size(y));
+
+  if(hessid == 1) {
+    dd = negbin_hessian(y, mu, theta);
+  }
 
   arma::sp_mat D = diagmat(sp_mat(dd));
 

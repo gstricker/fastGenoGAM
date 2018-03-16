@@ -24,3 +24,4 @@ when computng spline errors i) do not rextract those and ii) compute directly th
 - add logging in parallel computation (see vignette on BiocParallel: Logging)
 
 - set #define ARMA_64BIT_WORD or check if it is set and throw warning that matrices should not exceed certain size.
+- Minimal Lambda inclusion

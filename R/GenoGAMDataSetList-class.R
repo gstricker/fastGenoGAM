@@ -3,6 +3,7 @@
 ## ====================
 #' @include GenoGAMSettings-class.R
 #' @include GenoGAMDataSet-class.R
+#' @include GenoGAM-class.R
 NULL
 
 setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
@@ -304,7 +305,7 @@ setMethod("getTileNumber", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$numTiles
 })
 
-##' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
+##' @describeIn GenoGAMDataSetList A boolean function that is true if object uses HDF5 backend
 setMethod("is.HDF5", signature(object = "GenoGAMDataSetList"), function(object) {
     res <- slot(object, "hdf5")
     return(res)

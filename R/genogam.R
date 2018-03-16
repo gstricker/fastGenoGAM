@@ -356,9 +356,16 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             ## TODO: In Hdf5 write function need to attach log entry to HDF5 dumpLog
             h5fits <- HDF5Array::HDF5Array(h5file, name = "fits")
             h5ses <- HDF5Array::HDF5Array(h5file, name = "ses")
+
+            ## make names, as HDF5 does not store them
+            colDataNames <- .makeNames(design(ggd))
+            df <- DataFrame(matrix(,length(colDataNames),0))
+            rownames(df) <- colDataNames
+            
             se <- SummarizedExperiment::SummarizedExperiment(rowRanges = rr,
                                                              assays = list(fits = h5fits,
                                                                            se = h5ses))
+            colData(se) <- df
             coefs <- HDF5Array::HDF5Array(coefsFile, name = "coefs")
         }
 

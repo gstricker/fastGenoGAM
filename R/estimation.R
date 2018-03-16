@@ -22,24 +22,22 @@
         return(res)
     }
 
-    if (distr == "nb") {
-        f <- ll_pen_nb
-        gr <- gr_ll_pen_nb
-        args <- list(beta = betas, X = X, XT = Matrix::t(X), offset = unname(offset),
-                     y = y, S = S, lambda = params$lambda, theta = params$theta)
-    }
-
     if(sum(slot(ggs, "response")) == 0){
         par <- rep(0, nrow(betas))
-        res <- list(par = matrix(par, nrow = length(par), ncol = 1), converged = TRUE, iterations = 0)
+        res <- list(par = matrix(par, nrow = length(par), ncol = 1),
+                    converged = TRUE, iterations = 0)
         matrix(res$par, nrow = length(res$par), ncol = 1)
     }
     else {
-        H <- do.call(.compute_hessian, c(list(family = distr), args))
+        H <- .compute_hessian(family = distr, beta = betas, X = X,
+                              XT = Matrix::t(X), offset = unname(offset),
+                              y = y, S = S, lambda = params$lambda,
+                              theta = params$theta)
 
-        res <- .newton(x0 = betas, H0 = H, f = f, gr = gr, X = X, y = y,
+        res <- .newton(x0 = betas, H0 = H, fam = distr, X = X, y = y,
                        offset = offset, theta = params$theta,
-                       lambda = params$lambda, S = S, fact = dim(X), control = control)
+                       lambda = params$lambda, S = S, fact = dim(X),
+                       control = control)
     }
         
     return(res)
@@ -60,13 +58,11 @@
     S <- slot(setup, "penaltyMatrix")
     distr <- slot(setup, "family")
     des <- slot(setup, "design")
-
-    if(distr == "nb") {
-        args <- list(beta = betas, X = X, XT = Matrix::t(X), offset = unname(offset),
-                     y = y, S = S, lambda = params$lambda, theta = params$theta)
-    }
-
-    H <- do.call(.compute_hessian, c(list(family = distr), args))
+  
+    H <- .compute_hessian(family = distr, beta = betas, X = X,
+                          XT = Matrix::t(X), offset = unname(offset),
+                          y = y, S = S, lambda = params$lambda,
+                          theta = params$theta)
 
     Hinv <- .invertHessian(H)
 
@@ -115,15 +111,12 @@
 #' Compute the penalized Hessian
 #' @noRd
 .compute_hessian <- function(family, ...){
-    res <- as(matrix(,0, 0), "dgCMatrix")
     
-    if(family == "nb") {
-        res <- compute_pen_hessian(...)
+    if(is.na(slot(family, "name"))) {
+        res <- as(matrix(,0, 0), "dgCMatrix")
     }
-    
-    ## if(length(d) == 0) {
-    ##     return(as(matrix(,0, 0), "dgCMatrix"))
-    ## }
+
+    res <- compute_pen_hessian(hessid = slot(family, "hessian"), ...)
     
     return(res)
 }
@@ -134,14 +127,14 @@
     sparseinv::Takahashi_Davis(H)
 }
 
-.Hupdate <- function(x, X = X, XT = XT, ...) {
+.Hupdate <- function(family, x, X, XT, ...) {
     
-    H <- compute_pen_hessian(beta = x, X = X, XT = XT, ...)
+    H <- compute_pen_hessian(hessid = slot(family, "hessian"), beta = x, X = X, XT = XT, ...)
     return(H)
     
 }
 
-.newton <- function(x0, H0, f, gr, X, control = list(), fact = c(1,1), ...) {
+.newton <- function(x0, H0, fam, X, control = list(), fact = c(1,1), ...) {
     ## If list is empty then replace with the proper settings
     if(length(control) == 0) {
         control <- list(eps = 1e-6, maxiter = 1000)
@@ -151,6 +144,10 @@
     if(missing(H0)) {
         H0 <- Matrix::bandSparse(length(x0), k = 0)
     }
+
+    ## set Family
+    f <- slot(fam, "ll")
+    gr <- slot(fam, "gradient")
     
     ## initialize variables
     k <- 1
@@ -183,7 +180,7 @@
         normGrad <- sqrt(as.numeric(crossprod(gradNext))) 
 
         ## create new Hessian
-        H <- .Hupdate(xnext, X = X, XT = XT, ...)
+        H <- .Hupdate(family = fam, x = xnext, X = X, XT = XT, ...)
 
         ## reset params variables
         x <- xnext
