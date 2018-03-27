@@ -124,6 +124,7 @@ lines(lower_ip, lty = 2)
 
 > error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1
 
-**Solution:** First, make sure you have all Armadillo dependencies installed correctly. See ![here](http://arma.sourceforge.net/download.html)
+**Solution:** First, make sure you have all Armadillo dependencies installed correctly. See [here](http://arma.sourceforge.net/download.html)
 
-Second, the error is most likely related to the fact, that Armadillo is using 32bit matrices, thus causing problems for large matrices fastGenoGAM is using. The solution is to enable `ARMA_64BIT_WORD`, which is not enabled in RcppArmadillo by default. This should have been done during compilation, but if it fails for some reason you can do it manually with `#define ARMA_64BIT_WORD 1` in `my_R_Directory/lib/R/library/RcppArmadillo/include/RcppArmadilloConfig.h`
+Second, the error is most likely related to the fact, that Armadillo is using 32bit matrices, thus causing problems for large matrices fastGenoGAM is using. The solution is to enable `ARMA_64BIT_WORD`, which is not enabled in RcppArmadillo by default. This should have been done during compilation, but if it fails for some reason you can do it manually with `#define ARMA_64BIT_WORD 1` in `my_R_Directory/lib/R/library/RcppArmadillo/include/RcppArmadilloConfig.h`.
+See [here](https://stackoverflow.com/questions/40592054/large-matrices-in-rcpparmadillo-via-the-arma-64bit-word-define)
