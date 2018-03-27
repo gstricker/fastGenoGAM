@@ -120,7 +120,7 @@ lines(lower_ip, lty = 2)
 
 # FAQ
 
-1. An error occurs during model fitting along those lines:
+**Problem:** An error occurs during model fitting along those lines:
 
 > error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1
 
