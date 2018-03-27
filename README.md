@@ -20,7 +20,7 @@ This is the brief version of the usual workflow of fastGenoGAM. It involves:
 The dataset used is restricted to the first 100kb of the first yeast chromosome
 
 First we set some need variables
-```{r}
+```r
 library(fastGenoGAM)
 
 ## specify folder and experiment design path
@@ -42,7 +42,7 @@ BiocParallel::register(BiocParallel::SnowParam(worker = 2))
 
 Then we specify some optional parameters
 
-```{r}
+```r
 ## specify chunk and overhang size. It is possible to skip this,
 ## but the automatic specification would prevent us from using
 ## multiple tiles in such a small example.
@@ -58,7 +58,7 @@ And finally read in the data to obtain a `Robject{"GenoGAMDataSet"}` object.
 Warnings about out-of-bound ranges can be ignored, as they occur during the 
 shifting process when the genome gets tiled. It is trimmed accordingly.
 
-```{r}
+```r
 ## build the GenoGAMDataSet with HDF5 backend
 ggd <- GenoGAMDataSet(
   expDesign, directory = folder,
@@ -72,7 +72,7 @@ ggd
 
 Compute Size factors
 
-```{r}
+```r
 ## compute size factors
 ggd <- computeSizeFactors(ggd)
 
@@ -84,7 +84,7 @@ assay(ggd)
 
 Compute the model
 
-```{r}
+```r
 ## compute model without parameter estimation to save time in vignette
 result <- genogam(ggd, lambda = 4601, theta = 4.51)
 
@@ -96,14 +96,14 @@ se(result)
 ```
 
 Compute log p-values
-```{r}
+```r
 computeSignificance(result)
 
 pval(result)
 ````
 
 Plot results of the center 10kb, where both tiles are joined together.
-```{r}
+```r
 idx <- 45000:55000
 upper_input <- fits(result)$chrI[,"s(x)"][idx] + 2*se(result)$chrI[,"s(x)"][idx]
 lower_input <- fits(result)$chrI[,"s(x)"][idx] - 2*se(result)$chrI[,"s(x)"][idx]
