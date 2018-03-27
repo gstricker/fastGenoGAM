@@ -147,20 +147,21 @@ computeSignificance(result)
 pval(result)
 ````
 
-Plot results
+Plot results of the center 10kb, where both tiles are joined together.
 ```{r}
-upper_input <- fits(result)$chrI[,"s(x)"] + 2*se(result)$chrI[,"s(x)"]
-lower_input <- fits(result)$chrI[,"s(x)"] - 2*se(result)$chrI[,"s(x)"]
+idx <- 45000:55000
+upper_input <- fits(result)$chrI[,"s(x)"][idx] + 2*se(result)$chrI[,"s(x)"][idx]
+lower_input <- fits(result)$chrI[,"s(x)"][idx] - 2*se(result)$chrI[,"s(x)"][idx]
 
-upper_ip <- fits(result)$chrI[,"s(x):genotype"] + 2*se(result)$chrI[,"s(x):genotype"]
-lower_ip <- fits(result)$chrI[,"s(x):genotype"] - 2*se(result)$chrI[,"s(x):genotype"]
+upper_ip <- fits(result)$chrI[,"s(x):genotype"][idx] + 2*se(result)$chrI[,"s(x):genotype"][idx]
+lower_ip <- fits(result)$chrI[,"s(x):genotype"][idx] - 2*se(result)$chrI[,"s(x):genotype"][idx]
 
 par(mfrow = c(2,1))
-plot(fits(result)$chrI[,"s(x)"], type = "l")
+plot(fits(result)$chrI[,"s(x)"][idx], type = "l")
 lines(upper_input, lty = 2)
 lines(lower_input, lty = 2)
 
-plot(fits(result)$chrI[,"s(x):genotype"], type = "l")
+plot(fits(result)$chrI[,"s(x):genotype"][idx], type = "l")
 lines(upper_ip, lty = 2)
 lines(lower_ip, lty = 2)
 ```
@@ -169,9 +170,9 @@ lines(lower_ip, lty = 2)
 
 1. An error occurs during model fitting along those lines:
 
-'error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1'
+> error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1
 
-First, make sure you have all Armadillo dependencies installed correctly. See ![here](http://arma.sourceforge.net/download.html)
+**Solution:** First, make sure you have all Armadillo dependencies installed correctly. See ![here](http://arma.sourceforge.net/download.html)
 
 Second, the error is most likely related to the fact, that Armadillo is using 32bit matrices, thus causing problems for large matrices fastGenoGAM is using. The solution is to enable `ARMA_64BIT_WORD`, which is not enabled in RcppArmadillo by default. This should have been done during compilation, but if it fails for some reason you can do it manually with `#define ARMA_64BIT_WORD 1` in `my_R_Directory/lib/R/library/RcppArmadillo/include/RcppArmadilloConfig.h`
 
