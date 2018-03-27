@@ -25,32 +25,32 @@ The example dataset that is part of the package is restricted to the first 100kb
 ```r
 library(fastGenoGAM)
 
-A.
+## A.
 ## specify folder and experiment design path
 wd <- system.file("extdata/Set1", package='fastGenoGAM')
 folder <- file.path(wd, "bam")
 expDesign <- file.path(wd, "experimentDesign.txt")
 
-B.
+## B.
 ## set HDF5 folder where the data will be stored
 ## Note, don't usually use /tmp because otherwise all your data and results get deleted later
 hdf5_folder <- tempdir()
 settings <- GenoGAMSettings(hdf5Control = list(dir = hdf5_folder))
 
-C. 
+## C. 
 ## register parallel backend (default is "the number of cores" - 2)
 ## Here we also use the SnowParam backend which is advised for larger data
 ## For yeast MulticoreParam should also do fine
 BiocParallel::register(BiocParallel::SnowParam(worker = 2))
 
-D.
+## D.
 ## specify chunk and overhang size. It is possible to skip this,
 ## but the automatic specification would prevent us from using
 ## multiple tiles in such a small example.
 chunkSize <- 50000
 overhangSize <- 1000
 
-E.
+## E.
 ## the experiment design reflecting the underlying GAM
 ## x = position
 design <- ~ s(x) + s(x, by = genotype)
