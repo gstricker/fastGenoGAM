@@ -32,13 +32,14 @@
   vignette: >
     %\VignetteIndexEntry{"Modeling ChIP-Seq data with GenoGAM2: A Genome-wide generalized additive model"}
     %\VignetteEngine{knitr::rmarkdown}
-    %\VignetteEncoding{UTF-8}  
- ---
+    %\VignetteEncoding{UTF-8}
+---
+ 
 
 ```{r setup, echo=FALSE, results="hide"}
 knitr::opts_chunk$set(tidy=FALSE, cache=TRUE,
                       dev="png",
-                      message=FALSE, error=FALSE, warning=TRUE)
+                      message=FALSE, error=FALSE, warning=FALSE)
 ```
 
 GenoGAM version: packageVersion("GenoGAM")
@@ -164,20 +165,24 @@ lower_input <- fits(result)$chrI[,"s(x)"][idx] - 2*se(result)$chrI[,"s(x)"][idx]
 
 upper_ip <- fits(result)$chrI[,"s(x):genotype"][idx] + 2*se(result)$chrI[,"s(x):genotype"][idx]
 lower_ip <- fits(result)$chrI[,"s(x):genotype"][idx] - 2*se(result)$chrI[,"s(x):genotype"][idx]
+```
 
+```{r plot, fig.cap = "The fit of input (upper) and IP (lower) for chrI:45000-55000", fig.wide = TRUE}
 par(mfrow = c(2,1))
-plot(fits(result)$chrI[,"s(x)"][idx], type = "l")
+plot(fits(result)$chrI[,"s(x)"][idx], type = "l", ylab = "log-fit")
 lines(upper_input, lty = 2)
 lines(lower_input, lty = 2)
 
-plot(fits(result)$chrI[,"s(x):genotype"][idx], type = "l")
+plot(fits(result)$chrI[,"s(x):genotype"][idx], type = "l", ylab = "log-fit")
 lines(upper_ip, lty = 2)
 lines(lower_ip, lty = 2)
 ```
 
 # FAQ
 
-1. An error occurs during model fitting along those lines:
+## Armadillo Error
+
+**Problem:** An error occurs during model fitting along those lines:
 
 > error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1
 
