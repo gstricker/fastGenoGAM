@@ -113,7 +113,11 @@ ggd <- GenoGAMDataSet(
 )
 
 ggd
+```
 
+Compute Size factors
+
+```{r}
 ## compute size factors
 ggd <- computeSizeFactors(ggd)
 
@@ -121,16 +125,59 @@ ggd
 
 ## the data
 assay(ggd)
+```
 
+Compute the model
+
+```{r}
 ## compute model without parameter estimation to save time in vignette
 result <- genogam(ggd, lambda = 4601, theta = 4.51)
 
 result
+
+## the fit and standard error
+fits(result)
+se(result)
 ```
+
+Compute log p-values
+```{r}
+computeSignificance(result)
+
+pval(result)
+````
+
+Plot results
+```{r}
+upper_input <- fits(result)$chrI[,"s(x)"] + 2*se(result)$chrI[,"s(x)"]
+lower_input <- fits(result)$chrI[,"s(x)"] - 2*se(result)$chrI[,"s(x)"]
+
+upper_ip <- fits(result)$chrI[,"s(x):genotype"] + 2*se(result)$chrI[,"s(x):genotype"]
+lower_ip <- fits(result)$chrI[,"s(x):genotype"] - 2*se(result)$chrI[,"s(x):genotype"]
+
+par(mfrow = c(2,1))
+plot(fits(result)$chrI[,"s(x)"], type = "l")
+lines(upper_input, lty = 2)
+lines(lower_input, lty = 2)
+
+plot(fits(result)$chrI[,"s(x):genotype"], type = "l")
+lines(upper_ip, lty = 2)
+lines(lower_ip, lty = 2)
+```
+
+# FAQ
+
+1. An error occurs during model fitting along those lines:
+
+'error: matrix multiplication: incompatible matrix dimensions: 22333830147200x5360120267008000 and 4294972496x1'
+
+First, make sure you have all Armadillo dependencies installed correctly. See ![here](http://arma.sourceforge.net/download.html)
+
+Second, the error is most likely related to the fact, that Armadillo is using 32bit matrices, thus causing problems for large matrices fastGenoGAM is using. The solution is to enable `ARMA_64BIT_WORD`, which is not enabled in RcppArmadillo by default. This should have been done during compilation, but if it fails for some reason you can do it manually with `#define ARMA_64BIT_WORD 1` in `my_R_Directory/lib/R/library/RcppArmadillo/include/RcppArmadilloConfig.h`
 
 # Acknowledgments
 
-We thank Alexander Engelhardt, Mathilde Galinier, Simon Wood, Herv\'e Pag\`es, and Martin Morgan for input in the development of GenoGAM2
+We thank Alexander Engelhardt, Mathilde Galinier, Simon Wood, Herv\'e Pag\`es, and Martin Morgan for input in the development of fastGenoGAM
 
 # Session Info
 
