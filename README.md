@@ -5,58 +5,61 @@
 > *Bioinformatics*, **33**:15.
 > [10.1093/bioinformatics/btx150](https://doi.org/10.1093/bioinformatics/btx150)
 
-# TL;DR (with HDF5)
+# Quick guide (with HDF5)
 
 This is the brief version of the usual workflow of fastGenoGAM. It involves:
 
-- Reading in data through `Rfunction{"GenoGAMDataSet"}` to get a `Robject{"GenoGAMDataSet"}` object. This is done with the HDF5 backend.
+- Reading in data through `GenoGAMDataSet()` to get a `GenoGAMDataSet` object. This is done with the HDF5 backend.
   
-- Computing size factors with `Rfunction{"computeSizeFactors"}`
+- Computing size factors with `computeSizeFactors()`
   
-- Compute the model with `Rfunction{"genogam"}` to get the result `Robject{"GenoGAM"}` object
+- Compute the model with `genogam()` to get the final `GenoGAM` object
 
-- compute position-wise log p-values
+- compute position-wise log p-values with `computeSignificance()`
 
-The dataset used is restricted to the first 100kb of the first yeast chromosome
+## Getting started
+The example dataset that is part of the package is restricted to the first 100kb of the first yeast chromosome. 
 
-First we set some need variables
+1. We set some meta variables
+
 ```r
 library(fastGenoGAM)
 
+A.
 ## specify folder and experiment design path
 wd <- system.file("extdata/Set1", package='fastGenoGAM')
 folder <- file.path(wd, "bam")
 expDesign <- file.path(wd, "experimentDesign.txt")
 
+B.
 ## set HDF5 folder where the data will be stored
-## Note, don't usually use /tmp because all your data and
-## results get deleted otherwise later
+## Note, don't usually use /tmp because otherwise all your data and results get deleted later
 hdf5_folder <- tempdir()
 settings <- GenoGAMSettings(hdf5Control = list(dir = hdf5_folder))
 
+C. 
 ## register parallel backend (default is "the number of cores" - 2)
 ## Here we also use the SnowParam backend which is advised for larger data
 ## For yeast MulticoreParam should also do fine
 BiocParallel::register(BiocParallel::SnowParam(worker = 2))
-```
 
-Then we specify some optional parameters
-
-```r
+D.
 ## specify chunk and overhang size. It is possible to skip this,
 ## but the automatic specification would prevent us from using
 ## multiple tiles in such a small example.
 chunkSize <- 50000
 overhangSize <- 1000
 
+E.
 ## the experiment design reflecting the underlying GAM
 ## x = position
 design <- ~ s(x) + s(x, by = genotype)
 ```
 
-And finally read in the data to obtain a `Robject{"GenoGAMDataSet"}` object.
+2. Read in the data to obtain a `GenoGAMDataSet` object.
 Warnings about out-of-bound ranges can be ignored, as they occur during the 
-shifting process when the genome gets tiled. It is trimmed accordingly.
+shifting process when the genome gets tiled. It is trimmed accordingly. I have not yet figured out how to silent those warnings.
+The usual `suppressWarnings` does not seem to work in the parallel Snow environment.
 
 ```r
 ## build the GenoGAMDataSet with HDF5 backend
@@ -66,43 +69,37 @@ ggd <- GenoGAMDataSet(
   design = design,
   settings = settings, hdf5 = TRUE
 )
-
-ggd
 ```
 
-Compute Size factors
+3. Compute Size factors
 
 ```r
 ## compute size factors
 ggd <- computeSizeFactors(ggd)
-
-ggd
-
-## the data
-assay(ggd)
 ```
 
-Compute the model
+## Fitting the model
+
+1. Compute model with fixed hyperparameters
 
 ```r
 ## compute model without parameter estimation to save time in vignette
 result <- genogam(ggd, lambda = 4601, theta = 4.51)
 
-result
-
-## the fit and standard error
+## Check the fit and standard error
 fits(result)
 se(result)
 ```
 
-Compute log p-values
+2. Compute log p-values
 ```r
 computeSignificance(result)
 
+## check p-values
 pval(result)
 ````
 
-Plot results of the center 10kb, where both tiles are joined together.
+Plot results of the center 10kb, where both tiles are joined together. A proper plotting functions is in development.
 ```r
 idx <- 45000:55000
 upper_input <- fits(result)$chrI[,"s(x)"][idx] + 2*se(result)$chrI[,"s(x)"][idx]
