@@ -1,48 +1,3 @@
----
-  title: "Modeling ChIP-Seq data with GenoGAM2: A Genome-wide generalized additive model"
-  shorttitle: "fastGenoGAM"
-  author: 
-  - name: Georg Stricker
-	affiliation: &id Technical University Munich
-	email: georg.stricker@gmx.net
-  - name: Julien Gagneur
-	affiliation: *id
-	email: gagneur@in.tum.de
-  date: "`r format(Sys.Date(), '%m/%d/%Y')`"
-  package: fastGenoGAM
-  abstract: >
-	Many genomic assays lead to noisy observations of a biological quantity of 
-	interest varying along the genome. This is the case for ChIP-Seq, for which
-	read counts reflect local protein occupancy of the ChIP-ed protein. 
-	The fastGenoGAM package allows statistical analysis of genome-wide data with 
-	smooth functions using generalized additive models. 
-	<!-- It provides methods for -->
-	<!-- the statistical analysis of ChIP-Seq data including inference of protein  -->
-	<!-- occupancy, and pointwise and region-wise differential analysis as well as  -->
-	<!-- peak calling with position-wise confidence bands. Estimation of dispersion  -->
-	<!-- and smoothing parameters is performed by cross-validation. Scaling of  -->
-	<!-- generalized additive model fitting to whole chromosomes is achieved by  -->
-	<!-- parallelization over overlapping genomic intervals.  -->
-	This vignette explains
-	the use of the package for typical ChIP-Seq analysis workflow.
-  output: 
-    BiocStyle::html_document:
-		toc_float: true
-  bibliography: bibliog.bib
-  vignette: >
-    %\VignetteIndexEntry{Vignette Title}
-    %\VignetteEngine{knitr::rmarkdown}
-    %\VignetteEncoding{UTF-8}  
- ---
-
-```{r setup, echo=FALSE, results="hide"}
-knitr::opts_chunk$set(tidy=FALSE, cache=TRUE,
-                      dev="png",
-                      message=FALSE, error=FALSE, warning=TRUE)
-```
-
-GenoGAM version: packageVersion("GenoGAM")
-
 **Note:** if you use fastGenoGAM in published research, please cite:
 
 > Stricker and Engelhardt, et al. (2017)
@@ -175,16 +130,3 @@ lines(lower_ip, lty = 2)
 **Solution:** First, make sure you have all Armadillo dependencies installed correctly. See ![here](http://arma.sourceforge.net/download.html)
 
 Second, the error is most likely related to the fact, that Armadillo is using 32bit matrices, thus causing problems for large matrices fastGenoGAM is using. The solution is to enable `ARMA_64BIT_WORD`, which is not enabled in RcppArmadillo by default. This should have been done during compilation, but if it fails for some reason you can do it manually with `#define ARMA_64BIT_WORD 1` in `my_R_Directory/lib/R/library/RcppArmadillo/include/RcppArmadilloConfig.h`
-
-# Acknowledgments
-
-We thank Alexander Engelhardt, Mathilde Galinier, Simon Wood, Herv\'e Pag\`es, and Martin Morgan for input in the development of fastGenoGAM
-
-# Session Info
-
-```{r}
-sessionInfo()
-```
-
-# References
-
