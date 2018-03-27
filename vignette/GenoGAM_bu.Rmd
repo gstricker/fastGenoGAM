@@ -1,53 +1,62 @@
-%\VignetteIndexEntry{GenoGAM: Genome-wide generalized additive models}
-%\VignettePackage{GenoGAM}
-%\VignetteEngine{knitr::knitr}
+---
+  title: "Modeling ChIP-Seq data with GenoGAM2: A Genome-wide generalized additive model"
+  shorttitle: "GenoGAM2"
+  author: 
+  - name: Georg Stricker
+	affiliation: &id Technical University Munich
+	email: georg.stricker@gmx.net
+  - name: Julien Gagneur
+	affiliation: *id
+	email: gagneur@in.tum.de
+  date: "`r format(Sys.Date(), '%m/%d/%Y')`"
+  package: GenoGAM2
+  abstract: >
+	Many genomic assays lead to noisy observations of a biological quantity of 
+	interest varying along the genome. This is the case for ChIP-Seq, for which
+	read counts reflect local protein occupancy of the ChIP-ed protein. 
+	The GenoGAM2 package allows statistical analysis of genome-wide data with 
+	smooth functions using generalized additive models. 
+	<!-- It provides methods for -->
+	<!-- the statistical analysis of ChIP-Seq data including inference of protein  -->
+	<!-- occupancy, and pointwise and region-wise differential analysis as well as  -->
+	<!-- peak calling with position-wise confidence bands. Estimation of dispersion  -->
+	<!-- and smoothing parameters is performed by cross-validation. Scaling of  -->
+	<!-- generalized additive model fitting to whole chromosomes is achieved by  -->
+	<!-- parallelization over overlapping genomic intervals.  -->
+	This vignette explains
+	the use of the package for typical ChIP-Seq analysis workflow.
+  output: 
+    BiocStyle::html_document:
+		toc_float: true
+  bibliography: bibliog.bib
+  vignette: >
+    %\VignetteIndexEntry{Vignette Title}
+    %\VignetteEngine{knitr::rmarkdown}
+    %\VignetteEncoding{UTF-8}  
+ ---
 
-% To compile this document
-% library('knitr'); rm(list=ls()); knit('GenoGAM.Rnw'); system("pdflatex GenoGAM")
+```{r setup, echo=FALSE, results="hide"}
+knitr::opts_chunk$set(tidy=FALSE, cache=TRUE,
+                      dev="png",
+                      message=FALSE, error=FALSE, warning=TRUE)
+```
 
-\documentclass[11pt]{article}
-\usepackage{amsmath}
-\newcommand{\genogam}{\textit{GenoGAM}}
-\newcommand{\chipseq}{ChIP-Seq}
+GenoGAM version: packageVersion("GenoGAM")
 
-<<knitr, echo=FALSE, results="hide">>=
-library("knitr")
-opts_chunk$set(
-  tidy=FALSE,
-  dev="png",
-  #fig.show="hide",
-  fig.width=4, fig.height=4.5,
-  dpi = 300,
-  cache=TRUE,
-  message=FALSE,
-  warning=FALSE)
-@ 
+**Note:** if you use GenoGAM2 in published research, please cite:
 
-<<style, eval=TRUE, echo=FALSE, results="asis">>=
-BiocStyle::latex()
-@
+> Stricker and Engelhardt, et al. (2017)
+> GenoGAM: Genome-wide generalized additive models for ChIP-seq analysis
+> *Bioinformatics*, **33**:15.
+> [10.1093/bioinformatics/btx150](https://doi.org/10.1093/bioinformatics/btx150)
 
-<<loadGenoGAM, echo=FALSE>>=
-library("fastGenoGAM")
-@
+# TL;DR
 
 
-\author{Georg Stricker$^{1}$, Julien Gagneur$^{1}$ \\[1em] 
-\small{$^{1}$ Technische Universit\"at M\"unchen, Department of Informatics, Garching, Germany} 
-}
 
-\title{GenoGAM: Genome-wide generalized additive models}
+## Quick start
 
-\begin{document}
-
-\maketitle
-
-\begin{abstract}
-Many genomic assays lead to noisy observations of a biological quantity of interest varying along the genome. This is the case for \chipseq{}, for which read counts reflect local protein occupancy of the ChIP-ed protein. The \genogam{} package allows statistical analysis of genome-wide data with smooth functions using generalized additive models. It provides methods for the statistical analysis of \chipseq{} data including inference of protein occupancy, and pointwise and region-wise differential analysis as well as peak calling with position-wise confidence bands. Estimation of dispersion and smoothing parameters is performed by cross-validation. Scaling of generalized additive model fitting to whole chromosomes is achieved by parallelization over overlapping genomic intervals. This vignette explains the use of the package for typical \chipseq{} analysis workflow. 
-
-\vspace{1em}
-
-\includegraphics[width=0.8\textwidth]{Overview}
+<!-- ![An overview over the GenoGAM2 work process](img/overview.png) -->
 
 \textbf{GenoGAM version:} \Sexpr{packageVersion("GenoGAM")}
 

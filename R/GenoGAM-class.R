@@ -325,6 +325,7 @@ setMethod("dimnames", "GenoGAM", function(x) {
     list(names(x), rownames(slot(x, "colData")))
 })
 
+##' @export
 setGeneric("is.HDF5", function(object) standardGeneric("is.HDF5"))
 
 ##' @describeIn GenoGAM A boolean function that is true if object uses HDF5 backend
@@ -415,6 +416,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     tracks <- colnames(gg)
     samples <- rownames(colData(gg))
     sf <- sizeFactors(gg)
+    fam <- getFamily(gg)
        
     cat("Family: ", fam@name, "\n")
     cat("Formula: ", paste(as.character(form), collapse = " "), "\n")

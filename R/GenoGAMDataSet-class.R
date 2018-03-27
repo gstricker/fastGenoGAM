@@ -427,7 +427,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     ## deal with overlapping ranges to reduce complexity and redundancy
     l$chromosomes <- GenomicRanges::reduce(l$chromosomes)
-    .local <- function(y, sl) {
+    .local <- function(id, sl, chromList) {
+        y <- chromList[id,]
 
         ## load package for SnowParam or BatchJobs backend
         suppressPackageStartupMessages(require(fastGenoGAM, quietly = TRUE))
@@ -480,7 +481,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
 
     ## run local function
-    tileList <- BiocParallel::bplapply(l$chromosomes, .local, sl = l)
+    tileList <- BiocParallel::bplapply(1:length(l$chromosomes), .local, sl = l, chromList = l$chromosomes)
 
     ## concatenate results into one list
     tiles <- do.call("c", tileList)
