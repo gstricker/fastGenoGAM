@@ -51,7 +51,8 @@ Suggests:
     genefilter (>= 1.54.2),
     ggplot2 (>= 2.1.0),
     testthat,
-    knitr
+    knitr,
+    rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
 RoxygenNote: 6.0.1
