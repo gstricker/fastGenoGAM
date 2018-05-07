@@ -191,7 +191,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)[[1]]@seed@filepath
+            seedFile <- assay(ggd)[[1]]@seed@seed@filepath
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
         }
@@ -212,7 +212,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), nfun)
                 ## create datasets
-                seedFile <- assay(ggd)[[y]]@seed@filepath
+                seedFile <- assay(ggd)[[y]]@seed@seed@filepath
                 h5file <- .createH5DF(seedFile, settings, d, chunk = c(getChunkSize(ggd), nfun))
 
                 ## create chunks coordinates for given chromosome
@@ -325,7 +325,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)@seed@filepath
+            seedFile <- assay(ggd)@seed@seed@filepath
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
 
@@ -405,7 +405,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                       settings = settings,
                       coefs = coefs,
                       knots = knots,
-                      slot(ggd, "hdf5"))
+                      hdf5 = slot(ggd, "hdf5"))
     }
 
     futile.logger::flog.info("Finished")

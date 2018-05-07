@@ -74,10 +74,11 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
 .pvals_default <- function(gg, log.p = FALSE) {
     tracks <- colnames(gg)
     pvals <- lapply(tracks, function(id) {
-        base <- median(fits(gg)[[id]]) ## get the logarithmic base level of the background
-        futile.logger::flog.debug(paste("The base level for track", id, "computed as:", base))
+        ## base <- median(fits(gg)[[id]]) ## get the logarithmic base level of the background
+        base <- 0
+        ## futile.logger::flog.debug(paste("The base level for track", id, "computed as:", base))
         
-        res <- -2*pnorm(base, mean = fits(gg)[[id]], sd = se(gg)[[id]], log.p = log.p)
+        res <- 2*pnorm(base, mean = abs(fits(gg)[[id]]), sd = se(gg)[[id]], log.p = log.p)
         return(res)
     })
     df <- DataFrame(data.frame(pvals))
@@ -97,7 +98,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
     ## make HDF5 group in existing HDF5 file for p-values
     dims <- dim(assay(gg))
     
-    seedFile <- assay(gg)@seed@filepath
+    seedFile <- assay(gg)@seed@seed@filepath
     h5file <- rhdf5::H5Fopen(seedFile)
     chunks <- getHDF5DumpChunkDim(dims, "double")
     h5name <- "pvals"
@@ -115,7 +116,8 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
     pvals <- lapply(1:length(tracks), function(id) {
         sp_fits <- fits(gg)[,id]
         sp_ses <- se(gg)[,id]
-        base <- .compute_base(sp_fits, nquantiles)
+        ## base <- .compute_base(sp_fits, nquantiles)
+        base <- 0
         futile.logger::flog.debug(paste("The base level for track", tracks[id], "computed as:", base))
         
         .hdf5_block_pval(x = sp_fits, se = sp_ses, base = base,
@@ -139,7 +141,8 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
     chroms <- names(sp_fits)
 
     ## compute base level
-    base <- .compute_base(sp_fits, nquantiles)
+    ## base <- .compute_base(sp_fits, nquantiles)
+    base <- 0
     if(futile.logger::flog.threshold() == "DEBUG") {
         for(ii in 1:length(base)) {
             futile.logger::flog.debug(paste("The base level for track", tracks[ii], "computed as:", base[[ii]]))
@@ -152,7 +155,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
         ## make HDF5 group in existing HDF5 file for p-values
         dims <- dim(assay(gg@data[[y]]))
     
-        seedFile <- assay(gg@data[[y]])@seed@filepath
+        seedFile <- assay(gg@data[[y]])@seed@seed@filepath
         h5file <- rhdf5::H5Fopen(seedFile)
         chunks <- assay(gg@data[[y]])@seed@chunkdim
         h5name <- "pvals"
@@ -272,7 +275,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
         xtmp <- as.vector(xblock, mode = "numeric")
         setmp <- as.vector(seblock, mode = "numeric")
 
-        res <- -2*pnorm(base, mean = xtmp, sd = setmp, log.p = log.p)
+        res <- 2*pnorm(base, mean = abs(xtmp), sd = setmp, log.p = log.p)
         idx <- ranges(subgrid)[1]
         rhdf5::h5write(as.matrix(res, ncol = 1), file = h5file, name = name,
                        index = list(start(idx):end(idx), id))
@@ -288,23 +291,24 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
 
     ## first get median of medians
     ## chromosome dependent medians vary too much, especially for small organisms
-    base <- lapply(tracks, function(id) {
-        sqn <- numeric(nquantiles * len)
-        for(ii in 1:len) {
-            idx <- (1:nquantiles) + nquantiles * (ii - 1)
-            sqn[idx] <- quantile(fits(gg)[[ii]][[id]], probs = seq(0 , 1, length.out = nquantiles))
-        }
-        res <- median(sqn)
-        futile.logger::flog.debug(paste("The base level for track", id, "computed as:", res))
-        return(res)
-    })
+    ## base <- lapply(tracks, function(id) {
+    ##     sqn <- numeric(nquantiles * len)
+    ##     for(ii in 1:len) {
+    ##         idx <- (1:nquantiles) + nquantiles * (ii - 1)
+    ##         sqn[idx] <- quantile(fits(gg)[[ii]][[id]], probs = seq(0 , 1, length.out = nquantiles))
+    ##     }
+    ##     res <- median(sqn)
+    ##     futile.logger::flog.debug(paste("The base level for track", id, "computed as:", res))
+    ##     return(res)
+    ## })
+    base <- list(0, 0)
     names(base) <- tracks
 
     ## now compute p-values
     lapply(chroms, function(y) {
         futile.logger::flog.debug(paste("Computing p-values for chromosome", y))
         pvals <- lapply(tracks, function(id) {
-            res <- -2*pnorm(base[[id]], mean = fits(gg)[[y]][[id]], sd = se(gg)[[y]][[id]], log.p = log.p)
+            res <- -2*pnorm(base[[id]], mean = abs(fits(gg)[[y]][[id]]), sd = se(gg)[[y]][[id]], log.p = log.p)
             return(res)
         })
         df <- DataFrame(data.frame(pvals))
