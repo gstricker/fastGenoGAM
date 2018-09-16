@@ -86,17 +86,25 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
 #' @return A vector of log-pvalues.
 #' @noRd
 .deseq <- function(countMatrix, factors) {
-    ##factors <- as.factor(factors)
-    form <- as.formula(paste0("~", paste(names(factors), collapse = "+")))
+    if(nrow(factors) == (ncol(factors) + 1)) {
+        futile.logger::flog.info("The design matrix has the same number of samples and coefficients. The top regions for cross-validation will be determined by the highest sum of counts.")
+        ## The -1 is necessary to be consistent with the ordering of p-values calculated in
+        ## the 'else' clause. P-values go from smallest (most significant) to biggest
+        ## (least significant). 
+        res <- -1 * rowSums(countMatrix)
+    }
+    else {
+        form <- as.formula(paste0("~", paste(names(factors), collapse = "+")))
         
-    dds <- DESeq2::DESeqDataSetFromMatrix(
-        countData = countMatrix,
-        colData = factors,
-        design = form)
+        dds <- DESeq2::DESeqDataSetFromMatrix(
+                           countData = countMatrix,
+                           colData = factors,
+                           design = form)
 
-    dds <- DESeq2::DESeq(dds)
-    ans <- DESeq2::results(dds)
-    res <- ifelse(ans$log2FoldChange > 0,  log10(ans$pvalue/2), 0)
-    res[is.na(res)] = 0
+        dds <- DESeq2::DESeq(dds)
+        ans <- DESeq2::results(dds)
+        res <- ifelse(ans$log2FoldChange > 0,  log10(ans$pvalue/2), 0)
+        res[is.na(res)] = 0
+    }
     return(res)
 }
