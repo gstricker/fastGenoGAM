@@ -305,7 +305,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
     else {
         
-        if(class(experimentDesign) == "RangedSummarizedExperiment") {
+        if(class(experimentDesign) == "RangedSummarizedExperiment" |
+           class(experimentDesign) == "SummarizedExperiment") {
             futile.logger::flog.debug("Building GenoGAMDataSet from SummarizedExperiment object")
             ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
                                          chunkSize = chunkSize,
@@ -359,6 +360,22 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     sf <- rep(0, length(colnames(se)))
     ##names(sf) <- colnames(se)
 
+    ## initialize sumMatrix on hdf5 if needed
+    if(hdf5) {
+        ## make tiles for sum matrix storage
+        suml <- list(chromosomes = gr,
+                     chunkSize = slot(settings, "dataControl")$regionSize,
+                     overhangSize = min(overhangSize, slot(settings, "dataControl")$regionSize - 1))
+        sumTiles <- .makeTiles(suml)
+        
+        d <- c(length(sumTiles), nrow(colData(se)))
+        chunk <- c(1, nrow(colData(se)))
+        h5SumMatrix <- .createH5DF("sumMatrix", settings, d, chunk, what = "sumMatrix")
+    }
+    else {
+        h5SumMatrix <- NULL
+    }
+
     ## update chromosome list
     if(is.null(slot(settings, "chromosomeList"))) {
         slot(settings, "chromosomeList") <- GenomeInfoDb::seqlevels(gr)
@@ -386,8 +403,17 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
 
     ## write to hdf5 if necessary
     if(hdf5){
-        h5df <- .writeToHDF5(assay(se), file = "dataset", settings = settings)
+        ## write assay to HDF5 and substitute
+        coords <- .getCoordinates(ggd)
+        chunks <- .getChunkCoords(coords)
+        h5df <- .writeToHDF5(assay(se), file = "dataset", chunks = as(chunks, "IRanges"),
+                             settings = settings)
         assays(ggd) <- list(h5df)
+        
+        ## write sumMatrix to HDF5 and substitute
+        rhdf5::h5write(sumMatrix, file = h5SumMatrix, name = "sumMatrix")
+        h5sm <- HDF5Array::HDF5Array(h5SumMatrix, name = "/sumMatrix")
+        slot(ggd, "countMatrix") <- h5sm
     }
     
     ## check if everything was set fine
@@ -733,7 +759,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
         h5SumMatrix <- NULL
     }
 
-    ## finally build object
+    ## final build object
     ## if split make sure to keep the seqinfo same for all list elements,
     ## as this will make it easily possible to merge them later if necessary
     if(split) {

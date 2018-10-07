@@ -117,7 +117,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
         sp_fits <- fits(gg)[,id]
         sp_ses <- se(gg)[,id]
         ## base <- .compute_base(sp_fits, nquantiles)
-        base <- 0
+        base <- integer(length(tracks))
         futile.logger::flog.debug(paste("The base level for track", tracks[id], "computed as:", base))
         
         .hdf5_block_pval(x = sp_fits, se = sp_ses, base = base,
@@ -142,7 +142,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
 
     ## compute base level
     ## base <- .compute_base(sp_fits, nquantiles)
-    base <- 0
+    base <- integer(length(tracks))
     if(futile.logger::flog.threshold() == "DEBUG") {
         for(ii in 1:length(base)) {
             futile.logger::flog.debug(paste("The base level for track", tracks[ii], "computed as:", base[[ii]]))
@@ -157,7 +157,7 @@ computeSignificance <- function(gg, log.p = TRUE, nquantiles = 5) {
     
         seedFile <- assay(gg@data[[y]])@seed@seed@filepath
         h5file <- rhdf5::H5Fopen(seedFile)
-        chunks <- assay(gg@data[[y]])@seed@chunkdim
+        chunks <- assay(gg@data[[y]])@seed@seed@chunkdim
         h5name <- "pvals"
         tryCatch(
             .createH5Dataset(h5file, name = h5name, settings = gg@settings, d = dims,

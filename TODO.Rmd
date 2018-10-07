@@ -7,19 +7,14 @@
 - peak calling
 - export function
 - suppressWarnings does not work in tile construction if parallel backend is Snow
-- optimize estimation of parameters (linesearch algorithm, see Nocedal algorithm 3.5 and 3.6, maybe C implementations might be of use in some parts)
-- make family class object, to keep all functions in there
 - make exportable cross validation function
-- use C code in lbfgs (direction computation)?
-- split unittests for estimation and genogam function
-- make gaussian part of release version?
+- include gaussian
+- include quasi-binomial
 - get rid of warning messages during read data on makeTile level and on readingBAM level
 - deactivate ncv control within genogam
 - make predict function
 - keep in ggs object the design "i,e eg  (1,0,1,1)" and the spline templates matrices "ie, eg (X0, X1)".
 when computng spline errors i) do not rextract those and ii) compute directly the spline standard errors just once using and then put them back into the returned object by replicating values. You will gain a factor 4 on experiment with duplicates and much more if we apply it for large datasets (say groups of 100 vs 100 patients).
-
-- to speed up further: try some compilation functions and let have the Renjin folks have a go. This is their domain of excellence.
 
 - add logging in parallel computation (see vignette on BiocParallel: Logging)
 
