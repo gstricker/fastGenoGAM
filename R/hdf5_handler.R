@@ -162,6 +162,40 @@
     invisible()
 }
 
+#' Helper function to make a grid for HDF5 blocks.
+#' Grid is used to move from block to block and apply functions
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @noRd
+.makeGrid <- function(x) {
+    max_block_size <- DelayedArray:::getAutoBlockLength(type(x))
+    xsize <- nrow(x)
+    mult <- as.integer(ceiling(xsize/max_block_size))
+    optimal_block_size <- as.integer(xsize/mult)
+    grid <- DelayedArray::blockGrid(x, optimal_block_size)
+    
+    return(grid)
+}
+
+#' The essential block_APPLY function that controls functions to be applied
+#' on a block which work in a map-reduce manner
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @noRd
+.block_APPLY <- function(x, fun, ...) {
+
+    grid <- .makeGrid(x)
+    nblock <- length(grid)
+
+    qn <- numeric(nblock)
+    for (b in seq_len(nblock)) {
+        ## take block and apply function
+        block <- DelayedArray:::read_block(x, grid[[b]])
+        qn[b] <- fun$APPLY(block, ...)
+    }
+    res <- fun$COMBINE(qn)
+    
+    return(res)
+}
+
 ### The folowing is modified from HDF5Array package. Thanks to Herve Pagès.
 ## NOT USED as locking does not work for too many parallel workers
 

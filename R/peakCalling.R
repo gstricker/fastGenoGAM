@@ -61,10 +61,16 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
     if(is.null(smooth)) {
         smooth <- colnames(fit)
     }
-    
+
     ## set range to complete set if not specified
     if(is.null(range)) {
-        range <- .extractGR(rowRanges(fit))
+        if(is_split){
+            range_list <- lapply(rowRanges(fit), .extractGR)
+            range <- do.call("c", unname(range_list))
+        }
+        else {
+            range <- .extractGR(rowRanges(fit))
+        }
     }
 
     ## set threshold if not set
@@ -75,7 +81,11 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
     }
 
     ## compute background parameters
-    background <- .computeBackground(fits(fit), se(fit), smooth)
+    background <- .computeBackground(fits(fit), se(fit), smooth, is_split, is_hdf5)
+
+    if(sum(is.na(background)) > 0) {
+        stop("Couldn't compute the background parameters. Check the objects fits(object), se(object) and colnames(object) for class/type or missing values.")
+    }
 
     ## define grid over which to perform peak calling in parallel
     nranges <- 1:length(range)
@@ -91,7 +101,8 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
                                          grid = range_grid, fits = fits(fit),
                                          se = se(fit), rowRanges = rowRanges(fit),
                                          range = range, smooth = smooth,
-                                         background = background)
+                                         background = background, is_split = is_split,
+                                         is_hdf5 = is_hdf5)
 
         ## concatenate by smooths
         for(lev in unique(range_grid[,2])) {
@@ -106,7 +117,8 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
                                            se = se(fit), rowRanges = rowRanges(fit),
                                            range = range, smooth = smooth,
                                            background = background, maxgap = maxgap,
-                                           cutoff = cutoff)
+                                           cutoff = cutoff, is_split = is_split,
+                                           is_hdf5 = is_hdf5)
 
         for(lev in unique(range_grid[,2])) {
             id <- which(range_grid[,2] == lev)
@@ -140,6 +152,14 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
     return(pks)
 }
 
+#' find local peaks in a signal for HDF5 backend
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @noRd
+.findPeaks_hdf5 <- function(x) {
+    pks <- which(diff(sign(diff(as.numeric(x), na.pad=FALSE)),na.pad=FALSE) < 0) + 2
+    return(pks)
+}
+
 #' find local minimas in a signal
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @noRd
@@ -148,146 +168,12 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
     return(pks)
 }
 
-## TODO: needs adjustment for hdf5 and split. This is for default only
-
-#' compute parameters of a background distribution
+#' find local minimas in a signal for HDF5 backend
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @noRd
-.computeBackground <- function(fit, se, smooth) {
-    ## initializing the result matrix for smooths and mu0/var0 
-    res <- data.frame(matrix(,length(smooth), 2), row.names = smooth)
-    colnames(res) <- c("mu0", "var0")
-        
-    for(name in smooth) {
-        all <- fit[,name]
-        se_all <- se[,name]
-        
-        ## if genefilter package not present use median
-        if(!requireNamespace("genefilter", quietly = TRUE)) {
-            futile.logger::flog.info("genefilter package not found, median will be used instead of shorth.")
-            mu0 <- median(all, na.rm=TRUE)
-        }
-        else {
-            mu0 <- genefilter::shorth(all, na.rm=TRUE)
-        }
-
-        mu0_msg <- paste0("mu0 for ", name, " was computed as ", mu0)
-        futile.logger::flog.debug(mu0_msg)
-        
-        left <- all[all <= mu0]
-        right <- abs(left - mu0) + mu0
-        new_data <- c(left, right)
-        var0 <- mad(new_data, na.rm = TRUE)^2
-
-        ## assign afterwards for readability
-        res[name, 'mu0'] <- mu0
-        res[name, 'var0'] <- var0
-
-        var0_msg <- paste0("var0 for ", name, " was computed as ", var0)
-        futile.logger::flog.debug(var0_msg)
-    }
-    return(res)
-}
-
-## ordered by zscore
-.callNarrowPeaks <- function(iter, grid, fits, se, rowRanges, range, smooth, background) {
-    r <- range[grid[iter, 1]] ## the range
-    sx <- smooth[grid[iter, 2]]
-    futile.logger::flog.debug(paste0("Calling peaks in region ", as.character(r)))
-
-    mu0 <- background[sx, 'mu0']
-    var0 <- background[sx, 'var0']
-
-    ## find the region indices 
-    idx <- S4Vectors::queryHits(IRanges::findOverlaps(rowRanges, r))
-    startPos <- idx[1]
-
-    ## find peaks
-    region <- fits[idx, sx]
-    peaks <- .findPeaks(region) + startPos - 1
-    zscore <- (fits[peaks, sx] - mu0)/(sqrt(se[peaks, sx]^2 + var0))
-    pvals <- -pnorm(-zscore, log.p = TRUE)
-    dfpeaks <- data.table::data.table(chromosome = as.character(seqnames(r)),
-                                      pos = peaks,
-                                      zscore = zscore, score = pvals)
-    
-    ## for valleys
-    valleys <- .findValleys(region) + startPos - 1
-    vzscore <- (fits[valleys, sx] - mu0)/(sqrt(se[valleys, sx]^2 + var0))
-    vzscore <- -vzscore
-    dfvalleys <- data.table::data.table(pos = valleys, zscore = vzscore)
-
-    ## compute FDR
-    dfpeaks <- dfpeaks[order(zscore, decreasing = TRUE),]
-    dfvalleys <- dfvalleys[order(zscore, decreasing = TRUE)]
-    fdr <- sapply(dfpeaks$zscore, function(y) {
-        sum(dfvalleys$zscore >= y)/sum(dfpeaks$zscore >= y)
-    })
-    ## adjust fdr for odd length of both vectors -->
-    ## Number of peaks and valleys might differ by one, causing FDR become
-    ## slightly greater than 1
-    fdr <- fdr*(nrow(dfpeaks)/nrow(dfvalleys))
-    dfpeaks$fdr <- fdr
-    dfpeaks$summit <- exp(fits[peaks, sx])
-
-    return(dfpeaks)
-}
-
-.callBroadPeaks <- function(iter, grid, fits, se, rowRanges, range, smooth, background,
-                           maxgap, cutoff){
-    r <- range[grid[iter, 1]] ## the range
-    sx <- smooth[grid[iter, 2]]
-    futile.logger::flog.debug(paste0("Calling peaks in region ", as.character(r)))
-
-    mu0 <- background[sx, 'mu0']
-    var0 <- background[sx, 'var0']
-
-    ## find the region indices 
-    idx <- S4Vectors::queryHits(IRanges::findOverlaps(rowRanges, r))
-    startPos <- idx[1]
-
-    ## compute zscore for all positions
-    zscore <- (fits[idx, sx] - mu0)/(sqrt(se[idx, sx]^2 + var0))
-    pvals <- -pnorm(-zscore, log.p = TRUE)
-    pos <- start(r):end(r)
-
-    signifPos <- pos[pvals >= -log(cutoff)]
-    if(length(signifPos) == 0) {
-      dt <- data.table::data.table()
-    }
-    else {
-      diffs <- abs(diff(signifPos))
-      breaks <- which(diffs > maxgap)
-    
-      starts <- c(signifPos[1], signifPos[breaks + 1])
-      ends <- c(signifPos[breaks], signifPos[length(signifPos)])
-      chrom <- seqnames(r)
-      gr <- GenomicRanges::GRanges(chrom, IRanges(starts, ends))
-      gp <- GenomicRanges::GPos(gr)
-
-      ## non-significant position regions  < maxgap are incorporated into the
-      ## broad peak. Thus we have more positions than signifPos and have to match
-      ## and normalize them to start with 1 in order to use them as an index.
-      indx <- match(pos(gp), pos) - pos[1] + 1
-      gp$zscore <- zscore[indx]
-      gp$pval <- pvals[indx]
-      gp$estimate <- exp(fits[indx, sx])
-      gp$region <- subjectHits(findOverlaps(gp, gr))
-      
-      ## compute significance for regions just like
-      ## in differential binding: 1. Hochberg for a region-wise pvalue
-      ## 2. BH for FDR of the regions between each other. 
-      res <- data.table::data.table(as.data.frame(gr))
-      dt <- data.table::data.table(as.data.frame(gp))
-      pv <- dt[, min(p.adjust(exp(-pval), method="hochberg")), by = region]
-      fpb <- dt[, mean(estimate), by = region]
-      res$score[pv$region] <- pv$V1
-      res$meanSignal[fpb$region] <- fpb$V1
-      res$fdr = p.adjust(res$score, method="BH")
-      res$score <- -log(res$score)
-    }
-
-    return(res)
+.findValleys_hdf5 <- function(x) {
+    pks <- which(diff(sign(diff(as.numeric(x), na.pad=FALSE)),na.pad=FALSE) > 0) + 2
+    return(pks)
 }
 
 #' Write peaks to BED6+3/4 format
