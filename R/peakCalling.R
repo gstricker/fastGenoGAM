@@ -107,7 +107,7 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
         ## concatenate by smooths
         for(lev in unique(range_grid[,2])) {
             id <- which(range_grid[,2] == lev)
-            peaks[[lev]] <- rbindlist(peakList[id]) 
+            peaks[[lev]] <- data.table::rbindlist(peakList[id]) 
         }
     }
 
@@ -122,7 +122,7 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
 
         for(lev in unique(range_grid[,2])) {
             id <- which(range_grid[,2] == lev)
-            peaks[[lev]] <- rbindlist(peakList[id])
+            peaks[[lev]] <- data.table::rbindlist(peakList[id])
             peaks[[lev]] <- peaks[[lev]][width >= minregion,]
         }
         

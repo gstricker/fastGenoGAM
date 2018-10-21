@@ -101,7 +101,7 @@
     startPos <- idx[1]
 
     ## find peaks
-    region <- fits[idx, sx]
+    region <- fits[idx, sx, drop = FALSE]
     peaks <- .findPeaks_hdf5(region) + startPos - 1
     
     if(length(peaks) == 0) {
@@ -110,7 +110,8 @@
                                           fdr = double(), summit = double())
     }
     else {
-        zscore <- (fits[peaks, sx] - mu0)/(sqrt(se[peaks, sx]^2 + var0))
+        zscore <- (fits[peaks, sx, drop = FALSE] - mu0)/
+            (sqrt(se[peaks, sx, drop = FALSE]^2 + var0))
         pvals <- -pnorm(-zscore, log.p = TRUE)
         dfpeaks <- data.table::data.table(chromosome = as.character(seqnames(r)),
                                           pos = peaks,
@@ -119,7 +120,8 @@
 
         ## for valleys
         valleys <- .findValleys_hdf5(region) + startPos - 1
-        vzscore <- (fits[valleys, sx] - mu0)/(sqrt(se[valleys, sx]^2 + var0))
+        vzscore <- (fits[valleys, sx, drop = FALSE] - mu0)/
+            (sqrt(se[valleys, sx, drop = FALSE]^2 + var0))
         vzscore <- -vzscore
         dfvalleys <- data.table::data.table(pos = valleys, zscore = as.numeric(vzscore))
 
@@ -134,7 +136,7 @@
         ## slightly greater than 1
         fdr <- fdr*(nrow(dfpeaks)/nrow(dfvalleys))
         dfpeaks$fdr <- fdr
-        dfpeaks$summit <- as.numeric(exp(fits[peaks, sx]))
+        dfpeaks$summit <- as.numeric(exp(fits[peaks, sx, drop = FALSE]))
     }
 
     return(dfpeaks)
@@ -213,7 +215,7 @@
     idx <- S4Vectors::queryHits(IRanges::findOverlaps(rowRanges[[chr]], r))
 
     ## find peaks
-    region <- fits[[chr]][idx, sx]
+    region <- fits[[chr]][idx, sx, drop = FALSE]
     peaks <- .findPeaks_hdf5(region)
     
     if(length(peaks) == 0) {
@@ -222,7 +224,8 @@
                                           fdr = double(), summit = double())
     }
     else {
-        zscore <- (fits[[chr]][peaks, sx] - mu0)/(sqrt(se[[chr]][peaks, sx]^2 + var0))
+        zscore <- (fits[[chr]][peaks, sx] - mu0)/
+            (sqrt(se[[chr]][peaks, sx]^2 + var0))
         pvals <- -pnorm(-zscore, log.p = TRUE)
         dfpeaks <- data.table::data.table(chromosome = chr,
                                           pos = peaks,
@@ -231,13 +234,14 @@
 
         ## for valleys
         valleys <- .findValleys_hdf5(region)
-        vzscore <- (fits[[chr]][valleys, sx] - mu0)/(sqrt(se[[chr]][valleys, sx]^2 + var0))
+        vzscore <- (fits[[chr]][valleys, sx] - mu0)/
+            (sqrt(se[[chr]][valleys, sx]^2 + var0))
         vzscore <- -vzscore
         dfvalleys <- data.table::data.table(pos = valleys, zscore = as.numeric(vzscore))
 
         ## compute FDR
         dfpeaks <- dfpeaks[order(zscore, decreasing = TRUE),]
-        dfvalleys <- dfvalleys[order(zscore, decreasing = TRUE)]
+        dfvalleys <- dfvalleys[order(zscore, decreasing = TRUE),]
         fdr <- sapply(dfpeaks$zscore, function(y) {
             sum(dfvalleys$zscore >= y)/sum(dfpeaks$zscore >= y)
         })

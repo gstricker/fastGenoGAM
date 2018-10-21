@@ -8,14 +8,14 @@
 #' 
 #' @param gg A GenoGAM object.
 #' @param log.p Should values be returned in log scale?
-#' @return An updated GenoGAM object, where the p-value slot is added.
+#' @return An updated GenoGAM object, where the pvalue slot is added.
 #' @details Note, that in case the data is stored in HDF5 format, the pvalue 'group' is added on hard drive.
 #' That is, unlike any other function in R, where the input object is not changed, it actually
 #' is in this case. If one wishes to have HDF5 data without the pvalue 'group', one has to
-#' backup the HDF5 files prior to computation.
+#' backup the HDF5 files prior to computation or delete them after with \code{rhdf5::h5delete}
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @export
-computeSignificance <- function(gg, log.p = TRUE) {
+computeSignificance <- function(gg, log.p = FALSE) {
 
     if(log.p) {
         futile.logger::flog.info("Computing positionwise log p-values")
@@ -83,24 +83,30 @@ computeSignificance <- function(gg, log.p = TRUE) {
     ## make HDF5 group in existing HDF5 file for p-values
     dims <- dim(SummarizedExperiment::assay(gg))
     
-    seedFile <- SummarizedExperiment::assay(gg)@seed@seed@filepath
+    seedFile <- .get_seed(SummarizedExperiment::assay(gg))
+    h5name <- "pvalue"
+    
+    ## check if h5name already exists
+    h5content <- rhdf5::h5ls(seedFile)
+    if(h5name %in% h5content$name) {
+        futile.logger::flog.warn(paste0("HDF5 matrix '", h5name, "' already exists. Overwriting"))
+        rhdf5::h5delete(seedFile, h5name)
+    }
+    
     h5file <- rhdf5::H5Fopen(seedFile)
-    chunks <- HDF5Array::getHDF5DumpChunkDim(dims, "double")
-    h5name <- "pvals"
-    tryCatch(
-        .createH5Dataset(h5file, name = h5name, settings = gg@settings, d = dims,
-                         chunk = chunks, type = "H5T_IEEE_F32LE"),
-        error = function(e) {
-            warning("'pvals' group already exists. Overwriting.")
-        })
+    chunks <- HDF5Array::getHDF5DumpChunkDim(dims)
+   
+    .createH5Dataset(h5file, name = h5name, settings = gg@settings,
+                     d = dims, chunk = chunks, type = "H5T_IEEE_F32LE")
+    
     ## close file to save initial zero matrix
     rhdf5::H5Fclose(h5file)
     
     ## reopen to write again
     h5file <- rhdf5::H5Fopen(seedFile)
     pvals <- lapply(1:length(tracks), function(id) {
-        sp_fits <- fits(gg)[,id]
-        sp_ses <- se(gg)[,id]
+        sp_fits <- fits(gg)[,id, drop = FALSE]
+        sp_ses <- se(gg)[,id, drop = FALSE]
 
         base <- integer(length(tracks))
         futile.logger::flog.debug(paste("The base level for track", tracks[id], "computed as:", base))
@@ -115,6 +121,9 @@ computeSignificance <- function(gg, log.p = TRUE) {
     ## avoid copying
     h5 <- HDF5Array::HDF5Array(seedFile, h5name)
     gg@assays$data@listData$pval <- h5
+
+    ## close again
+    rhdf5::H5Fclose(h5file)
 }
 
 ## compute pvalue for GenoGAM object with HDF5 and split
@@ -137,23 +146,29 @@ computeSignificance <- function(gg, log.p = TRUE) {
         ## make HDF5 group in existing HDF5 file for p-values
         dims <- dim(SummarizedExperiment::assay(gg@data[[y]]))
     
-        seedFile <- SummarizedExperiment::assay(gg@data[[y]])@seed@seed@filepath
+        seedFile <- .get_seed(SummarizedExperiment::assay(gg@data[[y]]))
+        h5name <- "pvalue"
+
+        ## check if h5name already exists
+        h5content <- rhdf5::h5ls(seedFile)
+        if(h5name %in% h5content$name) {
+            futile.logger::flog.warn(paste0("HDF5 matrix '", h5name, "' in chromosome ", y, " already exists. Overwriting"))
+            rhdf5::h5delete(seedFile, h5name)
+        }
+        
         h5file <- rhdf5::H5Fopen(seedFile)
-        chunks <- SummarizedExperiment::assay(gg@data[[y]])@seed@seed@chunkdim
-        h5name <- "pvals"
-        tryCatch(
-            .createH5Dataset(h5file, name = h5name, settings = gg@settings, d = dims,
-                             chunk = chunks, type = "H5T_IEEE_F32LE"),
-            error = function(e) {
-                warning("'pvals' group already exists. Overwriting.")
-            })
+        chunks <- .get_chunkdim(SummarizedExperiment::assay(gg@data[[y]]))
+        
+        .createH5Dataset(h5file, name = h5name, settings = gg@settings, d = dims,
+                         chunk = chunks, type = "H5T_IEEE_F32LE")
         ## close file to save initial zero matrix
         rhdf5::H5Fclose(h5file)
         
         ## reopen to write again
         h5file <- rhdf5::H5Fopen(seedFile)
         pvals <- lapply(1:length(tracks), function(id) { 
-            .hdf5_block_pval(x = sp_fits[[y]][,id], se = sp_ses[[y]][,id],
+            .hdf5_block_pval(x = sp_fits[[y]][,id, drop = FALSE],
+                             se = sp_ses[[y]][,id, drop = FALSE],
                              base = base[[id]], h5file = h5file,
                              name = h5name, id = id, log.p = log.p)
         })
@@ -163,6 +178,9 @@ computeSignificance <- function(gg, log.p = TRUE) {
         ## avoid copying
         h5 <- HDF5Array::HDF5Array(seedFile, h5name)
         gg@data[[y]]@assays$data@listData$pval <- h5
+
+        ## close again
+        rhdf5::H5Fclose(h5file)
     })
 }
 
@@ -201,7 +219,7 @@ computeSignificance <- function(gg, log.p = TRUE) {
     lapply(chroms, function(y) {
         futile.logger::flog.debug(paste("Computing p-values for chromosome", y))
         pvals <- lapply(tracks, function(id) {
-            res <- -2*pnorm(base[[id]], mean = abs(fits(gg)[[y]][[id]]), sd = se(gg)[[y]][[id]], log.p = log.p)
+            res <- 2*pnorm(base[[id]], mean = abs(fits(gg)[[y]][[id]]), sd = se(gg)[[y]][[id]], log.p = log.p)
             return(res)
         })
         df <- DataFrame(data.frame(pvals))

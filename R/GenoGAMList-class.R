@@ -288,8 +288,8 @@ setMethod("se", "GenoGAMList", function(object) {
 })
 
 ##' @describeIn GenoGAMList An accessor to the pvalues
-setMethod("pval", "GenoGAMList", function(object) {
-    lapply(assays(object), function(y) y[["pval"]])
+setMethod("pvalue", "GenoGAMList", function(object) {
+    lapply(assays(object), function(y) y[["pvalue"]])
 })
 
 ##' @describeIn GenoGAMList column names of GenoGAMList
@@ -422,6 +422,7 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     params <- getParams(x)
     coefs <- getCoefs(x)
     knots <- getKnots(x)
+    hdf5 <- is.HDF5(x)
     
     ## make data slot
     ## subset all SummarizedExperiments
@@ -458,7 +459,7 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
                design = design, sizeFactors = sf,
                family = fam, factorialDesign = cd,
                params = params, coefs = coefs,
-               knots = knots,
+               knots = knots, hdf5 = hdf5,
                data = reduced_se, id = splitid)
 
     return(ggl)
@@ -471,7 +472,7 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
 
     ## need to make even widths, otherwise subsetByOverlaps does it with a warning
     if(any((width(subject) %% 2) == 1)) {
-        futile.logger::flog.info("Some subset ranges have odd widths. Rounding to the next even number.")
+        futile.logger::flog.debug("Some subset ranges have odd widths. Rounding to the next even number.")
         idx <- which((width(subject) %% 2) == 1)
         width(subject)[idx] <- width(subject)[idx] + 1
     }
@@ -483,6 +484,7 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     params <- getParams(query)
     coefs <- getCoefs(query)
     knots <- getKnots(query)
+    hdf5 <- is.HDF5(query)
 
     ## iterate over all SummarizedExperiments and subset
     se <- lapply(query@data, function(se) {
@@ -514,13 +516,13 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
 
     ## make id slot
     splitid <- .rowRangesFromList(reduced_se)
-    splitid$id <- as.character(S4Vectors::runValue(GenomeInfoDb::seqnames(splitid)))
+    splitid$id <- as.character(GenomeInfoDb::seqnames(splitid))
     
     ggl <- new("GenoGAMList", settings = settings,
                design = design, sizeFactors = sf,
                family = fam, factorialDesign = cd,
                params = params, coefs = coefs,
-               knots = knots,
+               knots = knots, hdf5 = hdf5,
                data = reduced_se, id = splitid)
     
     return(ggl)
@@ -601,10 +603,7 @@ setMethod("[", c("GenoGAMList", "GRanges"), function(x, i) {
         }
     }
 
-    chroms <- NA
-    if(!is.null(params$chromosomes)) {
-        chroms <- GenomeInfoDb::seqlevels(params$chromosomes)
-    }
+    chroms <- getSettings(gg)@chromosomeList
     tnum <- params$numTiles
     
     cat("Class:", cl, "\n")

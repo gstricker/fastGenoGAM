@@ -308,11 +308,11 @@ setMethod("se", "GenoGAM", function(object) {
 })
 
 ##' @export
-setGeneric("pval", function(object) standardGeneric("pval"))
+setGeneric("pvalue", function(object) standardGeneric("pvalue"))
 
 ##' @describeIn GenoGAM An accessor to the pvalues
-setMethod("pval", "GenoGAM", function(object) {
-    assays(object)[["pval"]]
+setMethod("pvalue", "GenoGAM", function(object) {
+    assays(object)[["pvalue"]]
 })
 
 ##' @describeIn GenoGAM column names of GenoGAM
@@ -360,7 +360,7 @@ makeTestGenoGAM <- function() {
     names(sdf) <- names(sedf) <- c("s(x)", "s(x):experiment")
     
     se <- SummarizedExperiment(rowRanges = gr, assays = list(fits = sdf, se = sedf))
-    family <- "nb"
+    family <- GenoGAMFamily()
     design <- ~ s(x) + s(x, by = experiment)
     sizeFactors <- c(input = 0, IP = 0)
     params <- list(cv = FALSE)
@@ -381,6 +381,7 @@ makeTestGenoGAM <- function() {
 ##' @describeIn GenoGAM Additional subsetting by single brackets
 setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     gg <- subsetByOverlaps(x, i)
+    slot(gg, "settings")@chromosomeList <- GenomeInfoDb::seqlevels(i)
     return(gg)
 })
 
@@ -436,10 +437,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
         }
     }
 
-    chroms <- NA
-    if(!is.null(params$chromosomes)) {
-        chroms <- GenomeInfoDb::seqlevels(params$chromosomes)
-    }
+    chroms <- getSettings(gg)@chromosomeList
     tnum <- params$numTiles
     
     cat("Class:", cl, "\n")
@@ -538,135 +536,3 @@ setMethod("show", "GenoGAM", function(object) {
 ##     res <- cbind(slot(temp, "positions"), slot(temp, "fits"))
 ##     return(res)
 ## })
-
-## .pvals <- function(gg, log.p = FALSE) {
-##     cols <- names(gg@fits)
-##     colindx <- which(unlist(regexec("se\\.", names(gg@fits))) < 0)
-
-##     res <- data.frame(matrix(NA, nrow(gg@fits), length(colindx)))
-##     for(ii in 1:length(colindx)) {
-##         colname <- cols[colindx[ii]]
-##         secolname <- paste("se", colname, sep = ".")
-##         background <- (regexec(":", colname)[[1]] < 0)
-##         if(background) {
-##             intercept <- median(gg@fits[,colname], na.rm = TRUE)
-##             fitMean <- abs(gg@fits[,colname] - intercept)
-##         }
-##         else fitMean <- abs(gg@fits[,colname])
-##         res[,ii] <- 2*pnorm(0, mean = fitMean, sd = gg@fits[, secolname], log.p = log.p)
-##     }
-##     names(res) <- paste("pvalue", cols[colindx], sep = ".")
-##     return(res)
-## }
-
-## .result <- function(gg, log.p = FALSE) {
-##     if(nrow(getFits(gg)) > 0) {
-##         pvals <- .pvals(gg, log.p)
-##         slot(gg, "fits") <- cbind(slot(gg, "fits"), pvals)
-##     }
-##     return(gg)
-## }
-
-## #' Compute significance.
-## #'
-## #' Based on the model fits this functions computes pointwise pvalues.
-## #'
-## #' @param gg A fitted GenoGAM object.
-## #' @param log.p Should pvalues be returned in log scale?
-## #' @return A GenoGAM object which fits has been updated by the pvalue columns.
-## #' @examples
-## #' ggd <- makeTestGenoGAM()
-## #' ggd <- computeSignificance(ggd)
-## #' head(getFits(ggd))
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @export
-## computeSignificance <- function(gg, log.p = FALSE) {
-##     .result(gg, log.p = log.p)
-## }
-
-## plot.GenoGAM <- function(object, ranges = NULL, seqnames = NULL,
-##                          start = NULL, end = NULL, scale = TRUE,
-##                          pages = 1, select = NULL) {
-##     base <- TRUE
-##     if(require(ggplot2)) {
-##         base <- FALSE
-##     }
-##     sub <- view(ranges = ranges, seqnames = seqnames,
-##                 start = start, end = end)
-##     if(is.null(select)) {
-##         select <- c("s(x)", paste("s(x)", colnames(design(object)), sep = ":"))
-##     }
-##     else {
-##         select <- paste("s(x)", select, sep = ":")
-##     }
-
-##     if(base) {
-##         plot_base(sub, scale = scale, pages = pages,
-##                   select = select)
-##     }
-## }
-
-## ## #' Prediction from fitted GenoGAM
-## ## #'
-## ## #' Takes a fitted ‘GenoGAM’ object produced by ‘genogam()’ and returns
-## ## #' predictions given a new set of values for the model covariates or
-## ## #' the original values used for the model fit. Predictions can be
-## ## #' accompanied by standard errors, based on the posterior distribution
-## ## #' of the model coefficients.
-## ## #'
-## ## #' @param object A GenoGAM object.
-## ## #' @param newdata A GenoGAMDataSet object parallel to the original data set.
-## ## #' @param type Either 'terms', 'link' or 'response'. The first returns the
-## ## #' fits for each spline function. The last two return the fit for the response
-## ## #' variable transformed by the link function ('link') or not ('response').
-## ## #' @param se.fit Should the standard errors be returned?
-## ## #' @param terms Which terms should be returned?
-## ## #' @param exclude Which terms should be excluded?
-## ## #' @return A list of fits and optinally of standard errors.
-## ## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## ## #' @export
-## ## predict.GenoGAM <- function(object, newdata, type = c("terms", "response", "link"),
-## ##                             se.fit = FALSE,
-## ##                             terms = NULL, exclude = NULL) {
-## ##     type <- match.arg(type)
-## ##     if(missing(newdata)) x <- slot(object, "positions")
-## ##     else x <- rowRanges(newdata)
-## ##     rows <- match(pos(x), pos(slot(object, "positions")))
-
-## ##     secols <- which(unlist(regexec("se.fit", names(object@fits))) >= 1)
-
-## ##     if(is.null(terms)) {
-## ##         cols <- which(unlist(regexec("se.fit", names(object@fits))) != 1)
-## ##     }
-## ##     else {
-## ##         cols <- sapply(terms, function(y) {
-## ##             which(unlist(regexec(y, names(object@fits))) >= 1)
-## ##         })
-## ##         if(se.fit) secols <- cols[cols %in% secols]
-## ##         cols <- cols[!(cols %in% secols)]
-## ##     }
-
-## ##     if(!is.null(exclude)) {
-## ##       excols <- sapply(exclude, function(y) {
-## ##           which(unlist(regexec(y, names(object@fits))) >= 1)
-## ##       })
-## ##       cols <- cols[!(cols %in% excols)]
-## ##       secols <- secols[!(secols %in% excols)]
-## ##     }
-    
-## ##     if(type == "response" | type == "link") {
-## ##         cols <- which(unlist(regexec("se.fit", names(object@fits))) != 1)
-## ##         fits <- rowSums(slot(object, "fits")[rows, cols])
-## ##         if(se.fit) sefits <- rowSums(slot(object, "fits")[rows, secols])
-## ##         if(type == "response") {
-## ##             fits <- slot(object, "family")$linkinv(fits)
-## ##             if(se.fit) sefits <- slot(object, "family")$linkinv(sefits)
-## ##         }
-## ##     }
-## ##     else {
-## ##         fits <- slot(object, "fits")[rows, cols]
-## ##         if(se.fit) sefits <- slot(object, "fits")[rows, secols]
-## ##     }
-## ##     if(se.fit) return(list(fit = fits, se.fit = sefits))
-## ##     return(list(fit = fits))
-## ## }

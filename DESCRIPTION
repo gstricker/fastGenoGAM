@@ -20,20 +20,21 @@ Description: This package allows statistical analysis of genome-wide
     achieved by parallelization over overlapping genomic intervals.
 License: GPL-2
 LazyData: true
+Encoding: UTF-8
 Depends:
     R (>= 3.5),
     SummarizedExperiment (>= 1.1.19),
     HDF5Array (>= 1.8.0),
     rhdf5 (>= 2.21.6),
     S4Vectors (>= 0.9.34),
-    Matrix (>= 1.2-8)
+    Matrix (>= 1.2-8),
+    data.table (>= 1.9.4)
 Imports:
     Rcpp (>= 0.12.14),
     sparseinv (>= 0.1.1),
     Rsamtools (>= 1.18.2),
     GenomicRanges (>= 1.23.16),
     BiocParallel (>= 1.5.17),
-    data.table (>= 1.9.4),
     DESeq2 (>= 1.11.23),
     futile.logger (>= 1.4.1),
     GenomeInfoDb (>= 1.7.6),
@@ -55,7 +56,7 @@ Suggests:
     rmarkdown
 VignetteBuilder: knitr
 NeedsCompilation: no
-RoxygenNote: 6.0.1
+RoxygenNote: 6.1.0
 biocViews: Regression, DifferentialPeakCalling, ChIPSeq,
     DifferentialExpression, Genetics, Epigenetics, WholeGenome,
     ChipOnChip
@@ -71,13 +72,18 @@ Collate:
     'GenoGAMSetup-class.R'
     'GenomicTiles-class_dev.R'
     'RcppExports.R'
+    'background.R'
+    'broadPeaks.R'
     'cv.R'
     'devel.R'
+    'diffBinding.R'
     'estimation.R'
     'fastGenoGAM-package.R'
     'genogam.R'
     'hdf5_handler.R'
     'misc.R'
+    'narrowPeaks.R'
+    'peakCalling.R'
     'pvals.R'
     'readData.R'
     'sf.R'

@@ -196,6 +196,26 @@
     return(res)
 }
 
+#' A helper function to get the filepath of an HDF5 file
+.get_seed <- function(x) {
+    if("filepath" %in% slotNames(x)) {
+        return(x@filepath)
+    }
+    else {
+        .get_seed(x@seed)
+    }
+}
+
+#' A helper function to get the filepath of an HDF5 file
+.get_chunkdim <- function(x) {
+    if("chunkdim" %in% slotNames(x)) {
+        return(x@chunkdim)
+    }
+    else {
+        .get_chunkdim(x@seed)
+    }
+}
+
 ### The folowing is modified from HDF5Array package. Thanks to Herve Pagès.
 ## NOT USED as locking does not work for too many parallel workers
 

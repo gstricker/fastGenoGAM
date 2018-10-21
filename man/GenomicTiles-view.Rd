@@ -8,8 +8,8 @@
 \usage{
 view(object, ...)
 
-\S4method{view}{GenoGAMDataSetList}(object, ranges = NULL, seqnames = NULL,
-  start = NULL, end = NULL)
+\S4method{view}{GenoGAMDataSetList}(object, ranges = NULL,
+  seqnames = NULL, start = NULL, end = NULL)
 }
 \arguments{
 \item{object}{A \code{GenomicTiles} object}

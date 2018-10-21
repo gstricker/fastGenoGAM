@@ -72,8 +72,8 @@
     colnames(res) <- c("mu0", "var0")
 
     for(name in smooth) {
-        all <- fit[,name]
-        se_all <- se[,name]
+        all <- fit[,name, drop = FALSE]
+        se_all <- se[,name, drop = FALSE]
         
         ## if genefilter package not present use median
         if(!requireNamespace("genefilter", quietly = TRUE)) {
@@ -144,8 +144,8 @@
     colnames(res) <- c("mu0", "var0")
 
     for(name in smooth) {
-        all <- lapply(fit, function(x) x[,name])
-        se_all <- lapply(se, function(x) x[,name])
+        all <- lapply(fit, function(x) x[,name, drop = FALSE])
+        se_all <- lapply(se, function(x) x[,name, drop = FALSE])
         
         ## if genefilter package not present use median
         if(!requireNamespace("genefilter", quietly = TRUE)) {

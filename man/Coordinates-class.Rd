@@ -12,7 +12,6 @@
 \alias{width,Coordinates-method}
 \alias{end<-,Coordinates-method}
 \alias{start<-,Coordinates-method}
-\alias{width,Coordinates-method}
 \title{Coordinates class}
 \usage{
 Coordinates(start = NULL, end = NULL)

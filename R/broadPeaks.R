@@ -107,7 +107,8 @@
     idx <- S4Vectors::queryHits(IRanges::findOverlaps(rowRanges, r))
 
     ## compute zscore for all positions
-    zscore <- (fits[idx, sx] - mu0)/(sqrt(se[idx, sx]^2 + var0))
+    zscore <- (fits[idx, sx, drop = FALSE] - mu0)/
+        (sqrt(se[idx, sx, drop = FALSE]^2 + var0))
     pvals <- -pnorm(-zscore, log.p = TRUE)
     pos <- start(r):end(r)
 
@@ -133,7 +134,7 @@
         indx <- match(pos(gp), pos) - pos[1] + 1
         gp$zscore <- zscore[indx]
         gp$pval <- pvals[indx]
-        gp$estimate <- exp(fits[indx, sx])
+        gp$estimate <- exp(fits[indx, sx, drop = FALSE])
         gp$region <- S4Vectors::subjectHits(IRanges::findOverlaps(gp, gr))
 
         ## compute significance for regions just like
@@ -230,7 +231,8 @@
     idx <- S4Vectors::queryHits(IRanges::findOverlaps(rowRanges[[chr]], r))
 
     ## compute zscore for all positions
-    zscore <- (fits[[chr]][idx, sx] - mu0)/(sqrt(se[[chr]][idx, sx]^2 + var0))
+    zscore <- (fits[[chr]][idx, sx, drop = FALSE] - mu0)/
+        (sqrt(se[[chr]][idx, sx, drop = FALSE]^2 + var0))
     pvals <- -pnorm(-zscore, log.p = TRUE)
     pos <- start(r):end(r)
     

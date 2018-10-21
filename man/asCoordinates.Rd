@@ -2,7 +2,6 @@
 % Please edit documentation in R/Coordinates-class.R
 \name{asCoordinates}
 \alias{asCoordinates}
-\alias{asCoordinates}
 \title{IRanges to Coordinates}
 \description{
 IRanges to Coordinates

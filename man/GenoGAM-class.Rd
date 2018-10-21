@@ -25,7 +25,7 @@
 \alias{assay,GenoGAM,missing-method}
 \alias{fits,GenoGAM-method}
 \alias{se,GenoGAM-method}
-\alias{pval,GenoGAM-method}
+\alias{pvalue,GenoGAM-method}
 \alias{colnames,GenoGAM-method}
 \alias{dimnames,GenoGAM-method}
 \alias{is.HDF5,GenoGAM-method}
@@ -56,7 +56,7 @@ GenoGAM(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE)
 
 \S4method{se}{GenoGAM}(object)
 
-\S4method{pval}{GenoGAM}(object)
+\S4method{pvalue}{GenoGAM}(object)
 
 \S4method{colnames}{GenoGAM}(x)
 
@@ -122,7 +122,7 @@ to access them.
 
 \item \code{se}: An accessor to the standard errors
 
-\item \code{pval}: An accessor to the pvalues
+\item \code{pvalue}: An accessor to the pvalues
 
 \item \code{colnames}: column names of GenoGAM
 

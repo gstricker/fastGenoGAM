@@ -18,9 +18,6 @@ An object of class GenoGAMSettings
 \description{
 This class is designed to store global settings for the computation of the
 GenoGAM package
-
-The Constructor function for GenoGAMSettings is merely a wrapper for
-new("GenoGAMSettings", ...)
 }
 \details{
 Center can have three values: TRUE, FALSE, NULL. TRUE will

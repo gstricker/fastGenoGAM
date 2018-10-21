@@ -95,15 +95,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         
         ## get the tile ids for CV
         sumMatrix <- getCountMatrix(ggd)
-        ## ncv set to a number, such that CV does not compute more models than
-        ## the actual genogam run. 
-        ## 40 is the average expected number of iterations
-        ## ncv <- min(regions, ceiling(length(new_coords)/(kfolds*40)))
+        
         ncv <- regions
-
-        if(ncv < regions) {
-            futile.logger::flog.debug(paste("Reducing the number of regions to", ncv))
-        }
         
         if(ncv < length(new_coords)) {
             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd)) |
@@ -191,7 +184,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)[[1]]@seed@seed@filepath
+            seedFile <- .get_seed(assay(ggd)[[1]])
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
         }
@@ -212,7 +205,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                 ## the dimension of the matrix for given chromosome
                 d <- c(length(rr), nfun)
                 ## create datasets
-                seedFile <- assay(ggd)[[y]]@seed@seed@filepath
+                seedFile <- .get_seed(assay(ggd)[[y]])
                 h5file <- .createH5DF(seedFile, settings, d, chunk = c(getChunkSize(ggd), nfun))
 
                 ## create chunks coordinates for given chromosome
@@ -325,7 +318,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
             d <- c(nbetas * nfun, length(getIndex(ggd)))
 
             ## create Coefs file
-            seedFile <- assay(ggd)@seed@seed@filepath
+            seedFile <- .get_seed(assay(ggd))
             chunk <- c(nbetas * nfun, 1)
             coefsFile <- .createH5DF(seedFile, settings, d, chunk, what = "coefs")
 

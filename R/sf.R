@@ -42,10 +42,10 @@ computeSizeFactors <- function(ggd, factorGroups = NULL) {
     
     ## compute sizeFactors
     sf <- NULL
-        for(elem in factorGroups) {
-            dds <- .normalize(sumMatrix[,elem, drop = FALSE], factor(elem))
-            sf <- c(sf, log(DESeq2::sizeFactors(dds)))
-        }
+    for(elem in factorGroups) {
+        dds <- .normalize(sumMatrix[,elem, drop = FALSE], factor(elem))
+        sf <- c(sf, log(DESeq2::sizeFactors(dds)))
+    }
     idx <- which(!(colnames(ggd) %in% names(sf)))
     if(length(idx) > 0) {
         zeros <- rep(0, length(idx))
