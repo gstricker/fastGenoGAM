@@ -16,7 +16,7 @@
 #' @export
 
 plot.GenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
-                         start = NULL, end = NULL, scale = TRUE, ...) {
+                         start = NULL, end = NULL, scale = TRUE, cap = TRUE,...) {
     
     ## determine what type of object we are dealing with
     is_hdf5 <- is.HDF5(fit)
@@ -32,55 +32,87 @@ plot.GenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
             stop("Wrong class submitted")
         }
     }
-
-    ###### CONTINUE HERE
     
-    ## Cap for too long regions
-    cap <- 1e6
-    loc <- rowRanges(x)
-    indx <- 1:length(loc)
-    
-    if(is.null(seqnames) & is.null(start) & is.null(end) & is.null(ranges)) {
-        sub <- x
-        if(length(rowRanges(fit)) > cap) {
-            stop("The entire fit is too big. Plotting is not advised, please provide a smaller region.")
-        }
+    ## Set cap if not FALSE
+    if(!cap) {
+        cap <- Inf
     }
     else {
+        ## 1Mio points should be fine
+        cap <- 1e6
+    }
+    
+    if(is.null(seqnames) & is.null(start) & is.null(end) & is.null(ranges)) {
+        stop("Either 'seqnames', and/or 'start' and/or 'end' or 'ranges' has to be provided")
+    }
+    else {
+        ## take care of split rowRanges and different ways
+        ## of supplying the arguments
+        loc <- rowRanges(x)
         
+        ## ranges is preferred to seqnames, start, end
         if(!is.null(ranges)) {
-            ov <- findOverlaps(loc, ranges)
-            indx <- queryHits(ov)
+            if(length(ranges) > 1) {
+                warning("Only one range can be plotted. Taking the first one.")
+            }
+            if(is_split) {
+                seqnames <- as.character(GenomicRanges::seqnames(ranges)[1])
+                loc <- loc[[seqnames]]
+            }
+            ov <- IRanges::findOverlaps(loc, ranges[1])
+            indx <- S4Vectors::queryHits(ov)
         }
+        ## if ranges are not provided revert to seqnames and optional start and end
         else {
+            if(is.null(seqnames)) {
+                stop("Neither 'ranges' nor 'seqnames' are provided. At least one is needed.")
+            }
             if(is.null(start)) {
+                warning("'start' is not provided. Setting it to 1.")
                 start <- 1
             }
             if(is.null(end)) {
+                warning(paste("'end' is not provided. Setting it to the last position of chromosome", seqnames))
                 end <- Inf
             }
-            if(is.null(seqnames)){
-                indx <- which(pos(loc) >= start & pos(loc) <= end)
+            if(is_split) {
+                loc <- loc[[seqnames]]
             }
-            else {
-                indx <- which(seqnames(loc) == seqnames & pos(loc) >= start & pos(loc) <= end)
-            }
+            indx <- which(GenomicRanges::seqnames(loc) == seqnames &
+                          GenomicRanges::pos(loc) >= start & GenomicRanges::pos(loc) <= end)
         }
     }
     if(length(indx) > cap) {
         stop("The fit is too big. Plotting is not advised, please provide a smaller region.")
     }
   
-    ## assemble
-    pos <- pos(loc)[indx]
-    y <- fits(x)[indx,]
+    ## assemble the fit
+    pos <- GenomicRanges::pos(loc)[indx]
+    if(is_split){
+        y <- fits(x)[[seqnames]][indx,]
+    }
+    else {
+        y <- fits(x)[indx,]
+    }
+
+    ## take care of raw data
     inputData <- NULL ## the raw data, not present by default
     if(!is.null(ggd)) {
-        inputData <- assay(ggd)[indx,]
-        inputData[] <- lapply(names(inputData), function(y) inputData[[y]]/exp(sizeFactors(ggd)[y]))
+        if(is_split){
+            inputData <- assay(ggd)[[seqnames]][indx,]
+        }
+        else {
+            inputData <- assay(ggd)[indx,]
+        }
+        ## normalize by size factors
+        inputData[] <- lapply(names(inputData), function(y) {
+            inputData[[y]]/exp(sizeFactors(ggd)[y])
+        })
     }
-    title <- as.character(loc[indx]@pos_runs)
+    title <- as.character(.extractGR(loc[indx]))
 
+
+    ## CONTINUE HERE (FIRST DO THE BASE PLOT)
     ## if(require(Gviz)) {
     ##   plot_gviz()
     ## }
