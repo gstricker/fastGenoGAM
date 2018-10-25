@@ -24,11 +24,11 @@ plot.GenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
     
     ## determine what type of object we are dealing with
     is_hdf5 <- is.HDF5(x)
-    if(class(fit) == "GenoGAMList") {
+    if(class(x) == "GenoGAMList") {
         is_split <- TRUE
     }
     else {
-        if(class(fit) == "GenoGAM") {
+        if(class(x) == "GenoGAM") {
             is_split <- FALSE
         }
         
@@ -117,9 +117,18 @@ plot.GenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
             inputData <- assay(ggd)[indx,]
         }
         ## normalize by size factors
-        inputData[] <- lapply(names(inputData), function(y) {
-            inputData[[y]]/exp(sizeFactors(ggd)[y])
-        })
+        if(is_hdf5) {
+            aux <- lapply(1:ncol(inputData), function(y) {
+                inputData[,1]/exp(sizeFactors(ggd)[y])
+            })
+            names(aux) <- colnames(inputData)
+            inputData <- DataFrame(aux)
+        }
+        else {
+            inputData[] <- lapply(colnames(inputData), function(y) {
+                inputData[[y]]/exp(sizeFactors(ggd)[y])
+            })
+        }
     }
     title <- as.character(fastGenoGAM:::.extractGR(loc[indx]))
 
@@ -146,8 +155,8 @@ plot_base <- function(x, y, se, inputData = NULL, scale = TRUE,
 
     ## compute confidence interval
     intervals <- vector("list", numTracks)
-    names(intervals) <- names(y)
-    for(name in names(y)) {
+    names(intervals) <- colnames(y)
+    for(name in colnames(y)) {
         if(log) {
             intervals[[name]]$upper <- y[,name] + 2*se[,name]
             intervals[[name]]$lower <- y[,name] - 2*se[,name]
@@ -198,16 +207,18 @@ plot_base <- function(x, y, se, inputData = NULL, scale = TRUE,
                 ylim = c(input_ylim[['min']][ii], input_ylim[['max']][ii])
             }
             else {
-                ylim <- inpurt_ylim
+                ylim <- input_ylim
             }
             plot(x, inputData[,ii], type = "p", col = "#73737330", pch = 19,
-                 ylim = ylim, xlab = xlab, ylab = names(inputData)[ii])
+                 ylim = ylim, xlab = xlab, ylab = colnames(inputData)[ii])
         }
         title(main = title,outer=TRUE)
     }
 
     ## plot fits and confidence interval
-    x11()
+    if(!is.null(inputData)) {
+        x11()
+    }
     par(mfrow = c(numTracks, 1), oma = c(0, 0, 2, 0))
     for (ii in 1:numTracks) {
         ## write xlab only at the bottom plot
@@ -225,11 +236,11 @@ plot_base <- function(x, y, se, inputData = NULL, scale = TRUE,
         ## plot log or normal fit
         if(log) {
             plot(x, y[,ii], type = "l", col = "black", ylim = ylim,
-                 xlab = xlab, ylab = names(y)[ii], ...)
+                 xlab = xlab, ylab = colnames(y)[ii], ...)
         }
         else {
             plot(x, exp(y[,ii]), type = "l", col = "black", ylim = ylim,
-                 xlab = xlab, ylab = names(y)[ii], ...)
+                 xlab = xlab, ylab = colnames(y)[ii], ...)
         }
         ## plot confidence interval
         lines(x, intervals[[ii]]$lower, lty = "dotted", col = 'grey')

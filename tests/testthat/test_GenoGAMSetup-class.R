@@ -13,20 +13,20 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(length(slot(ggs, "penaltyMatrix")) == 0)
     expect_true(slot(ggs, "formula") == formula(~ 1))
     expect_true(length(slot(ggs, "offset")) == 0)
-    expect_true(slot(ggs, "family") == "nb")
+    expect_true(class(slot(ggs, "family")) == "GenoGAMFamily")
     expect_true(length(slot(ggs, "response")) == 0)
     expect_true(length(slot(ggs, "fits")) == 0)
-    expect_true(length(slot(ggs, "control")) == 7)
+    expect_true(length(slot(ggs, "control")) == 6)
 
     mat <- matrix(1:9, 3, 3)
     k <- 10
     control <- list(eps = 1e-6, maxiter = 1000, alpha = 1, rho = 0.5, c = 1e-4,
-                    m = 6, batchsize = 100)
+                    m = 6)
     ggs <- GenoGAMSetup(params = list(lambda = 5, order = 4, eps = 0.05),
                         knots = list(1:k), designMatrix = as(mat, "dgCMatrix"),
                         beta = mat, se = list(runif(k)),
                         penaltyMatrix = as(mat, "dgCMatrix"), formula = ~ s(x),
-                        offset = 1:3, family = "myFamily", response  = 1:k,
+                        offset = 1:3, family = GenoGAMFamily(), response  = 1:k,
                         fits = list(runif(k)*3))
 
     expect_true(all.equal(slot(ggs, "params"),
@@ -39,7 +39,7 @@ test_that("GenoGAMSetup constructor works correctly", {
     expect_true(all(dim(slot(ggs, "penaltyMatrix")) == c(3, 3)))
     expect_true(slot(ggs, "formula") == formula(~ s(x)))
     expect_true(all(slot(ggs, "offset") == 1:3))
-    expect_true(slot(ggs, "family") == "myFamily")
+    expect_true(class(slot(ggs, "family")) == "GenoGAMFamily")
     expect_true(all(slot(ggs, "response") == 1:10))
     expect_true(length(slot(ggs, "fits")[[1]]) == k)
     expect_true(length(slot(ggs, "control")) == length(control))

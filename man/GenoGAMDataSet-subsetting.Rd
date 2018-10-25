@@ -67,14 +67,14 @@ just a short version of 'subsetByOverlaps'.
 # subset by overlaps
 ggd <- makeTestGenoGAMDataSet()
 SummarizedExperiment::rowRanges(ggd)
-gr <- GenomicRanges::GRanges("chrXIV", IRanges(306200,307800))
+gr <- GenomicRanges::GRanges("chrI", IRanges(10000,15000))
 res <- IRanges::subsetByOverlaps(ggd, gr)
 SummarizedExperiment::rowRanges(res)
 
 # Subset by logical statement
 ggd <- makeTestGenoGAMDataSet()
 SummarizedExperiment::rowRanges(ggd)
-res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
+res <- subset(ggd, seqnames == "chrI" & pos <= 10000)
 SummarizedExperiment::rowRanges(res)
 }
 \references{

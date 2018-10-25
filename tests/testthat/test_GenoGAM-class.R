@@ -14,7 +14,7 @@ test_that("The accessor functions work correctly", {
     expect_error(getSettings())
     expect_true(is(getSettings(gg), "GenoGAMSettings"))
     expect_error(getFamily())
-    expect_true(is(getFamily(gg), "character"))
+    expect_true(is(getFamily(gg), "GenoGAMFamily"))
     expect_error(colData())
     expect_true(is(colData(gg), "DataFrame"))
     expect_true(all(rownames(colData(gg)) != rownames(slot(gg, "colData"))))

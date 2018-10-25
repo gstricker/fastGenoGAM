@@ -84,6 +84,7 @@ Collate:
     'misc.R'
     'narrowPeaks.R'
     'peakCalling.R'
+    'plotting.R'
     'pvals.R'
     'readData.R'
     'sf.R'

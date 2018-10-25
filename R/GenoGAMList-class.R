@@ -350,7 +350,7 @@ makeTestGenoGAMList <- function() {
     
     
     
-    family <- "nb"
+    family <- GenoGAMFamily()
     design <- ~ s(x) + s(x, by = experiment)
     sizeFactors <- c(input = 0, IP = 0)
     params <- list(cv = FALSE)

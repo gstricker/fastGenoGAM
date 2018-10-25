@@ -40,16 +40,16 @@ test_that("The constructor works correctly for SummarizedExperiment", {
 
 test_that("The constructor works correctly for config files and data.frames", {
     config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-    dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+    dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 
-    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    region <- GRanges("chrI", IRanges(10000, 20000))
     params <- Rsamtools::ScanBamParam(which = region)
     settings <- GenoGAMSettings(bamParams = params)
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_true(checkObject(ds))
-    expect_equal(getTileNumber(ds), 3)
+    expect_equal(getTileNumber(ds), 10)
     expect_true(all(sapply(assay(ds), sum) > 0))
     
 
@@ -58,7 +58,7 @@ test_that("The constructor works correctly for config files and data.frames", {
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings)
     expect_true(checkObject(ds))
-    expect_equal(getTileNumber(ds), 3)
+    expect_equal(getTileNumber(ds), 10)
     expect_true(all(sapply(assay(ds), sum) > 0))
 
     region = GRanges("chrV", IRanges(105000, 108000))
@@ -111,9 +111,6 @@ test_that("Tiling works correctly with incorrect input", {
     seqlengths(chromosomes) <- c(1e6, 1e6)
     l <- list(chunkSize = 1000, overhangSize = -100, chromosomes = chromosomes)
     expect_error(.makeTiles(l), "Overhang size must be equal or greater than 0")
-
-    l <- list(chunkSize = -1000, overhangSize = 100, chromosomes = chromosomes)
-    expect_error(.makeTiles(l), "Chunk size must be equal or greater than 1000")
 
     l <- list(chunkSize = 1000, overhangSize = 0, chromosomes = GRanges())
     expect_error(.makeTiles(l), "Chromosome list should contain at least one entry")
@@ -204,12 +201,12 @@ test_that("The read-in functions work correctly", {
     config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
     config <- read.table(config, header = TRUE, sep = '\t', stringsAsFactors = FALSE)
     for(ii in 1:nrow(config)) {
-        absPath <- system.file("extdata/Set1", config$file[ii], package = "fastGenoGAM")
+        absPath <- system.file("extdata/Set1/bam", config$file[ii], package = "fastGenoGAM")
         config$file[ii] <- absPath
     }
     expect_true(is(readData(config), "DataFrame"))
 
-    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    region <- GRanges("chrI", IRanges(10000, 20000))
     params <- Rsamtools::ScanBamParam(which = region)
     reads <- GenomicAlignments::readGAlignments(config$file[1], param = params)
 
@@ -228,7 +225,7 @@ test_that("The read-in functions work correctly", {
 test_that("The subsetting methods work correct", {
     ggd <- makeTestGenoGAMDataSet()
     getOverhangSize(ggd) <- 0
-    gr <- GRanges("chrXIV", IRanges(306501,307500))
+    gr <- GRanges("chrI", IRanges(16501,17500))
     seqlengths(gr) <- seqlengths(ggd)
 
     res <- subsetByOverlaps(ggd, gr)
@@ -239,15 +236,15 @@ test_that("The subsetting methods work correct", {
     expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
-    test_gr <- GRanges("chrXIV", IRanges(305000,306999))
+    test_gr <- GRanges("chrI", IRanges(10000,19999))
     seqlengths(test_gr) <- seqlengths(ggd)
-    res <- subset(ggd, seqnames == "chrXIV" & pos < 307000)
+    res <- subset(ggd, seqnames == "chrI" & pos < 20000)
     dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
                                  IRanges::ranges(rowRanges(res))@pos_runs)
     seqinfo(dr) <- seqinfo(rowRanges(res))
     
     expect_identical(test_gr, dr)
-    expect_equal(getTileNumber(res), 2)
+    expect_equal(getTileNumber(res), 10)
 
     res <- ggd[gr]
     dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res))),
@@ -265,12 +262,12 @@ test_that("The subsetting methods work correct", {
     ## expect_identical(granges(getIndex(ggd)[1]), dr)
     ## expect_equal(getTileNumber(res), 1)
 
-    gr <- GRanges("chrXIV", IRanges(300501,301500))
+    gr <- GRanges("chrI", IRanges(7501,8500))
     res <- subsetByOverlaps(ggd, gr)
     expect_true(all(dim(res) == c(0,4)))
     expect_true(all(colnames(res) == colnames(ggd)))
 
-    res <- subset(ggd, seqnames == "chrXIV" & pos <= 302000)
+    res <- subset(ggd, seqnames == "chrXIV" & pos <= 9000)
     expect_true(all(dim(res) == c(0,4)))
     expect_true(all(colnames(res) == colnames(ggd)))
 })

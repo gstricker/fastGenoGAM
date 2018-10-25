@@ -124,7 +124,13 @@
 #' Computation of the inverse of H
 #' @noRd
 .invertHessian <- function(H) {
-    sparseinv::Takahashi_Davis(H)
+    if(length(H) == 0) {
+        res <- as(matrix(,0, 0), "dgCMatrix")
+    }
+    else {
+        res <- sparseinv::Takahashi_Davis(H)
+    }
+    return(res)
 }
 
 .Hupdate <- function(family, x, X, XT, ...) {

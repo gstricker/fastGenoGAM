@@ -1,10 +1,11 @@
 context("Testing the GenoGAMDataSetList-class")
 
 ## Unittests
-config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+wd <- system.file("extdata/Set1", package='fastGenoGAM')
+dir <- file.path(wd, "bam")
+config <- file.path(wd, "experimentDesign.txt")
 
-region <- GRanges("chrXIV", IRanges(305000, 308000))
+region <- GRanges("chrI", IRanges(10000, 20000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 ## GenoGAMDataSetList
@@ -20,16 +21,16 @@ test_that("The constructor works correctly in default mode", {
 
 test_that("The constructor works correctly for config files and data.frames", {
     config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-    dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+    dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 
-    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    region <- GRanges("chrI", IRanges(10000, 20000))
     params <- Rsamtools::ScanBamParam(which = region)
     settings <- GenoGAMSettings(bamParams = params)
     ds <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings, split = TRUE)
     expect_true(checkObject(ds))
-    expect_equal(getTileNumber(ds), 3)
+    expect_equal(getTileNumber(ds), 10)
     expect_true(all(sapply(assay(ds)[[1]], sum) > 0))
     
     df <- read.table(config, header = TRUE, sep = '\t')
@@ -37,7 +38,7 @@ test_that("The constructor works correctly for config files and data.frames", {
                          design = ~ s(x) + s(x, by = genotype), directory = dir,
                          settings = settings, split = TRUE)
     expect_true(checkObject(ds))
-    expect_equal(getTileNumber(ds), 3)
+    expect_equal(getTileNumber(ds), 10)
     expect_true(all(sapply(assay(ds)[[1]], sum) > 0))
 
     region = GRanges("chrV", IRanges(105000, 108000))
@@ -103,9 +104,9 @@ test_that("Settings checking functions work correctly", {
 test_that("Accessors return the right slots in line with GenoGAMDataSet", {
 
     config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-    dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+    dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 
-    region <- GRanges("chrXIV", IRanges(305000, 308000))
+    region <- GRanges("chrI", IRanges(10000, 20000))
     params <- Rsamtools::ScanBamParam(which = region)
     settings <- GenoGAMSettings(bamParams = params)
 
@@ -137,12 +138,12 @@ test_that("Accessors return the right slots in line with GenoGAMDataSet", {
 
     expect_error(design(ggdl) <- ~ s(x) + s(by = myColumn))
     getChunkSize(ggdl) <- 2000
-    expect_equal(getTileNumber(ggdl), 2)
-    getTileSize(ggdl) <- 3400
+    expect_equal(getTileNumber(ggdl), 5)
+    getTileSize(ggdl) <- 10400
     expect_equal(getTileNumber(ggdl), 1)
     getOverhangSize(ggdl) <- 500
-    expect_equal(median(width(getIndex(ggdl))), 3001)
-    getTileNumber(ggdl) <- 3
+    expect_equal(median(width(getIndex(ggdl))), 10001)
+    getTileNumber(ggdl) <- 10
     expect_equal(getChunkSize(ggdl), getChunkSize(ggd))
 })
 
@@ -158,16 +159,16 @@ test_that("The subsetting methods work correct", {
     expect_true(length(rowRanges(res)) == 2)
     expect_true(length(assay(res)) == 2)
 
-    res <- subset(ggdl, seqnames == "chrX")
-    expect_true(seqlevelsInUse(res) == "chrX")
-    expect_true(length(rowRanges(res)) == 1)
-    expect_true(length(assay(res)) == 1)
-    expect_identical(.extractGR(rowRanges(res)[[1]]), getChromosomes(res))
+    ## res <- subset(ggdl, seqnames == "chrX")
+    ## expect_true(seqlevelsInUse(res) == "chrX")
+    ## expect_true(length(rowRanges(res)) == 1)
+    ## expect_true(length(assay(res)) == 1)
+    ## expect_identical(.extractGR(rowRanges(res)[[1]]), getChromosomes(res))
 
     ## further tests
     ggdl <- test_ggdl
     getOverhangSize(ggdl) <- 0
-    gr <- GRanges("chrXIV", IRanges(306501,307500))
+    gr <- GRanges("chrI", IRanges(11501,12500))
     seqlengths(gr) <- seqlengths(ggdl)
 
     res <- subsetByOverlaps(ggdl, gr)
@@ -178,9 +179,9 @@ test_that("The subsetting methods work correct", {
     expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
-    test_gr <- GRanges("chrXIV", IRanges(305000,306999))
+    test_gr <- GRanges("chrI", IRanges(10000,11999))
     seqlengths(test_gr) <- seqlengths(ggdl)
-    res <- subset(ggdl, seqnames == "chrXIV" & pos < 307000)
+    res <- subset(ggdl, seqnames == "chrI" & pos < 12000)
     dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
                                  IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
     seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
@@ -204,12 +205,12 @@ test_that("The subsetting methods work correct", {
     ## expect_identical(granges(getIndex(ggdl)[1]), dr)
     ## expect_equal(getTileNumber(res), 1)
 
-    gr <- GRanges("chrXIV", IRanges(300501,301500))
+    gr <- GRanges("chrI", IRanges(7501,8500))
     res <- subsetByOverlaps(ggdl, gr)
     expect_true(all(dim(res) == c(0,4)))
     expect_true(all(colnames(res) == colnames(ggdl)))
 
-    res <- subset(ggdl, seqnames == "chrXIV" & pos <= 302000)
+    res <- subset(ggdl, seqnames == "chrI" & pos <= 9000)
     expect_true(all(dim(res) == c(0,4)))
     expect_true(all(colnames(res) == colnames(ggdl)))
 })

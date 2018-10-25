@@ -261,7 +261,7 @@ See ?chipseq::estimate.mean.fraglen for explanation.
 # Build from config file
 
 config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 
 ## For all data
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -276,7 +276,7 @@ ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
 ggd
 
 ## Read data of particular range
-region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
+region <- GenomicRanges::GRanges("chrI", IRanges(10000, 15000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,

@@ -202,7 +202,7 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' # Build from config file
 #' 
 #' config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
-#' dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+#' dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 #'
 #' ## For all data
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -217,7 +217,7 @@ S4Vectors::setValidity2("GenoGAMDataSet", .validateGenoGAMDataSet)
 #' ggd
 #' 
 #' ## Read data of particular range
-#' region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
+#' region <- GenomicRanges::GRanges("chrI", IRanges(10000, 15000))
 #' params <- Rsamtools::ScanBamParam(which = region)
 #' settings <- GenoGAMSettings(bamParams = params)
 #' ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -1056,9 +1056,9 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
     else {
         config <- system.file("extdata/Set1", "experimentDesign.txt",
                               package = "fastGenoGAM")
-        dir <- system.file("extdata/Set1", package = "fastGenoGAM")
+        dir <- system.file("extdata/Set1/bam", package = "fastGenoGAM")
 
-        region <- GRanges("chrXIV", IRanges(305000, 308000))
+        region <- GRanges("chrI", IRanges(10000, 20000))
         params <- Rsamtools::ScanBamParam(which = region)
         settings <- GenoGAMSettings(bamParams = params)
         ggd <- GenoGAMDataSet(config, chunkSize = 1000, overhangSize = 200,
@@ -1438,14 +1438,14 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' # subset by overlaps
 #' ggd <- makeTestGenoGAMDataSet()
 #' SummarizedExperiment::rowRanges(ggd)
-#' gr <- GenomicRanges::GRanges("chrXIV", IRanges(306200,307800))
+#' gr <- GenomicRanges::GRanges("chrI", IRanges(10000,15000))
 #' res <- IRanges::subsetByOverlaps(ggd, gr)
 #' SummarizedExperiment::rowRanges(res)
 #'
 #' # Subset by logical statement
 #' ggd <- makeTestGenoGAMDataSet()
 #' SummarizedExperiment::rowRanges(ggd)
-#' res <- subset(ggd, seqnames == "chrXIV" & pos <= 307000)
+#' res <- subset(ggd, seqnames == "chrI" & pos <= 10000)
 #' SummarizedExperiment::rowRanges(res)
 #' @references
 #' Allen's Interval Algebra: James F. Allen: Maintaining knowledge

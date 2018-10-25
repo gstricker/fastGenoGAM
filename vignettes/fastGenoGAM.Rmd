@@ -143,29 +143,13 @@ se(result)
 ```{r}
 computeSignificance(result)
 
-pval(result)
+pvalue(result)
 ```
 
-Plot results of the center 10kb, where both tiles are joined together. A proper plotting functions is in development.
-
+Plot results of the center 10kb, where both tiles are joined together.
 ```{r}
-idx <- 45000:55000
-upper_input <- fits(result)$chrI[,"s(x)"][idx] + 2*se(result)$chrI[,"s(x)"][idx]
-lower_input <- fits(result)$chrI[,"s(x)"][idx] - 2*se(result)$chrI[,"s(x)"][idx]
-
-upper_ip <- fits(result)$chrI[,"s(x):genotype"][idx] + 2*se(result)$chrI[,"s(x):genotype"][idx]
-lower_ip <- fits(result)$chrI[,"s(x):genotype"][idx] - 2*se(result)$chrI[,"s(x):genotype"][idx]
-```
-
-```{r plot, fig.cap = "The fit of input (upper) and IP (lower) for chrI:45000-55000", fig.width = 10, fig.height = 10}
-par(mfrow = c(2,1))
-plot(fits(result)$chrI[,"s(x)"][idx], type = "l", main = "Input", ylab = "log-fit")
-lines(upper_input, lty = 2)
-lines(lower_input, lty = 2)
-
-plot(fits(result)$chrI[,"s(x):genotype"][idx], type = "l", main = "IP", ylab = "log-fit")
-lines(upper_ip, lty = 2)
-lines(lower_ip, lty = 2)
+ranges = GRanges("chrI", IRanges(45000, 55000))
+plot.GenoGAM(result, ranges = ranges)
 ```
 
 # FAQ

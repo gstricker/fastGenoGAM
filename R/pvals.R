@@ -73,7 +73,7 @@ computeSignificance <- function(gg, log.p = FALSE) {
     ## add pvals to assay fields. SummarizedExperiment has some control functions
     ## guarding the structure of the data, so we have to directly plug it in to
     ## avoid copying
-    gg@assays$data@listData$pval <- df
+    gg@assays$data@listData$pvalue <- df
 }
 
 ## compute pvalue for GenoGAM object with HDF5 and no split
@@ -120,7 +120,7 @@ computeSignificance <- function(gg, log.p = FALSE) {
     ## guarding the structure of the data, so we have to directly plug it in to
     ## avoid copying
     h5 <- HDF5Array::HDF5Array(seedFile, h5name)
-    gg@assays$data@listData$pval <- h5
+    gg@assays$data@listData$pvalue <- h5
 
     ## close again
     rhdf5::H5Fclose(h5file)
@@ -177,7 +177,7 @@ computeSignificance <- function(gg, log.p = FALSE) {
         ## guarding the structure of the data, so we have to directly plug it in to
         ## avoid copying
         h5 <- HDF5Array::HDF5Array(seedFile, h5name)
-        gg@data[[y]]@assays$data@listData$pval <- h5
+        gg@data[[y]]@assays$data@listData$pvalue <- h5
 
         ## close again
         rhdf5::H5Fclose(h5file)
@@ -228,7 +228,7 @@ computeSignificance <- function(gg, log.p = FALSE) {
         ## add pvals to assay fields. SummarizedExperiment has some control functions
         ## guarding the structure of the data, so we have to directly plug it in to
         ## avoid copying
-        gg@data[[y]]@assays$data@listData$pval <- df
+        gg@data[[y]]@assays$data@listData$pvalue <- df
         invisible(NULL)
     })
 }
