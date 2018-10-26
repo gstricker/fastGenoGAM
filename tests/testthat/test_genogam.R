@@ -336,13 +336,13 @@ test_that("Data transformation works correct", {
     fits <- .transformResults(list(setup), relativeChunks, what = "fits")
     se <- .transformResults(list(setup), relativeChunks, what = "se")
 
-    expect_true(class(fits) == "DataFrame" & class(se) == "DataFrame")
+    expect_true(is(fits, "DataFrame") & is(se, "DataFrame"))
     expect_true(nrow(fits) == width(chunks[id,]) & nrow(se) == width(chunks[id,]))
 
     ## mixed input (should return same data.table as above due to first entry being empty)
     fits <- .transformResults(list(emptyGGS, setup), relativeChunks, what = "fits")
     se <- .transformResults(list(emptyGGS, setup), relativeChunks, what = "se")
 
-    expect_true(class(fits) == "DataFrame" & class(se) == "DataFrame")
+    expect_true(is(fits, "DataFrame") & is(se, "DataFrame"))
     expect_true(nrow(fits) == width(chunks[id,]) & nrow(se) == width(chunks[id,]))
 })

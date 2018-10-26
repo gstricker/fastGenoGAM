@@ -19,7 +19,7 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' fit. For information on the slots inherited from SummarizedExperiment
 #' check the respective class.
 #' 
-#' @slot family The name of the distribution family used
+#' @slot family A GenoGAMFamily object
 #' @slot design The formula of the model
 #' @slot sizeFactors The offset used in the model. 
 #' @slot factorialDesign The factorial design used. The same as colData in the
@@ -31,6 +31,7 @@ setClassUnion("HDF5OrMatrix", c("matrix", "HDF5Matrix"))
 #' settings that were used to compute the model.
 #' @slot coefs The coefficients of the knots
 #' @slot knots The relative knot positions
+#' @slot hdf5 A logical slot indicating if the data is stored in a HDF5 format on hard drive
 #' @name GenoGAM-class
 #' @rdname GenoGAM-class
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
@@ -60,56 +61,56 @@ setClass("GenoGAM",
 ## ========
 
 .validateFamilyType <- function(object) {
-    if(class(slot(object, "family")) != "GenoGAMFamily") {
+    if(!is(slot(object, "family"), "GenoGAMFamily")) {
         return("'family' must be a GenoGAMFamily object")
     }
     NULL
 }
 
 .validateDesignType <- function(object) {
-    if(class(slot(object, "design")) != "formula") {
+    if(!is(slot(object, "design"), "formula")) {
         return("'design' must be a formula object")
     }
     NULL
 }
 
 .validateSFType <- function(object) {
-    if(class(slot(object, "sizeFactors")) != "numeric") {
+    if(!is(slot(object, "sizeFactors"), "numeric")) {
         return("'sizeFactors' must be a numeric object")
     }
     NULL
 }
 
 .validateFactorialDesign <- function(object) {
-    if(class(slot(object, "factorialDesign")) != "DataFrame") {
+    if(!is(slot(object, "factorialDesign"), "DataFrame")) {
         return("'factorialDesign' must be a DataFrame class")
     }
 }
 
 .validateParamsType <- function(object) {
-    if(class(slot(object, "params")) != "list") {
+    if(!is(slot(object, "params"), "list")) {
         return("'params' must be a list object")
     }
     NULL
 }
 
 .validateSettingsType <- function(object) {
-    if(class(slot(object, "settings")) != "GenoGAMSettings") {
+    if(!is(slot(object, "settings"), "GenoGAMSettings")) {
         return("'settings' must be a GenoGAMSettings object")
     }
     NULL
 }
 
 .validateCoefsType <- function(object) {
-    if(class(slot(object, "coefs")) != "HDF5Matrix" &
-        class(slot(object, "coefs")) != "matrix"){
+    if(!is(slot(object, "coefs"), "HDF5Matrix") &
+        !is(slot(object, "coefs"), "matrix")){
         return("'coefs' must be either a HDF5Matrix or matrix object")
     }
     NULL
 }
 
 .validateGGKnotsType <- function(object) {
-    if(class(slot(object, "knots")) != "numeric"){
+    if(!is(slot(object, "knots"), "numeric")){
         return("'knots' must be a numeric vector")
     }
     NULL
@@ -180,7 +181,7 @@ GenoGAM <- function(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE) {
     return(new("GenoGAM", ...))
 }
 
-#' A function to create GenoGAM from HDF5
+## A function to create GenoGAM from HDF5
 .GenoGAMFromHDF5 <- function(ggd, split, ...) {
     if(split) {
         gg <- .GenoGAMListFromHDF5(ggd = ggd, ...)
@@ -227,62 +228,62 @@ GenoGAM <- function(..., ggd = NULL, fromHDF5 = FALSE, split = FALSE) {
 ## Accessors
 ## =========
 
-##' @describeIn GenoGAM An accessor to the design slot
+#' @describeIn GenoGAM An accessor to the design slot
 setMethod("design", "GenoGAM", function(object) {
     slot(object, "design")
 })
 
-##' @describeIn GenoGAM An accessor to the sizeFactors slot
+#' @describeIn GenoGAM An accessor to the sizeFactors slot
 setMethod("sizeFactors", "GenoGAM", function(object) {
     slot(object, "sizeFactors")
 })
 
-##' @export
+#' @export
 setGeneric("getSettings", function(object) standardGeneric("getSettings"))
 
-##' @describeIn GenoGAM An accessor to the settings slot
+#' @describeIn GenoGAM An accessor to the settings slot
 setMethod("getSettings", "GenoGAM", function(object) {
     slot(object, "settings")
 })
 
-##' @export
+#' @export
 setGeneric("getFamily", function(object) standardGeneric("getFamily"))
 
-##' @describeIn GenoGAM An accessor to the family slot
+#' @describeIn GenoGAM An accessor to the family slot
 setMethod("getFamily", "GenoGAM", function(object) {
     slot(object, "family")
 })
 
-##' @describeIn GenoGAM An accessor to the factorialDesign slot.
+#' @describeIn GenoGAM An accessor to the factorialDesign slot.
 setMethod("colData", "GenoGAM", function(x) {
     slot(x, "factorialDesign")
 })
 
-##' @export
+#' @export
 setGeneric("getParams", function(object) standardGeneric("getParams"))
 
-##' @describeIn GenoGAM An accessor to the params slot
+#' @describeIn GenoGAM An accessor to the params slot
 setMethod("getParams", "GenoGAM", function(object) {
     slot(object, "params")
 })
 
-##' @export
+#' @export
 setGeneric("getCoefs", function(object) standardGeneric("getCoefs"))
 
-##' @describeIn GenoGAM An accessor to the coefs slot
+#' @describeIn GenoGAM An accessor to the coefs slot
 setMethod("getCoefs", "GenoGAM", function(object) {
     slot(object, "coefs")
 })
 
-##' @export
+#' @export
 setGeneric("getKnots", function(object) standardGeneric("getKnots"))
 
-##' @describeIn GenoGAM An accessor to the knots slot
+#' @describeIn GenoGAM An accessor to the knots slot
 setMethod("getKnots", "GenoGAM", function(object) {
     slot(object, "knots")
 })
 
-##' @describeIn GenoGAM The accessor to the fits and standard errors
+#' @describeIn GenoGAM The accessor to the fits and standard errors
 setMethod("assay", c("GenoGAM", "missing"), function(x, i) {
     res <- slot(x, "assays")
     if(length(res) < 1) {
@@ -291,44 +292,44 @@ setMethod("assay", c("GenoGAM", "missing"), function(x, i) {
     return(res[[1]])
 })
 
-##' @export
+#' @export
 setGeneric("fits", function(object) standardGeneric("fits"))
 
-##' @describeIn GenoGAM An accessor to the fits
+#' @describeIn GenoGAM An accessor to the fits
 setMethod("fits", "GenoGAM", function(object) {
     assays(object)[["fits"]]
 })
 
-##' @export
+#' @export
 setGeneric("se", function(object) standardGeneric("se"))
 
-##' @describeIn GenoGAM An accessor to the standard errors
+#' @describeIn GenoGAM An accessor to the standard errors
 setMethod("se", "GenoGAM", function(object) {
     assays(object)[["se"]]
 })
 
-##' @export
+#' @export
 setGeneric("pvalue", function(object) standardGeneric("pvalue"))
 
-##' @describeIn GenoGAM An accessor to the pvalues
+#' @describeIn GenoGAM An accessor to the pvalues
 setMethod("pvalue", "GenoGAM", function(object) {
     assays(object)[["pvalue"]]
 })
 
-##' @describeIn GenoGAM column names of GenoGAM
+#' @describeIn GenoGAM column names of GenoGAM
 setMethod("colnames", "GenoGAM", function(x) {
     rownames(slot(x, "colData"))
 })
 
-##' @describeIn GenoGAM The names of the dimensions of GenoGAM
+#' @describeIn GenoGAM The names of the dimensions of GenoGAM
 setMethod("dimnames", "GenoGAM", function(x) {
     list(names(x), rownames(slot(x, "colData")))
 })
 
-##' @export
+#' @export
 setGeneric("is.HDF5", function(object) standardGeneric("is.HDF5"))
 
-##' @describeIn GenoGAM A boolean function that is true if object uses HDF5 backend
+#' @describeIn GenoGAM A boolean function that is true if object uses HDF5 backend
 setMethod("is.HDF5", signature(object = "GenoGAM"), function(object) {
     res <- slot(object, "hdf5")
     return(res)
@@ -378,7 +379,7 @@ makeTestGenoGAM <- function() {
 ## Subsetting 
 ## ==========
 
-##' @describeIn GenoGAM Additional subsetting by single brackets
+#' @describeIn GenoGAM Additional subsetting by single brackets
 setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     gg <- subsetByOverlaps(x, i)
     slot(gg, "settings")@chromosomeList <- GenomeInfoDb::seqlevels(i)
@@ -389,8 +390,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
 ## Cosmetics
 ## ==========
 
-#' returns NA if object is NULL and the object otherwise
-#' @noRd
+## returns NA if object is NULL and the object otherwise
 .check <- function(x) {
     if(is.null(x)) {
         res <- NA
@@ -401,8 +401,7 @@ setMethod("[", c("GenoGAM", "GRanges"), function(x, i) {
     return(res)
 }
 
-##' The actual show function
-##' @noRd
+## The actual show function
 .showGenoGAM <- function(gg) {
     params <- slot(gg, "params")
     
@@ -484,28 +483,28 @@ setMethod("show", "GenoGAM", function(object) {
     .showGenoGAM(object)
 })
 
-## #' View the dataset
-## #'
-## #' Cbinding the columns all together and coercing to data.frame
-## #'
-## #' @param object A \code{GenoGAM} object
-## #' @param ranges A \code{GRanges} object. Makes it possible to
-## #' select regions by \code{GRanges}. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param seqnames A chromosomes name. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param start A start site. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @param end An end site. Either ranges or seqnames, start and
-## #' end must be supplied
-## #' @return A data.frame of the selected data.
-## #' @examples
-## #' gg <- makeTestGenoGAM()
-## #' gr <- GenomicRanges::GRanges("chrI", IRanges(1,40))
-## #' head(view(gg, gr))
-## #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-## #' @rdname GenoGAM-view
-## #' @export
+## View the dataset
+## 
+## Cbinding the columns all together and coercing to data.frame
+## 
+## @param object A \code{GenoGAM} object
+## @param ranges A \code{GRanges} object. Makes it possible to
+## select regions by \code{GRanges}. Either ranges or seqnames, start and
+## end must be supplied
+## @param seqnames A chromosomes name. Either ranges or seqnames, start and
+## end must be supplied
+## @param start A start site. Either ranges or seqnames, start and
+## end must be supplied
+## @param end An end site. Either ranges or seqnames, start and
+## end must be supplied
+## @return A data.frame of the selected data.
+## @examples
+## gg <- makeTestGenoGAM()
+## gr <- GenomicRanges::GRanges("chrI", IRanges(1,40))
+## head(view(gg, gr))
+## @author Georg Stricker \email{georg.stricker@@in.tum.de}
+## @rdname GenoGAM-view
+## @export
 ## setMethod("view", "GenoGAM", function(object, ranges = NULL, seqnames = NULL,
 ##                                       start = NULL, end = NULL) {
 ##     ## keep "seqnames" for consistency with Bioc, but rename variable as subset in

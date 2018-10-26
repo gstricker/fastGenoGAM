@@ -101,7 +101,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         if(ncv < length(new_coords)) {
             if(sum(sapply(colData(ggd), sum)) == nrow(colData(ggd)) |
                nrow(sumMatrix) < regions) {
-                if(class(sumMatrix) == "DelayedMatrix") {
+                if(is(sumMatrix, "DelayedMatrix")) {
                     rsums <- DelayedArray::rowSums(sumMatrix)
                 }
                 else {
@@ -170,7 +170,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     ## For a dataset split by chromosomes
     ## ----------------------------------
     
-    if(class(ggd) == "GenoGAMDataSetList") {
+    if(is(ggd, "GenoGAMDataSetList")) {
         identifier <- slot(ggd, "id")$id
         indx <- getIndex(ggd)
 
@@ -434,7 +434,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
         combinedFits <- .transformResults(list(setup), relativeChunks, what = "fits")
         combinedSEs <- .transformResults(list(setup), relativeChunks, what = "se")
 
-        if(class(data) == "GenoGAMDataSetList") {
+        if(is(data, "GenoGAMDataSetList")) {
             ## normalize ID chromosome-wise, as it is usually based on the entire genome
             chrom <- as.character(GenomeInfoDb::seqnames(getIndex(data)[id,]))
             subindx <- getIndex(data)[GenomeInfoDb::seqnames(getIndex(data)) == chrom,]

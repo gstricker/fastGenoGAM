@@ -119,7 +119,7 @@ GenoGAMList <- function(..., ggd = NULL, fromHDF5 = FALSE) {
     return(new("GenoGAMList", ...))
 }
 
-#' A function to create GenoGAMList from HDF5
+## A function to create GenoGAMList from HDF5
 .GenoGAMListFromHDF5 <- function(ggd, ...) {
     settings <- slot(ggd, "settings")
     
@@ -219,80 +219,80 @@ setMethod("seqlevelsInUse", "GenoGAMList", function(x) {
     character()
 })
 
-##' @describeIn GenoGAMList An accessor to the design slot
+#' @describeIn GenoGAMList An accessor to the design slot
 setMethod("design", "GenoGAMList", function(object) {
     slot(object, "design")
 })
 
-##' @describeIn GenoGAMList An accessor to the sizeFactors slot
+#' @describeIn GenoGAMList An accessor to the sizeFactors slot
 setMethod("sizeFactors", "GenoGAMList", function(object) {
     slot(object, "sizeFactors")
 })
 
-##' @describeIn GenoGAMList An accessor to the settings slot
+#' @describeIn GenoGAMList An accessor to the settings slot
 setMethod("getSettings", "GenoGAMList", function(object) {
     slot(object, "settings")
 })
 
-##' @describeIn GenoGAMList An accessor to the family slot
+#' @describeIn GenoGAMList An accessor to the family slot
 setMethod("getFamily", "GenoGAMList", function(object) {
     slot(object, "family")
 })
 
-##' @describeIn GenoGAMList An accessor to the factorialDesign slot.
+#' @describeIn GenoGAMList An accessor to the factorialDesign slot.
 setMethod("colData", "GenoGAMList", function(x) {
     slot(x, "factorialDesign")
 })
 
-##' @describeIn GenoGAMList An accessor to the params slot
+#' @describeIn GenoGAMList An accessor to the params slot
 setMethod("getParams", "GenoGAMList", function(object) {
     slot(object, "params")
 })
 
-##' @describeIn GenoGAMList An accessor to the coefs slot
+#' @describeIn GenoGAMList An accessor to the coefs slot
 setMethod("getCoefs", "GenoGAMList", function(object) {
     slot(object, "coefs")
 })
 
-##' @describeIn GenoGAMList An accessor to the knots slot
+#' @describeIn GenoGAMList An accessor to the knots slot
 setMethod("getKnots", "GenoGAMList", function(object) {
     slot(object, "knots")
 })
 
 
-##' @describeIn GenoGAMList The accessor to the fits and standard errors
+#' @describeIn GenoGAMList The accessor to the fits and standard errors
 setMethod("assay", c("GenoGAMList", "missing"), function(x, i) {
     lapply(x@data, assay)
 })
 
-##' @describeIn GenoGAMList get a list of list of assays from the
-##' GenoGAMList object. Just for completeness, shouldn't be needed.
+#' @describeIn GenoGAMList get a list of list of assays from the
+#' GenoGAMList object. Just for completeness, shouldn't be needed.
 setMethod("assays", "GenoGAMList", function(x, ...) {
     lapply(x@data, assays)
 })
 
-##' @describeIn GenoGAMList get a list of rowRanges from the
-##' GenoGAMList object
+#' @describeIn GenoGAMList get a list of rowRanges from the
+#' GenoGAMList object
 setMethod("rowRanges", "GenoGAMList", function(x, ...) {
     lapply(x@data, rowRanges)
 })
 
-##' @describeIn GenoGAMList An accessor to the fits
+#' @describeIn GenoGAMList An accessor to the fits
 setMethod("fits", "GenoGAMList", function(object) {
     lapply(assays(object), function(y) y[["fits"]])
 })
 
-##' @describeIn GenoGAMList An accessor to the standard errors
+#' @describeIn GenoGAMList An accessor to the standard errors
 setMethod("se", "GenoGAMList", function(object) {
     lapply(assays(object), function(y) y[["se"]])
 })
 
-##' @describeIn GenoGAMList An accessor to the pvalues
+#' @describeIn GenoGAMList An accessor to the pvalues
 setMethod("pvalue", "GenoGAMList", function(object) {
     lapply(assays(object), function(y) y[["pvalue"]])
 })
 
-##' @describeIn GenoGAMList column names of GenoGAMList
+#' @describeIn GenoGAMList column names of GenoGAMList
 setMethod("colnames", "GenoGAMList", function(x) {
     if(length(x@data) == 0) {
         return(NULL)
@@ -300,12 +300,12 @@ setMethod("colnames", "GenoGAMList", function(x) {
     rownames(slot(x@data[[1]], "colData"))
 })
 
-##' @describeIn GenoGAMList The names of the dimensions of GenoGAMList
+#' @describeIn GenoGAMList The names of the dimensions of GenoGAMList
 setMethod("dimnames", "GenoGAMList", function(x) {
     list(names(x@data[[1]]), colnames(x))
 })
 
-##' @describeIn GenoGAMList A boolean function that is true if object uses HDF5 backend
+#' @describeIn GenoGAMList A boolean function that is true if object uses HDF5 backend
 setMethod("is.HDF5", signature(object = "GenoGAMList"), function(object) {
     res <- slot(object, "hdf5")
     return(res)
@@ -375,8 +375,8 @@ makeTestGenoGAMList <- function() {
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @param x,query A GenoGAMList object.
-#' @param subject,i A GRanges object. In case of subsetting by double brackets
+#' @param x A GenoGAMList object.
+#' @param ranges,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.
 #' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
 #' less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -465,7 +465,7 @@ setMethod("subset", "GenoGAMList", function(x, ...) {
     return(ggl)
 })
 
-#' underlying function to subset by overlaps
+## underlying function to subset by overlaps
 .subsetByOverlapsGGL <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
@@ -555,8 +555,7 @@ setMethod("[", c("GenoGAMList", "GRanges"), function(x, i) {
 ## Cosmetics
 ## ==========
 
-#' returns NA if object is NULL and the object otherwise
-#' @noRd
+## returns NA if object is NULL and the object otherwise
 .check <- function(x) {
     if(is.null(x)) {
         res <- NA
@@ -567,8 +566,7 @@ setMethod("[", c("GenoGAMList", "GRanges"), function(x, i) {
     return(res)
 }
 
-##' The actual show function
-##' @noRd
+## The actual show function
 .showGenoGAM <- function(gg) {
     params <- slot(gg, "params")
     

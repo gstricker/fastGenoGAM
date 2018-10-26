@@ -11,17 +11,24 @@
 #' @details For a given set of regions, region-wise pvalues are computed by applying
 #' familywise hochberg correction and taking the minimal p-value. FDR is computed by further
 #' applying Benjamini-Hochberg correction.
+#' @examples
+#' ## make test GenoGAM
+#' gg <- makeTestGenoGAM()
+#' ## make region
+#' region <- GRanges("chrXYZ", IRanges(c(2000, 4000, 6000), c(3000, 5000, 9000)))
+#' res <- computeRegionSignificance(gg, region)
+#' res
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @export
 computeRegionSignificance <- function(fit, regions, smooth = NULL) { 
     futile.logger::flog.info("Estimating region p-values and FDR")
 
     ## which GenoGAM backend is present
-    if(class(fit) == "GenoGAMList") {
+    if(is(fit, "GenoGAMList")) {
         is_split <- TRUE
     }
     else {
-        if(class(fit) == "GenoGAM") {
+        if(is(fit, "GenoGAM")) {
             is_split <- FALSE
         }
 
@@ -74,7 +81,7 @@ computeRegionSignificance <- function(fit, regions, smooth = NULL) {
     regions_group <- IRanges::findOverlaps(rowRanges(fit), regions)
     gg <- fit[S4Vectors::queryHits(regions_group)]
     
-    res <- data.table::data.table(data.frame(pval(gg)))
+    res <- data.table::data.table(data.frame(pvalue(gg)))
     ## during conversion the names get changed, so change back
     data.table::setnames(res, names(res), colnames(gg))
     res$region <- as.factor(S4Vectors::subjectHits(regions_group))
@@ -92,7 +99,7 @@ computeRegionSignificance <- function(fit, regions, smooth = NULL) {
 
     ## Subset pvalue DataFrame according to indices 
     gg <- lapply(names(regions_group), function(chr) {
-        pval(fit)[[chr]][S4Vectors::queryHits(regions_group[[chr]]),]        
+        pvalue(fit)[[chr]][S4Vectors::queryHits(regions_group[[chr]]),]        
     })
 
     gg <- do.call("rbind", gg)

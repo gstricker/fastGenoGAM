@@ -31,28 +31,28 @@ setClass("GenoGAMFamily",
 ## ===========
 
 .validateLogLik <- function(object) {
-    if(class(slot(object, "ll")) != "function") {
+    if(!is(slot(object, "ll"), "function")) {
         return("'ll' must be a function object")
     }
     NULL
 }
 
 .validateGradient <- function(object) {
-    if(class(slot(object, "gradient")) != "function") {
+    if(!is(slot(object, "gradient"), "function")) {
         return("'gradient' must be a function object")
     }
     NULL
 }
 
 .validateHessian <- function(object) {
-    if(class(slot(object, "hessian")) != "integer") {
+    if(!is(slot(object, "hessian"), "integer")) {
         return("'hessian' must be an integer object")
     }
     NULL
 }
 
 .validateName <- function(object) {
-    if(class(slot(object, "name")) != "character") {
+    if(!is(slot(object, "name"), "character")) {
         return("'name' must be a character object")
     }
     NULL
@@ -67,8 +67,7 @@ setClass("GenoGAMFamily",
 
 S4Vectors::setValidity2("GenoGAMFamily", .validateGenoGAMFamily)
 
-#' Constructor
-#' @noRd
+## Constructor
 GenoGAMFamily <- function(...) {
     return(new("GenoGAMFamily", ...))
 }

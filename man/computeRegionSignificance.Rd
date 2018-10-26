@@ -26,6 +26,14 @@ For a given set of regions, region-wise pvalues are computed by applying
 familywise hochberg correction and taking the minimal p-value. FDR is computed by further
 applying Benjamini-Hochberg correction.
 }
+\examples{
+## make test GenoGAM
+gg <- makeTestGenoGAM()
+## make region
+region <- GRanges("chrXYZ", IRanges(c(2000, 4000, 6000), c(3000, 5000, 9000)))
+res <- computeRegionSignificance(gg, region)
+res
+}
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}
 }

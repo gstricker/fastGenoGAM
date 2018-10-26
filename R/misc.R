@@ -1,4 +1,4 @@
-#' The IRLS algorithm
+## The IRLS algorithm
 .irls_nb <- function(beta0, X, y, theta, lambda, S, offset, control = list(eps = 1e-6, maxiter = 1000)) {
     beta <- beta0
     beta_old <- beta - control$eps - 1
@@ -63,8 +63,8 @@
     return(r)
 }
 
-#' the simple backtrack algorithm for linesearch
-#' to ensure Wolfe conditions. See Nocedal, Algorithm 3.1
+## the simple backtrack algorithm for linesearch
+## to ensure Wolfe conditions. See Nocedal, Algorithm 3.1
 .linesearch <- function(x, p, f, grad, alpha0 = 1, c = runif(1), rho = 0.9, ...) {
     alpha <- alpha0
     

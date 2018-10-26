@@ -1,8 +1,3 @@
-## TODO: Add to settings HDF5 settings:
-## - hdf5 path
-## - compression level
-## - 
-
 ## ===============
 ## GenoGAMSettings
 ## ===============
@@ -98,45 +93,45 @@ setClass("GenoGAMSettings",
 ## Validity
 ## ========
 
-#' Validating the correct type
+## Validating the correct type
 
 .validateBAMParamsType <- function(object) {
-    if(class(object@bamParams) != "ScanBamParam") {
+    if(!is(object@bamParams, "ScanBamParam")) {
         return("'bamParams' must be a ScanBamParam object")
     }
     NULL
 }
 
 .validateOptimMethodType <- function(object) {
-    if(class(object@optimMethod) != "character") {
+    if(!is(object@optimMethod, "character")) {
         return("'optimMethod' must be a character object")
     }
     NULL
 }
 
 .validateOptimControlType <- function(object) {
-    if(class(object@optimControl) != "list") {
+    if(!is(object@optimControl, "list")) {
         return("'optimControl' must be a list object")
     }
     NULL
 }
 
 .validateEstimControlType <- function(object) {
-    if(class(object@estimControl) != "list") {
+    if(!is(object@estimControl, "list")) {
         return("'estimControl' must be a list object")
     }
     NULL
 }
 
 .validateHDF5ControlType <- function(object) {
-    if(class(object@hdf5Control) != "list") {
+    if(!is(object@hdf5Control, "list")) {
         return("'hdf5Control' must be a list object")
     }
     NULL
 }
 
 .validateDataControlType <- function(object) {
-    if(class(object@dataControl) != "list") {
+    if(!is(object@dataControl, "list")) {
         return("'dataControl' must be an integer object")
     }
     NULL
@@ -188,7 +183,7 @@ GenoGAMSettings <- function(...) {
     return(ggs)
 }
 
-#' initializing HDF5 control parameters
+## initializing HDF5 control parameters
 .initializeHDF5Params <- function(params) {
     currentDir <- HDF5Array::getHDF5DumpDir()
     currentLevel <- HDF5Array::getHDF5DumpCompressionLevel()

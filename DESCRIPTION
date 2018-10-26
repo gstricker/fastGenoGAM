@@ -1,7 +1,7 @@
 Package: fastGenoGAM
 Type: Package
 Title: A GAM based framework for analysis of ChIP-Seq data
-Version: 1.99
+Version: 1.99.0
 Date: 2017-02-06
 Authors@R: c(person("Georg", "Stricker", role = c("aut", "cre"), email
         = "georg.stricker@in.tum.de"), person("Alexander",
@@ -70,12 +70,10 @@ Collate:
     'GenoGAMDataSetList-class.R'
     'GenoGAMList-class.R'
     'GenoGAMSetup-class.R'
-    'GenomicTiles-class_dev.R'
     'RcppExports.R'
     'background.R'
     'broadPeaks.R'
     'cv.R'
-    'devel.R'
     'diffBinding.R'
     'estimation.R'
     'fastGenoGAM-package.R'

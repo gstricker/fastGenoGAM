@@ -23,6 +23,13 @@ That is, unlike any other function in R, where the input object is not changed, 
 is in this case. If one wishes to have HDF5 data without the pvalue 'group', one has to
 backup the HDF5 files prior to computation or delete them after with \code{rhdf5::h5delete}
 }
+\examples{
+## make test GenoGAM
+gg <- makeTestGenoGAM()
+## compute pvalues
+computeSignificance(gg)
+pvalue(gg)
+}
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}
 }

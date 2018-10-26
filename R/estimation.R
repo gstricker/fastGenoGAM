@@ -3,8 +3,7 @@
 ## The log-likelihood, the gradient and the hessian should usually be pre-multiplies by (-1)
 ## to get their normal form as derived on paper.
 
-#' estimate betas
-#' @noRd
+## estimate betas
 .estimateParams <- function(ggs) {
 
     betas <- slot(ggs, "beta")
@@ -108,8 +107,7 @@
     return(ses)
 }
 
-#' Compute the penalized Hessian
-#' @noRd
+## Compute the penalized Hessian
 .compute_hessian <- function(family, ...){
     
     if(is.na(slot(family, "name"))) {
@@ -121,8 +119,7 @@
     return(res)
 }
 
-#' Computation of the inverse of H
-#' @noRd
+## Computation of the inverse of H
 .invertHessian <- function(H) {
     if(length(H) == 0) {
         res <- as(matrix(,0, 0), "dgCMatrix")

@@ -149,7 +149,7 @@ pvalue(result)
 Plot results of the center 10kb, where both tiles are joined together.
 ```{r}
 ranges = GRanges("chrI", IRanges(45000, 55000))
-plot.GenoGAM(result, ranges = ranges)
+plotGenoGAM(result, ranges = ranges)
 ```
 
 # FAQ

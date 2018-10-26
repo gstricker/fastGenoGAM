@@ -136,7 +136,7 @@ to access them.
 \section{Slots}{
 
 \describe{
-\item{\code{family}}{The name of the distribution family used}
+\item{\code{family}}{A GenoGAMFamily object}
 
 \item{\code{design}}{The formula of the model}
 
@@ -155,6 +155,8 @@ settings that were used to compute the model.}
 \item{\code{coefs}}{The coefficients of the knots}
 
 \item{\code{knots}}{The relative knot positions}
+
+\item{\code{hdf5}}{A logical slot indicating if the data is stored in a HDF5 format on hard drive}
 }}
 
 \examples{

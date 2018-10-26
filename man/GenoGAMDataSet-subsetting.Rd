@@ -16,11 +16,14 @@
 \S4method{[}{GenoGAMDataSet,GRanges,ANY,ANY}(x, i)
 }
 \arguments{
-\item{x, query}{A GenoGAMDataSet object.}
+\item{x}{A GenoGAMDataSet object.}
 
 \item{...}{Further arguments. Mostly a logical statement
 in case of the 'subset' function. Note that the columnnames
 for chromosomes and positions are: 'seqnames' and 'pos'.}
+
+\item{ranges, i}{A GRanges object. In case of subsetting by double brackets
+'i' is the index of the tile.}
 
 \item{maxgap, minoverlap}{Intervals with a separation of 'maxgap' or
 less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -47,9 +50,6 @@ than the subject.}
 
 \item{invert}{If TRUE, keep only the query ranges that do _not_ overlap
 the subject.}
-
-\item{subject, i}{A GRanges object. In case of subsetting by double brackets
-'i' is the index of the tile.}
 }
 \value{
 A subsetted GenoGAMDataSet object.
@@ -67,14 +67,14 @@ just a short version of 'subsetByOverlaps'.
 # subset by overlaps
 ggd <- makeTestGenoGAMDataSet()
 SummarizedExperiment::rowRanges(ggd)
-gr <- GenomicRanges::GRanges("chrI", IRanges(10000,15000))
+gr <- GenomicRanges::GRanges("chrI", IRanges(10000,19000))
 res <- IRanges::subsetByOverlaps(ggd, gr)
 SummarizedExperiment::rowRanges(res)
 
 # Subset by logical statement
 ggd <- makeTestGenoGAMDataSet()
 SummarizedExperiment::rowRanges(ggd)
-res <- subset(ggd, seqnames == "chrI" & pos <= 10000)
+res <- subset(ggd, seqnames == "chrI" & pos <= 17000)
 SummarizedExperiment::rowRanges(res)
 }
 \references{

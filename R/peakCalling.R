@@ -29,6 +29,12 @@
 #' more statistical estimation of the borders is being implemented. Also narrow peaks
 #' provide an occupancy estimate at the peak position, while broad peaks give the average
 #' occupancy accross the region.
+#' @examples
+#' ## creating test GenoGAM object
+#' gg <- makeTestGenoGAM() 
+#' ## call peaks
+#' peaks <- callPeaks(gg)
+#' peaks
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @export
 callPeaks <- function(fit, smooth = NULL, range = NULL,
@@ -44,11 +50,11 @@ callPeaks <- function(fit, smooth = NULL, range = NULL,
 
     ## determine what type of object we are dealing with
     is_hdf5 <- is.HDF5(fit)
-    if(class(fit) == "GenoGAMList") {
+    if(is(fit, "GenoGAMList")) {
         is_split <- TRUE
     }
     else {
-        if(class(fit) == "GenoGAM") {
+        if(is(fit, "GenoGAM")) {
             is_split <- FALSE
         }
 

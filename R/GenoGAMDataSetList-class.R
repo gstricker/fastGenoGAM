@@ -49,14 +49,14 @@ setClass("GenoGAMDataSetList",
 ## ========
 
 .validateDataType <- function(object) {
-    if(class(object@data) != "list") {
+    if(!is(object@data, "list")) {
         return("'data' must be a list object and all elements must be of class RangedSummarizedExperiment")
     }
     NULL
 }
 
 .validateIDType <- function(object) {
-    if(class(object@id) != "GRanges") {
+    if(!is(object@id, "GRanges")) {
         return("'id' must be a GRanges object")
     }
     NULL
@@ -210,8 +210,8 @@ setMethod("seqlevelsInUse", "GenoGAMDataSetList", function(x) {
     character()
 })
 
-##' @describeIn GenoGAMDataSetList get colData from the first element of the
-##' SummarizedExperiment list
+#' @describeIn GenoGAMDataSetList get colData from the first element of the
+#' SummarizedExperiment list
 setMethod("colData", "GenoGAMDataSetList", function(x, ...) {
     if(length(x@data) == 0) {
         return(DataFrame())
@@ -220,26 +220,26 @@ setMethod("colData", "GenoGAMDataSetList", function(x, ...) {
     colData(x@data[[1]])
 })
 
-##' @describeIn GenoGAMDataSetList get a list of rowRanges from the
-##' GenoGAMDataSetList object
+#' @describeIn GenoGAMDataSetList get a list of rowRanges from the
+#' GenoGAMDataSetList object
 setMethod("rowRanges", "GenoGAMDataSetList", function(x, ...) {
     lapply(x@data, rowRanges)
 })
 
-##' @describeIn GenoGAMDataSetList get a list of assays from the
-##' GenoGAMDataSetList object
+#' @describeIn GenoGAMDataSetList get a list of assays from the
+#' GenoGAMDataSetList object
 setMethod("assay", "GenoGAMDataSetList", function(x, ...) {
     lapply(x@data, assay)
 })
 
-##' @describeIn GenoGAMDataSetList get a list of list of assays from the
-##' GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
+#' @describeIn GenoGAMDataSetList get a list of list of assays from the
+#' GenoGAMDataSetList object. Just for completeness, shouldn't be needed.
 setMethod("assays", "GenoGAMDataSetList", function(x, ...) {
     lapply(x@data, assays)
 })
 
-##' @describeIn GenoGAMDataSetList get colnames from the first element of the
-##' SummarizedExperiment list
+#' @describeIn GenoGAMDataSetList get colnames from the first element of the
+#' SummarizedExperiment list
 setMethod("colnames", "GenoGAMDataSetList", function(x) {
     if(length(x@data) == 0) {
         return(NULL)
@@ -248,25 +248,24 @@ setMethod("colnames", "GenoGAMDataSetList", function(x) {
     colnames(x@data[[1]])
 })
 
-##' @describeIn GenoGAMDataSetList accessor to the index slot
+#' @describeIn GenoGAMDataSetList accessor to the index slot
 setMethod("getIndex", "GenoGAMDataSetList", function(object) {
     return(slot(object, "index"))
 })
 
-##' @describeIn GenoGAMDataSetList An accessor to the countMatrix slot
+#' @describeIn GenoGAMDataSetList An accessor to the countMatrix slot
 setMethod("getCountMatrix", signature(object = "GenoGAMDataSetList"), function(object) {
     res <- slot(object, "countMatrix")
     colnames(res) <- colnames(object)
     return(res)
 })
 
-##' @describeIn GenoGAMDataSetList The accessor to the list of settings, that
-##' were used to generate the tiles.
+#' @describeIn GenoGAMDataSetList The accessor to the list of settings, that
+#' were used to generate the tiles.
 setMethod("tileSettings", "GenoGAMDataSetList", function(object) {
     S4Vectors::metadata(getIndex(object))
 })
 
-#' @noRd
 .rowRangesFromList <- function(object) {
     res <- lapply(object, function(x) {
         .extractGR(rowRanges(x))
@@ -274,49 +273,49 @@ setMethod("tileSettings", "GenoGAMDataSetList", function(object) {
     return(do.call("c", unname(res)))
 }
 
-##' @describeIn GenoGAMDataSetList The actual underlying GRanges showing the range of the data.
+#' @describeIn GenoGAMDataSetList The actual underlying GRanges showing the range of the data.
 setMethod("dataRange", "GenoGAMDataSetList", function(object) {
     res <- .rowRangesFromList(object@data)
 })
 
-##' @describeIn GenoGAMDataSetList A GRanges object representing the chromosomes
-##' or chromosome regions on which the model will be computed
+#' @describeIn GenoGAMDataSetList A GRanges object representing the chromosomes
+#' or chromosome regions on which the model will be computed
 setMethod("getChromosomes", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$chromosomes
 })
 
-##' @describeIn GenoGAMDataSetList The size of the tiles
+#' @describeIn GenoGAMDataSetList The size of the tiles
 setMethod("getTileSize", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$tileSize
 })
 
-##' @describeIn GenoGAMDataSetList The size of the chunks
+#' @describeIn GenoGAMDataSetList The size of the chunks
 setMethod("getChunkSize", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$chunkSize
 })
 
-##' @describeIn GenoGAMDataSetList The size of the overhang (on one side)
+#' @describeIn GenoGAMDataSetList The size of the overhang (on one side)
 setMethod("getOverhangSize", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$overhangSize
 })
 
-##' @describeIn GenoGAMDataSetList The total number of tiles
+#' @describeIn GenoGAMDataSetList The total number of tiles
 setMethod("getTileNumber", "GenoGAMDataSetList", function(object) {
     tileSettings(object)$numTiles
 })
 
-##' @describeIn GenoGAMDataSetList A boolean function that is true if object uses HDF5 backend
+#' @describeIn GenoGAMDataSetList A boolean function that is true if object uses HDF5 backend
 setMethod("is.HDF5", signature(object = "GenoGAMDataSetList"), function(object) {
     res <- slot(object, "hdf5")
     return(res)
 })
 
-##' @describeIn GenoGAMDataSetList Access to the design slot.
+#' @describeIn GenoGAMDataSetList Access to the design slot.
 setMethod("design", "GenoGAMDataSetList", function(object) {
     slot(object, "design")
 })
 
-##' @describeIn GenoGAMDataSetList Replace method of the design slot.
+#' @describeIn GenoGAMDataSetList Replace method of the design slot.
 setReplaceMethod("design", "GenoGAMDataSetList", function(object, value) {
     newCols <- as.vector(na.omit(.getVars(value)))
     if(!all(newCols %in% colnames(colData(object)))) {
@@ -327,14 +326,14 @@ setReplaceMethod("design", "GenoGAMDataSetList", function(object, value) {
     return(object)
 })
 
-##' @describeIn GenoGAMDataSetList Access to the sizeFactors slot
+#' @describeIn GenoGAMDataSetList Access to the sizeFactors slot
 setMethod("sizeFactors", "GenoGAMDataSetList", function(object) {
     sf <- slot(object, "sizeFactors")
     names(sf) <- colnames(object)
     return(sf)
 })
 
-##' @describeIn GenoGAMDataSetList Replace method of the sizeFactors slot
+#' @describeIn GenoGAMDataSetList Replace method of the sizeFactors slot
 setReplaceMethod("sizeFactors", "GenoGAMDataSetList", function(object, value) {
     slot(object, "sizeFactors") <- value
     return(object)
@@ -344,8 +343,8 @@ setReplaceMethod("sizeFactors", "GenoGAMDataSetList", function(object, value) {
 ## change Settings
 ## ===============
 
-##' @describeIn GenoGAMDataSetList Replace method of the chunkSize parameter,
-##' that triggers a new computation of the tiles based on the new chunk size.
+#' @describeIn GenoGAMDataSetList Replace method of the chunkSize parameter,
+#' that triggers a new computation of the tiles based on the new chunk size.
 setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -356,8 +355,8 @@ setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSetList", "numeric"),
                      return(object)
                  })
 
-##' @describeIn GenoGAMDataSetList Replace method of the tileSize parameter,
-##' that triggers a new computation of the tiles based on the new tile size.
+#' @describeIn GenoGAMDataSetList Replace method of the tileSize parameter,
+#' that triggers a new computation of the tiles based on the new tile size.
 setReplaceMethod("getTileSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -368,8 +367,8 @@ setReplaceMethod("getTileSize", signature = c("GenoGAMDataSetList", "numeric"),
                      return(object)
                  })
 
-##' @describeIn GenoGAMDataSetList Replace method of the overhangSize parameter,
-##' that triggers a new computation of the tiles based on the new overhang size.
+#' @describeIn GenoGAMDataSetList Replace method of the overhangSize parameter,
+#' that triggers a new computation of the tiles based on the new overhang size.
 setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -380,8 +379,8 @@ setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSetList", "numeric
                      return(object)
                  })
 
-##' @describeIn GenoGAMDataSetList Replace method of the tileNumber parameter,
-##' that triggers a new computation of the tiles based on the new number of tiles.
+#' @describeIn GenoGAMDataSetList Replace method of the tileNumber parameter,
+#' that triggers a new computation of the tiles based on the new number of tiles.
 setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -406,8 +405,8 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSetList", "numeric")
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @param x,query A GenoGAMDataSetList object.
-#' @param subject,i A GRanges object. In case of subsetting by double brackets
+#' @param x A GenoGAMDataSetList object.
+#' @param ranges,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.
 #' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
 #' less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -505,7 +504,7 @@ setMethod("subset", "GenoGAMDataSetList", function(x, ...) {
     return(indx)
 }
 
-#' underlying function to subset by overlaps
+## underlying function to subset by overlaps
 .subsetByOverlapsGGDL <- function(query, subject, maxgap = -1L, minoverlap = 0L,
                    type = c("any", "start", "end", "within", "equal"),
                    invert = FALSE, ...) {
@@ -593,8 +592,8 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 ## ## Tile computation
 ## ## ================
 
-#' A function to enhance absoluteRanges function to values beyond 2^31
-#' by splitting the data and using own Coordinates class.
+## A function to enhance absoluteRanges function to values beyond 2^31
+## by splitting the data and using own Coordinates class.
 .absRanges <- function(x) {
     totalLen <- sum(as.numeric(GenomeInfoDb::seqlengths(x)))
     if(totalLen >= 2^31) {
@@ -631,6 +630,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @param x The GenoGAMDataSetList object
 #' @return A Coordinates object specifying the row coordinates of
 #' each tile
+#' @noRd
 .getCoordinatesGGDL <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
@@ -663,6 +663,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @param ind The GenoGAMDataSetList index
 #' @param rr The GenoGAMDataSetList chromosome specific rowRanges
 #' @return An integerList with the row numbers for each tile
+#' @noRd
 .getListedCoordinates <- function(ind, rr) {
 
     gr <- .extractGR(rr)
@@ -680,6 +681,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
+#' @noRd
 .MetricsFunGGDL <- function(x, what, na.rm = FALSE) {
 
     if(slot(x, "hdf5")) {
@@ -697,6 +699,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
+#' @noRd
 .MetricsFunSimple <- function(x, what, na.rm = FALSE) {
 
     ind <- getIndex(x)
@@ -733,6 +736,7 @@ setMethod("[", c("GenoGAMDataSetList", "GRanges"), function(x, i) {
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
+#' @noRd
 .MetricsFunHDF5 <- function(x, what, na.rm = FALSE) {
 
     ind <- getIndex(x)

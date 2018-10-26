@@ -46,29 +46,29 @@ setClass("GenoGAMDataSet",
 ## ========
 
 .validateSettingsType <- function(object) {
-    if(class(slot(object, "settings")) != "GenoGAMSettings") {
+    if(!is(slot(object, "settings"), "GenoGAMSettings")) {
         return("'settings' must be a GenoGAMSettings object")
     }
     NULL
 }
 
 .validateDesignType <- function(object) {
-    if(class(slot(object, "design")) != "formula") {
+    if(!is(slot(object, "design"), "formula")) {
         return("'design' must be a formula object")
     }
     NULL
 }
 
 .validateSFType <- function(object) {
-    if(class(slot(object, "sizeFactors")) != "numeric") {
+    if(!is(slot(object, "sizeFactors"), "numeric")) {
         return("'sizeFactors' must be a numeric object")
     }
     NULL
 }
 
-#' Validating the correct type
+## Validating the correct type
 .validateIndexType <- function(object) {
-    if(class(object@index) != "GRanges") {
+    if(!is(object@index, "GRanges")) {
         return("'index' must be a GRanges object")
     }
     NULL
@@ -83,16 +83,16 @@ setClass("GenoGAMDataSet",
     NULL
 }
 
-#' Validating the correct type
+## Validating the correct type
 .validateCountMatrixType <- function(object) {
-    if(class(object@countMatrix) != "matrix" & class(object@countMatrix) != "HDF5Matrix") {
+    if(!is(object@countMatrix, "matrix") & !is(object@countMatrix, "HDF5Matrix")) {
         return("'countMatrix' must be either a matrix or HDF5Matrix object")
     }
     NULL
 }
 
 .validateH5Type <- function(object) {
-    if(class(object@hdf5) != "logical") {
+    if(!is(object@hdf5, "logical")) {
         return("'hdf5' must be a logical object")
     }
     NULL
@@ -305,8 +305,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     }
     else {
         
-        if(class(experimentDesign) == "RangedSummarizedExperiment" |
-           class(experimentDesign) == "SummarizedExperiment") {
+        if(is(experimentDesign, "RangedSummarizedExperiment") |
+           is(experimentDesign, "SummarizedExperiment")) {
             futile.logger::flog.debug("Building GenoGAMDataSet from SummarizedExperiment object")
             ggd <- .GenoGAMDataSetFromSE(se = experimentDesign,
                                          chunkSize = chunkSize,
@@ -332,10 +332,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(ggd)
 }
 
-#' The underlying function to build a GenoGAMDataSet from a
-#' SummarizedExperiment
-#' 
-#' @noRd
+## The underlying function to build a GenoGAMDataSet from a
+## SummarizedExperiment
 .GenoGAMDataSetFromSE <- function(se, chunkSize, overhangSize,
                                     design, settings, hdf5, ...) {
 
@@ -540,17 +538,17 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(tiles)
 }
 
-#' set optimal chunk length if not provided
-#' based on number of cores, samples, splines and
-#' in case of HDF5, the block size
+## set optimal chunk length if not provided
+## based on number of cores, samples, splines and
+## in case of HDF5, the block size
 .setOptimalChunkSize <- function(expDesign, design, ov, bpknots, hdf5) {
 
     ## determine number of samples
-    if(class(expDesign) == "RangedSummarizedExperiment") {
+    if(is(expDesign, "RangedSummarizedExperiment")) {
         nsamples <- nrow(colData(expDesign))
     }
     else {
-        if(class(expDesign) == "data.frame") {
+        if(is(expDesign, "data.frame")) {
             nsamples <- nrow(expDesign)
         }
         else {
@@ -579,7 +577,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(chunkSize)
 }
 
-#' make the 'by' argument for the 'makeSumMatrix' function
+## make the 'by' argument for the 'makeSumMatrix' function
 .makeBy <- function(x, from) {
     rr <- range(from)
     if(length(rr) == 1 &
@@ -596,7 +594,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(do.call("c", res))
 }
 
-#' make sum matrix for each DataFrame
+## make sum matrix for each DataFrame
 .makeSumMatrix <- function(x, by) {
     cols <- names(x)
     res <- sapply(cols, function(y) {
@@ -618,7 +616,7 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(res)
 }
 
-#' get the identifier of the HDF5 files, that belong together to one dataset
+## get the identifier of the HDF5 files, that belong together to one dataset
 .getIdentifier <- function(path, fits = FALSE) {
     identPos <- 2
     if(fits) identPos <- 3
@@ -654,14 +652,13 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(config)
 }
 
+## a list of names for the Mitochondria chromosome
 .mnames <- function() {
     c("chrM", "MT", "chromosomeM", "ChromosomeMT", "2micron")
 }
 
-#' The underlying function to build a GenoGAMDataSet from a
-#' config file or a data.frame
-#'
-#' @noRd
+## The underlying function to build a GenoGAMDataSet from a
+## config file or a data.frame
 .GenoGAMDataSetFromConfig <- function(config, chunkSize, overhangSize, design,
                                       directory, settings, hdf5 = FALSE, split = hdf5, ignoreM = FALSE, ...) {
 
@@ -902,10 +899,8 @@ GenoGAMDataSet <- function(experimentDesign, design, chunkSize = NULL, overhangS
     return(ggd)
 }
 
-#' The underlying function to build a GenoGAMDataSet from an
-#' already present HDF5 file
-#'
-#' @noRd
+## The underlying function to build a GenoGAMDataSet from an
+## already present HDF5 file
 .GenoGAMDataSetFromHDF5 <- function(config, chunkSize, overhangSize,
                                     design, directory, settings, split, ignoreM = FALSE, ...) {
 
@@ -1072,9 +1067,7 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
 ## Check functions
 ## ===============
 
-#' Check a specified setting of GenoGAMDataSet
-#'
-#' @noRd
+## Check a specified setting of GenoGAMDataSet
 .checkSettings <- function(object, params = c("chunkSize", "tileSize",
                                        "equality", "tileRanges",
                                        "chromosomes", "numTiles", "formula")) {
@@ -1156,9 +1149,7 @@ makeTestGenoGAMDataSet <- function(sim = FALSE) {
     return(res)
 }
 
-##' Function to check the GenoGAMDataSet object
-##'
-##' @noRd
+## Function to check the GenoGAMDataSet object
 .checkGenoGAMDataSet <- function(object) {
     futile.logger::flog.debug("Check if tile settings match the data.")
 
@@ -1212,20 +1203,20 @@ setMethod("checkObject", "GenoGAMDataSet", function(object) {
 ## Accessors
 ## =========
 
-##' @export
+#' @export
 setGeneric("getIndex", function(object) standardGeneric("getIndex"))
 
 
-##' @describeIn GenoGAMDataSet An accessor to the index slot
+#' @describeIn GenoGAMDataSet An accessor to the index slot
 setMethod("getIndex", signature(object = "GenoGAMDataSet"), function(object) {
     return(slot(object, "index"))
 })
 
-##' @export
+#' @export
 setGeneric("getCountMatrix", function(object) standardGeneric("getCountMatrix"))
 
 
-##' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
+#' @describeIn GenoGAMDataSet An accessor to the countMatrix slot
 setMethod("getCountMatrix", signature(object = "GenoGAMDataSet"), function(object) {
     res <- slot(object, "countMatrix")
     colnames(res) <- colnames(object)
@@ -1233,77 +1224,77 @@ setMethod("getCountMatrix", signature(object = "GenoGAMDataSet"), function(objec
 })
 
 
-##' @export
+#' @export
 setGeneric("tileSettings", function(object) standardGeneric("tileSettings"))
 
-##' @describeIn GenoGAMDataSet The accessor to the list of settings,
-##' that were used to generate the tiles.
+#' @describeIn GenoGAMDataSet The accessor to the list of settings,
+#' that were used to generate the tiles.
 setMethod("tileSettings", "GenoGAMDataSet", function(object) {
     S4Vectors::metadata(getIndex(object))
 })
 
-##' @export
+#' @export
 setGeneric("dataRange", function(object) standardGeneric("dataRange")) 
 
-##' @describeIn GenoGAMDataSet The actual underlying GRanges showing
-##' the range of the data.
+#' @describeIn GenoGAMDataSet The actual underlying GRanges showing
+#' the range of the data.
 setMethod("dataRange", "GenoGAMDataSet", function(object) {
     .extractGR(rowRanges(object))
 })
 
-##' @export 
+#' @export 
 setGeneric("getChromosomes", function(object) standardGeneric("getChromosomes")) 
 
-##' @describeIn GenoGAMDataSet A GRanges object representing the chromosomes
-##' or chromosome regions on which the model will be computed
+#' @describeIn GenoGAMDataSet A GRanges object representing the chromosomes
+#' or chromosome regions on which the model will be computed
 setMethod("getChromosomes", "GenoGAMDataSet", function(object) {
     tileSettings(object)$chromosomes
 })
 
-##' @export 
+#' @export 
 setGeneric("getTileSize", function(object) standardGeneric("getTileSize")) 
 
-##' @describeIn GenoGAMDataSet The size of the tiles
+#' @describeIn GenoGAMDataSet The size of the tiles
 setMethod("getTileSize", "GenoGAMDataSet", function(object) {
     tileSettings(object)$tileSize
 })
 
-##' @export 
+#' @export 
 setGeneric("getChunkSize", function(object) standardGeneric("getChunkSize")) 
 
-##' @describeIn GenoGAMDataSet The size of the chunks
+#' @describeIn GenoGAMDataSet The size of the chunks
 setMethod("getChunkSize", "GenoGAMDataSet", function(object) {
     tileSettings(object)$chunkSize
 })
 
-##' @export 
+#' @export 
 setGeneric("getOverhangSize", function(object) standardGeneric("getOverhangSize")) 
 
-##' @describeIn GenoGAMDataSet The size of the overhang (on one side)
+#' @describeIn GenoGAMDataSet The size of the overhang (on one side)
 setMethod("getOverhangSize", "GenoGAMDataSet", function(object) {
     tileSettings(object)$overhangSize
 })
 
-##' @export 
+#' @export 
 setGeneric("getTileNumber", function(object) standardGeneric("getTileNumber")) 
 
-##' @describeIn GenoGAMDataSet The total number of tiles
+#' @describeIn GenoGAMDataSet The total number of tiles
 setMethod("getTileNumber", "GenoGAMDataSet", function(object) {
     tileSettings(object)$numTiles
 })
 
-##' @describeIn GenoGAMDataSet A boolean function that is true if object uses HDF5 backend
+#' @describeIn GenoGAMDataSet A boolean function that is true if object uses HDF5 backend
 setMethod("is.HDF5", signature(object = "GenoGAMDataSet"), function(object) {
     res <- slot(object, "hdf5")
     return(res)
 })
 
-##' @describeIn GenoGAMDataSet Access to the design slot.
+#' @describeIn GenoGAMDataSet Access to the design slot.
 setMethod("design", "GenoGAMDataSet", function(object) {
     slot(object, "design")
 })
 
-##' @describeIn GenoGAMDataSet Replace method of the design slot.
+#' @describeIn GenoGAMDataSet Replace method of the design slot.
 setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
     newCols <- as.vector(na.omit(.getVars(value)))
     if(!all(newCols %in% colnames(colData(object)))) {
@@ -1314,14 +1305,14 @@ setReplaceMethod("design", "GenoGAMDataSet", function(object, value) {
     return(object)
 })
 
-##' @describeIn GenoGAMDataSet Access to the sizeFactors slot
+#' @describeIn GenoGAMDataSet Access to the sizeFactors slot
 setMethod("sizeFactors", "GenoGAMDataSet", function(object) {
     sf <- slot(object, "sizeFactors")
     names(sf) <- colnames(object)
     return(sf)
 })
 
-##' @describeIn GenoGAMDataSet Replace method of the sizeFactors slot
+#' @describeIn GenoGAMDataSet Replace method of the sizeFactors slot
 setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
     slot(object, "sizeFactors") <- value
     return(object)
@@ -1330,11 +1321,11 @@ setReplaceMethod("sizeFactors", "GenoGAMDataSet", function(object, value) {
 ## change Settings
 ## ===============
 
-##' @export 
+#' @export 
 setGeneric("getChunkSize<-", function(object, value) standardGeneric("getChunkSize<-"))
 
-##' @describeIn GenoGAMDataSet Replace method of the chunkSize parameter,
-##' that triggers a new computation of the tiles based on the new chunk size.
+#' @describeIn GenoGAMDataSet Replace method of the chunkSize parameter,
+#' that triggers a new computation of the tiles based on the new chunk size.
 setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
     settings <- tileSettings(object)
@@ -1345,11 +1336,11 @@ setReplaceMethod("getChunkSize", signature = c("GenoGAMDataSet", "numeric"),
     return(object)
 })
 
-##' @export 
+#' @export 
 setGeneric("getTileSize<-", function(object, value) standardGeneric("getTileSize<-"))
 
-##' @describeIn GenoGAMDataSet Replace method of the tileSize parameter,
-##' that triggers a new computation of the tiles based on the new tile size.
+#' @describeIn GenoGAMDataSet Replace method of the tileSize parameter,
+#' that triggers a new computation of the tiles based on the new tile size.
 setReplaceMethod("getTileSize", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -1360,11 +1351,11 @@ setReplaceMethod("getTileSize", signature = c("GenoGAMDataSet", "numeric"),
                      return(object)
                  })
 
-##' @export 
+#' @export 
 setGeneric("getOverhangSize<-", function(object, value) standardGeneric("getOverhangSize<-"))
 
-##' @describeIn GenoGAMDataSet Replace method of the overhangSize parameter,
-##' that triggers a new computation of the tiles based on the new overhang size.
+#' @describeIn GenoGAMDataSet Replace method of the overhangSize parameter,
+#' that triggers a new computation of the tiles based on the new overhang size.
 setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -1375,11 +1366,11 @@ setReplaceMethod("getOverhangSize", signature = c("GenoGAMDataSet", "numeric"),
                      return(object)
                  })
 
-##' @export 
+#' @export 
 setGeneric("getTileNumber<-", function(object, value) standardGeneric("getTileNumber<-"))
 
-##' @describeIn GenoGAMDataSet Replace method of the tileNumber parameter,
-##' that triggers a new computation of the tiles based on the new number of tiles.
+#' @describeIn GenoGAMDataSet Replace method of the tileNumber parameter,
+#' that triggers a new computation of the tiles based on the new number of tiles.
 setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
                  function(object, value) {
                      settings <- tileSettings(object)
@@ -1404,8 +1395,8 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' By logical statement or GRanges overlap. The '[' subsetter is
 #' just a short version of 'subsetByOverlaps'.
 #'
-#' @param x,query A GenoGAMDataSet object.
-#' @param subject,i A GRanges object. In case of subsetting by double brackets
+#' @param x A GenoGAMDataSet object.
+#' @param ranges,i A GRanges object. In case of subsetting by double brackets
 #' 'i' is the index of the tile.
 #' @param maxgap,minoverlap Intervals with a separation of 'maxgap' or
 #' less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -1438,14 +1429,14 @@ setReplaceMethod("getTileNumber", signature = c("GenoGAMDataSet", "numeric"),
 #' # subset by overlaps
 #' ggd <- makeTestGenoGAMDataSet()
 #' SummarizedExperiment::rowRanges(ggd)
-#' gr <- GenomicRanges::GRanges("chrI", IRanges(10000,15000))
+#' gr <- GenomicRanges::GRanges("chrI", IRanges(10000,19000))
 #' res <- IRanges::subsetByOverlaps(ggd, gr)
 #' SummarizedExperiment::rowRanges(res)
 #'
 #' # Subset by logical statement
 #' ggd <- makeTestGenoGAMDataSet()
 #' SummarizedExperiment::rowRanges(ggd)
-#' res <- subset(ggd, seqnames == "chrI" & pos <= 10000)
+#' res <- subset(ggd, seqnames == "chrI" & pos <= 17000)
 #' SummarizedExperiment::rowRanges(res)
 #' @references
 #' Allen's Interval Algebra: James F. Allen: Maintaining knowledge
@@ -1489,11 +1480,11 @@ setMethod("subset", "GenoGAMDataSet", function(x, ...) {
 
     res <- NULL
     
-    if(class(se) == "RangedSummarizedExperiment") {
+    if(is(se, "RangedSummarizedExperiment")) {
         res <- .subsetIndexGGD(se, index)
     }
 
-    if(class(se) == "list") {
+    if(is(se, "list")) {
         res <- .subsetIndexGGDL(se, index)
     }
 
@@ -1582,14 +1573,15 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' Function to retrieve the row coordinates as a list
 #' @param x The GenoGAMDataSet object
 #' @return An integerList with the row numbers for each tile
+#' @noRd
 .getCoordinates <- function(x) {
 
     l <- NULL
     
-    if(class(x) == "GenoGAMDataSet") {
+    if(is(x,"GenoGAMDataSet")) {
         l <- .getCoordinatesGGD(x)
     }
-    if(class(x) == "GenoGAMDataSetList") {
+    if(is(x, "GenoGAMDataSetList")) {
         l <- .getCoordinatesGGDL(x)
     }
 
@@ -1600,6 +1592,7 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @param x The GenoGAMDataSet object
 #' @return A Coordinates object specifying the row coordinates
 #' of each tile
+#' @noRd
 .getCoordinatesGGD <- function(x) {
 
     ## if genome is complete use the fast Bioconductor function
@@ -1622,6 +1615,7 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @param x An Coordinates object as the output of .getCoordinates
 #' @return The same object as x but with not overlapping ranges
 #' which were cut at the center of the overhang
+#' @noRd
 .getChunkCoords <- function(x) {
     if(length(x) == 0) {
         return(x)
@@ -1638,15 +1632,16 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
+#' @noRd
 .MetricsFun <- function(x, what, na.rm = FALSE) {
 
     res <- NULL
     
-    if(class(x) == "GenoGAMDataSet") {
+    if(is(x, "GenoGAMDataSet")) {
         res <- .MetricsFunGGD(x, what, na.rm = na.rm)
     }
 
-    if(class(x) == "GenoGAMDataSetList") {
+    if(is(x, "GenoGAMDataSetList")) {
         res <- .MetricsFunGGDL(x, what, na.rm = na.rm)
     }
 
@@ -1658,6 +1653,7 @@ setMethod("[", c("GenoGAMDataSet", "GRanges"), function(x, i) {
 #' @param what A character naming the metric
 #' @param na.rm Should NAs be ignored
 #' @return The metric value
+#' @noRd
 .MetricsFunGGD <- function(x, what, na.rm = FALSE) {
 
     l <- as(.getCoordinates(x), "IRanges")

@@ -54,9 +54,9 @@ setClass("GenoGAMSetup",
 ## Validity
 ## ========
 
-#' Validating the correct type
+## Validating the correct type
 .validateParamsType <- function(object) {
-    if(class(slot(object, "params")) != "list") {
+    if(!is(slot(object, "params"), "list")) {
         return("'params' must be a list object")
     }
     NULL
@@ -70,49 +70,49 @@ setClass("GenoGAMSetup",
 }
 
 .validateGGSKnotsType <- function(object) {
-    if(class(slot(object, "knots")) != "list") {
+    if(!is(slot(object, "knots"), "list")) {
         return("'knots' must be a list object")
     }
     NULL
 }
 
 .validateDesignMatrixType <- function(object) {
-    if(class(slot(object, "designMatrix")) != "dgCMatrix") {
+    if(!is(slot(object, "designMatrix"), "dgCMatrix")) {
         return("'designMatrix' must be a dgCMatrix object")
     }
     NULL
 }
 
 .validateBetaType <- function(object) {
-    if(class(slot(object, "beta")) != "matrix") {
+    if(!is(slot(object, "beta"), "matrix")) {
         return("'beta' must be a matrix object")
     }
     NULL
 }
 
 .validateSEType <- function(object) {
-    if(class(slot(object, "se")) != "list") {
+    if(!is(slot(object, "se"), "list")) {
         return("'se' must be a list object")
     }
     NULL
 }
 
 .validatePenaltyMatrixType <- function(object) {
-    if(class(slot(object, "penaltyMatrix")) != "dgCMatrix") {
+    if(!is(slot(object, "penaltyMatrix"), "dgCMatrix")) {
         return("'penaltyMatrix' must be a dgCMatrix object")
     }
     NULL
 }
 
 .validateFormulaType <- function(object) {
-    if(class(slot(object, "formula")) != "formula") {
+    if(!is(slot(object, "formula"), "formula")) {
         return("'formula' must be a formula object")
     }
     NULL
 }
 
 .validateGGSDesignType <- function(object) {
-    if(class(slot(object, "design")) != "matrix") {
+    if(!is(slot(object, "design"), "matrix")) {
         return("'design' must be a matrix object")
     }
     NULL
@@ -126,7 +126,7 @@ setClass("GenoGAMSetup",
 }
 
 .validateFamilyType <- function(object) {
-    if(class(slot(object, "family")) != "GenoGAMFamily") {
+    if(!is(slot(object, "family"), "GenoGAMFamily")) {
         return("'family' must be a GenoGAMFamily object")
     }
     NULL
@@ -166,8 +166,7 @@ setClass("GenoGAMSetup",
 
 S4Vectors::setValidity2("GenoGAMSetup", .validateGenoGAMSetup)
 
-#' Constructor
-#' @noRd
+## Constructor
 GenoGAMSetup <- function(...) {
     ggs <- new("GenoGAMSetup", ...)
     params <- slot(ggs, "params")
@@ -185,10 +184,11 @@ GenoGAMSetup <- function(...) {
     return(ggs)
 }
 
-##' the dimension function
-##' @param x A GenoGAMSetup object
-##' @return The four dimensions of the object (designMatrix rows, designMatrix
-##' columns, experiment design rows, experiment design columns)
+## the dimension function
+## @param x A GenoGAMSetup object
+## @return The four dimensions of the object (designMatrix rows, designMatrix
+## columns, experiment design rows, experiment design columns)
+## @noRd
 setMethod("dim", "GenoGAMSetup", function(x) {
     Xdim <- dim(slot(x, "designMatrix"))
     designDim <- dim(slot(x, "design"))
@@ -196,20 +196,21 @@ setMethod("dim", "GenoGAMSetup", function(x) {
     return(c(blockDim, designDim))
 })
 
-##' the length function
-##' @param x A GenoGAMSetup object
-##' @return The length of the object as the product of all dimensions
+## the length function
+## @param x A GenoGAMSetup object
+## @return The length of the object as the product of all dimensions
+## @noRd
 setMethod("length", "GenoGAMSetup", function(x) {
     return(prod(dim(x)))
 })
 
-#' Get number of functions from GenoGAMSetup
+## Get number of functions from GenoGAMSetup
 .nfun <- function(ggs) {
     vars <- .getVars(slot(ggs, "formula"), type = "covar")
     return(length(vars))
 }
 
-#' Get number of betas from GenoGAMSetup
+## Get number of betas from GenoGAMSetup
 .nbeta <- function(ggs) {
     betas <- slot(ggs, "beta")
     if(ncol(betas) > 1) {
@@ -223,8 +224,7 @@ setMethod("length", "GenoGAMSetup", function(x) {
 }
 
 
-#' Constructor function
-#' @noRd
+## Constructor function
 setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb",
                          bpknots = 20, order = 2, penorder = 2, control = list()) {
 
@@ -269,8 +269,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(ggsetup)
 }
 
-#' A function to generate knots for P-Splines from a GenoGAMDataSet object
-#' @noRd
+## A function to generate knots for P-Splines from a GenoGAMDataSet object
 .generateKnotPositions <- function(ggd, bpknots = 20){
 
     positions <- IRanges::ranges(getIndex(ggd))[1]
@@ -283,9 +282,8 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(res)
 }
 
-#' A function to place knots for P-Splines
-#' Courtesy to Simon Wood (mgcv). Slightly changed.
-#' @noRd
+## A function to place knots for P-Splines
+## Courtesy to Simon Wood (mgcv). Slightly changed.
 .placeKnots <- function(x, nknots, ord = 2) {
   m <- ord + 1
   nk <- nknots - ord
@@ -301,9 +299,8 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
   return(k)
 }
 
-#' A function to build the penalization matrix S
-#' Courtesy to Simon Wood (mgcv). Slightly changed
-#' @noRd
+## A function to build the penalization matrix S
+## Courtesy to Simon Wood (mgcv). Slightly changed
 .buildSMatrix <- function(p, order) {
 
     ##initialize a diagonal identity matrix
@@ -316,9 +313,8 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(S)
 }
 
-#' A function to build the identity matrix I with multiple epsilon
-#' Courtesy to Simon Wood (mgcv)
-#' @noRd
+## A function to build the identity matrix I with multiple epsilon
+## Courtesy to Simon Wood (mgcv)
 .buildIMatrix <- function(p, epsilon) {
 
     ##initialize a diagonal identity matrix
@@ -326,14 +322,13 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(epsilon*I)
 }
 
-#B spline basis
+## B spline basis
 .bspline <- function(x, k, ord = 2, derivative = 0) {
   res <- splines::spline.des(k, x, ord + 2, rep(derivative,length(x)), sparse=TRUE)$design
   return(res)
 }
 
-#' build a block matrix from a template submatrix and a design matrix
-#' @noRd
+## build a block matrix from a template submatrix and a design matrix
 .blockMatrixFromDesignMatrix <- function(template, design) {
   ## ## create 4-dim array by 'inserting' the template into the desing matrix
   ## arr <- array(template, c(dim(template),dim(design)))
@@ -354,7 +349,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(res)
 }
 
-#' Build design matrix from the data
+## Build design matrix from the data
 .buildDesignMatrix <- function(knots, pos, order) {
 
     ## build matrix
@@ -364,6 +359,7 @@ setupGenoGAM <- function(ggd, lambda = NULL, theta = NULL, eps = 0, family = "nb
     return(X)
 }
 
+## get the design from formula
 .getDesignFromFormula <- function(formula, design) {
     formulaCols <- .getVars(formula)
     designCols <- as.vector(na.omit(formulaCols))

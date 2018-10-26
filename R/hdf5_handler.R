@@ -1,4 +1,5 @@
-##' make HDF5 name for the different files to be written
+#' make HDF5 name for the different files to be written
+#' @noRd
 .makeFilename <- function(dir, name, seed = NULL, split = " ", id = FALSE) {
     if(!is.null(seed)) {
         ident <- strsplit(seed, split = split)[[1]]
@@ -20,6 +21,8 @@
     return(h5)
 }
 
+#' Creates an HDF5 dataset on hard drive from name and with specified settings
+#' @noRd
 .createH5Dataset <- function(h5file, name, settings, d, chunk, type) {
     
     level <- slot(settings, "hdf5Control")$level
@@ -76,7 +79,8 @@
 }
 
 
-##' create HDF5 file
+#' create HDF5 file
+#' @noRd
 .createH5File <- function(dir, name, seed = NULL, split = " ", id = FALSE) {
 
     f <- .makeFilename(dir, name, seed = seed, split = split, id = id)
@@ -90,7 +94,8 @@
     return(list(pointer = h5file, file = f))
 }
 
-##' initialize HDF5 dataset with specified dimensions and chunk
+#' initialize HDF5 dataset with specified dimensions and chunk
+#' @noRd
 .createH5DF <- function(seed, settings, d, chunk = NULL, what = c("fits", "coefs", "sumMatrix")) {
     what <- match.arg(what)
 
@@ -121,6 +126,8 @@
 ## Queue mechanism
 ## -------------------------------------------------------------------------
 
+#' initialized queue
+#' @noRd
 .init_Queue <- function(file){
     if(is.null(file)) {
         return(NULL)
@@ -135,6 +142,8 @@
     return(dir)
 }
 
+#' push to queue
+#' @noRd
 .queue <- function(dir) {
     qid <- as.integer(Sys.time())
     pid <- Sys.getpid()
@@ -146,6 +155,8 @@
     return(f)
 }
 
+#' pop from queue
+#' @noRd
 .unqueue <- function(qid, dir) {
     f <- file.path(dir, qid)
     if(!file.remove(f)) {
@@ -154,6 +165,8 @@
     invisible()
 }
 
+#' close queue
+#' @noRd
 .end_Queue <- function(dir) {
     if(!is.null(dir)) {
         unlink(dir, recursive = TRUE)
@@ -197,6 +210,7 @@
 }
 
 #' A helper function to get the filepath of an HDF5 file
+#' @noRd
 .get_seed <- function(x) {
     if("filepath" %in% slotNames(x)) {
         return(x@filepath)
@@ -207,6 +221,7 @@
 }
 
 #' A helper function to get the filepath of an HDF5 file
+#' @noRd
 .get_chunkdim <- function(x) {
     if("chunkdim" %in% slotNames(x)) {
         return(x@chunkdim)

@@ -18,17 +18,17 @@
 #' @author Georg Stricker \email{georg.stricker@@in.tum.de}
 #' @export
 
-plot.GenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
+plotGenoGAM <- function(x, ggd = NULL, ranges = NULL, seqnames = NULL,
                          start = NULL, end = NULL, scale = TRUE, cap = TRUE,
                          log = FALSE,...) {
     
     ## determine what type of object we are dealing with
     is_hdf5 <- is.HDF5(x)
-    if(class(x) == "GenoGAMList") {
+    if(is(x, "GenoGAMList")) {
         is_split <- TRUE
     }
     else {
-        if(class(x) == "GenoGAM") {
+        if(is(x, "GenoGAM")) {
             is_split <- FALSE
         }
         

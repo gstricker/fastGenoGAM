@@ -16,11 +16,14 @@
 \S4method{[}{GenoGAMList,GRanges,ANY,ANY}(x, i)
 }
 \arguments{
-\item{x, query}{A GenoGAMList object.}
+\item{x}{A GenoGAMList object.}
 
 \item{...}{Further arguments. Mostly a logical statement
 in case of the 'subset' function. Note that the columnnames
 for chromosomes and positions are: 'seqnames' and 'pos'.}
+
+\item{ranges, i}{A GRanges object. In case of subsetting by double brackets
+'i' is the index of the tile.}
 
 \item{maxgap, minoverlap}{Intervals with a separation of 'maxgap' or
 less and a minimum of 'minoverlap' overlapping positions, allowing for
@@ -47,9 +50,6 @@ than the subject.}
 
 \item{invert}{If TRUE, keep only the query ranges that do _not_ overlap
 the subject.}
-
-\item{subject, i}{A GRanges object. In case of subsetting by double brackets
-'i' is the index of the tile.}
 }
 \value{
 A subsetted GenoGAMList object.

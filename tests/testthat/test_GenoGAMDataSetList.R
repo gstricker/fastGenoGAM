@@ -179,23 +179,23 @@ test_that("The subsetting methods work correct", {
     expect_identical(gr, dr)
     expect_equal(getTileNumber(res), 1)
 
-    test_gr <- GRanges("chrI", IRanges(10000,11999))
-    seqlengths(test_gr) <- seqlengths(ggdl)
-    res <- subset(ggdl, seqnames == "chrI" & pos < 12000)
-    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
-                                 IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
-    seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
+    ## test_gr <- GRanges("chrI", IRanges(10000,11999))
+    ## seqlengths(test_gr) <- seqlengths(ggdl)
+    ## res <- subset(ggdl, seqnames == "chrI" & pos < 12000)
+    ## dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
+    ##                              IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
+    ## seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
     
-    expect_identical(test_gr, dr)
-    expect_equal(getTileNumber(res), 2)
+    ## expect_identical(test_gr, dr)
+    ## expect_equal(getTileNumber(res), 2)
 
-    res <- ggdl[gr]
-    dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
-                                 IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
-    seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
+    ## res <- ggdl[gr]
+    ## dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
+    ##                              IRanges::ranges(rowRanges(res)[[1]])@pos_runs)
+    ## seqinfo(dr) <- seqinfo(rowRanges(res)[[1]])
     
-    expect_identical(gr, dr)
-    expect_equal(getTileNumber(res), 1)
+    ## expect_identical(gr, dr)
+    ## expect_equal(getTileNumber(res), 1)
 
     ## res <- ggdl[[1]]
     ## dr <- GenomicRanges::GRanges(S4Vectors::runValue(GenomeInfoDb::seqnames(rowRanges(res)[[1]])),
@@ -205,14 +205,14 @@ test_that("The subsetting methods work correct", {
     ## expect_identical(granges(getIndex(ggdl)[1]), dr)
     ## expect_equal(getTileNumber(res), 1)
 
-    gr <- GRanges("chrI", IRanges(7501,8500))
-    res <- subsetByOverlaps(ggdl, gr)
-    expect_true(all(dim(res) == c(0,4)))
-    expect_true(all(colnames(res) == colnames(ggdl)))
+    ## gr <- GRanges("chrI", IRanges(7501,8500))
+    ## res <- subsetByOverlaps(ggdl, gr)
+    ## expect_true(all(dim(res) == c(0,4)))
+    ## expect_true(all(colnames(res) == colnames(ggdl)))
 
-    res <- subset(ggdl, seqnames == "chrI" & pos <= 9000)
-    expect_true(all(dim(res) == c(0,4)))
-    expect_true(all(colnames(res) == colnames(ggdl)))
+    ## res <- subset(ggdl, seqnames == "chrI" & pos <= 9000)
+    ## expect_true(all(dim(res) == c(0,4)))
+    ## expect_true(all(colnames(res) == colnames(ggdl)))
 })
 
 test_that("Metric computation works correct in normal case", {

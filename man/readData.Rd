@@ -68,7 +68,7 @@ Other columns will be ignored by this function.
 config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
 config <- read.table(config, header = TRUE, sep = '\\t', stringsAsFactors = FALSE)
 for(ii in 1:nrow(config)) {
-    absPath <- system.file("extdata/Set1", config$file[ii], package = "fastGenoGAM")
+    absPath <- system.file("extdata/Set1/bam", config$file[ii], package = "fastGenoGAM")
     config$file[ii] <- absPath
 }
 
@@ -77,12 +77,12 @@ df <- readData(config)
 df
 
 ## Read data of a particular chromosome
-settings <- GenoGAMSettings(chromosomeList = "chrXIV")
+settings <- GenoGAMSettings(chromosomeList = "chrI")
 df <- readData(config, settings = settings)
 df
 
 ## Read data of particular range
-region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
+region <- GenomicRanges::GRanges("chrI", IRanges(10000, 20000))
 params <- Rsamtools::ScanBamParam(which = region)
 settings <- GenoGAMSettings(bamParams = params)
 df <- readData(config, settings = settings)

@@ -52,6 +52,13 @@ more statistical estimation of the borders is being implemented. Also narrow pea
 provide an occupancy estimate at the peak position, while broad peaks give the average
 occupancy accross the region.
 }
+\examples{
+## creating test GenoGAM object
+gg <- makeTestGenoGAM() 
+## call peaks
+peaks <- callPeaks(gg)
+peaks
+}
 \author{
 Georg Stricker \email{georg.stricker@in.tum.de}
 }

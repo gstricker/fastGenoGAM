@@ -58,7 +58,7 @@
 #' config <- system.file("extdata/Set1", "experimentDesign.txt", package = "fastGenoGAM")
 #' config <- read.table(config, header = TRUE, sep = '\t', stringsAsFactors = FALSE)
 #' for(ii in 1:nrow(config)) {
-#'     absPath <- system.file("extdata/Set1", config$file[ii], package = "fastGenoGAM")
+#'     absPath <- system.file("extdata/Set1/bam", config$file[ii], package = "fastGenoGAM")
 #'     config$file[ii] <- absPath
 #' }
 #'
@@ -67,12 +67,12 @@
 #' df
 #'
 #' ## Read data of a particular chromosome
-#' settings <- GenoGAMSettings(chromosomeList = "chrXIV")
+#' settings <- GenoGAMSettings(chromosomeList = "chrI")
 #' df <- readData(config, settings = settings)
 #' df
 #' 
 #' ## Read data of particular range
-#' region <- GenomicRanges::GRanges("chrXIV", IRanges(305000, 308000))
+#' region <- GenomicRanges::GRanges("chrI", IRanges(10000, 20000))
 #' params <- Rsamtools::ScanBamParam(which = region)
 #' settings <- GenoGAMSettings(bamParams = params)
 #' df <- readData(config, settings = settings)
@@ -137,10 +137,10 @@ readData <- function(config, hdf5 = FALSE, split = FALSE,
     return(ans)
 }
 
-##' The intermediate function calling the correct
-##' function to read in data based on the suffix and
-##' computing the coverage from the GRanges output.
-##' Returns a list of coverage Rles per chromosome
+## The intermediate function calling the correct
+## function to read in data based on the suffix and
+## computing the coverage from the GRanges output.
+## Returns a list of coverage Rles per chromosome
 .readRawData <- function(path, ...) {
 
     elements <- strsplit(path,"\\.")[[1]]
