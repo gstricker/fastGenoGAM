@@ -2,40 +2,41 @@
 ## The main modelling function ##
 #################################
 
-##' genogam
-##'
-##' The main modelling function.
-##' @param ggd The GenoGAMDataSet object to be fitted
-##' @param lambda The penalization parameter. If NULL (default) estimated by
-##' cross validation. So far only one parameter for all splines is supported.
-##' @param theta The global overdispersion parameter. If NULL (default) estimated
-##' by cross validation.
-##' @param family The distribution to be used. So far only Negative-Binomial (nb)
-##' is supported.
-##' @param eps The factor for additional first-order regularization. This should be
-##' zero (default) in most cases. It can be useful for sparse data with many
-##' zero-counts regions or very low coverage. In this cases it is advised to use
-##' a small factor like 0.01, which would penalize those regions but not the ones
-##' with higher coverage. See Wood S., Generalized Additive Models (2006) for more.
-##' @param kfolds The number of folds for cross validation
-##' @param intervalSize The size of the hold-out intervals in cross validation.
-##' If replicates are present, this can easily be increased to twice the fragment
-##' size to capture more of the local correlation. If no replicates are present,
-##' keep the number low to avoid heavy interpolation (default).
-##' @param regions How many regions should be used in cross validation? The number
-##' is an upper limit. It is usually corrected down, such that the total number of
-##' models computed during cross validation does not exceed the total number of
-##' models to compute for the entire genome. This is usually the case for small
-##' organisms such as yeast.
-##' @param order The order of the B-spline basis, which is order + 2, where 0
-##' is the lowest order. Thus order = 2 is equivalent to cubic order (= 3).
-##' @param m The order of penalization. Thus m = 2 penalizes the second differences.
-##' @return The fit as a GenoGAM object
-##' @examples
-##' ggd <- makeTestGenoGAMDataSet(sim = TRUE)
-##' res <- genogam(ggd, lambda = 266.8368, theta = 2.415738)
-##' @author Georg Stricker \email{georg.stricker@@in.tum.de}
-##' @export
+#' genogam
+#'
+#' The main modelling function.
+#' @param ggd The GenoGAMDataSet object to be fitted
+#' @param lambda The penalization parameter. If NULL (default) estimated by
+#' cross validation. So far only one parameter for all splines is supported.
+#' @param theta The global overdispersion parameter. If NULL (default) estimated
+#' by cross validation.
+#' @param family The distribution to be used. So far only Negative-Binomial (nb)
+#' is supported.
+#' @param eps The factor for additional first-order regularization. This should be
+#' zero (default) in most cases. It can be useful for sparse data with many
+#' zero-counts regions or very low coverage. In this cases it is advised to use
+#' a small factor like 0.01, which would penalize those regions but not the ones
+#' with higher coverage. See Wood S., Generalized Additive Models (2006) for more.
+#' @param kfolds The number of folds for cross validation
+#' @param intervalSize The size of the hold-out intervals in cross validation.
+#' If replicates are present, this can easily be increased to twice the fragment
+#' size to capture more of the local correlation. If no replicates are present,
+#' keep the number low to avoid heavy interpolation (default).
+#' @param regions How many regions should be used in cross validation? The number
+#' is an upper limit. It is usually corrected down, such that the total number of
+#' models computed during cross validation does not exceed the total number of
+#' models to compute for the entire genome. This is usually the case for small
+#' organisms such as yeast.
+#' @param order The order of the B-spline basis, which is order + 2, where 0
+#' is the lowest order. Thus order = 2 is equivalent to cubic order (= 3).
+#' @param m The order of penalization. Thus m = 2 penalizes the second differences.
+#' @return The fit as a GenoGAM object
+#' @examples
+#' ggd <- makeTestGenoGAMDataSet(sim = TRUE)
+#' res <- genogam(ggd, lambda = 266.8368, theta = 2.415738)
+#' @author Georg Stricker \email{georg.stricker@@in.tum.de}
+#' @rdname fitGenoGAM
+#' @export
 genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
                     kfolds = 10, intervalSize = 20, regions = 20, order = 2,
                     m = 2) {
@@ -538,8 +539,7 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     return(setup)
 }
 
-#' compute fits from design matrix and estimated betas
-#' @noRd
+## compute fits from design matrix and estimated betas
 .getFits <- function(setup, log = TRUE) {
     if(all(dim(slot(setup, "designMatrix")) == c(0, 0)) |
        all(is.na(slot(setup, "beta")))) {
@@ -590,9 +590,8 @@ genogam <- function(ggd, lambda = NULL, theta = NULL, family = "nb", eps = 0,
     return(fits)
 }
 
-##' transform the result list of GenoGAMSetup object into a DataFrame
-##' of either fits or standard errors
-##' @noRd
+## transform the result list of GenoGAMSetup object into a DataFrame
+## of either fits or standard errors
 .transformResults <- function(x, relativeChunks, id = NULL, what = c("fits", "se")) {
     if(length(relativeChunks) == 0) {
         return(data.table::data.table())
