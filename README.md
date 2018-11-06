@@ -1,9 +1,4 @@
-**Note:** if you use fastGenoGAM in published research, please cite:
-
-> Stricker and Engelhardt, et al. (2017)
-> GenoGAM: Genome-wide generalized additive models for ChIP-seq analysis
-> *Bioinformatics*, **33**:15.
-> [10.1093/bioinformatics/btx150](https://doi.org/10.1093/bioinformatics/btx150)
+**Note: This version is now depricated. Please use the new version of GenoGAM here: https://bioconductor.org/packages/release/bioc/html/GenoGAM.html or here: https://github.com/gstricker/GenoGAM**
 
 # Quick guide (with HDF5)
 
